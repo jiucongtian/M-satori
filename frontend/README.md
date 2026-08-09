@@ -4,8 +4,19 @@
 
 - `http://localhost:3000/`：H5 原型基准
 - `http://localhost:3001/`：R1.0 前端研发测试环境（本项目唯一开发端口）
+- `http://localhost:3002/`：R2.0 前端研发测试环境
+- `http://localhost:3003/`：R3.0 前端研发测试环境，后续版本依次递增
 
 R1.0 仅开放：登录注册、本人生命智慧档案、四张关系卡牌、新用户赠种、今日首页、每日指引、我的基础页面、生命智慧档案库基础能力、智慧种子账户及消费记录。
+
+R1.0 底部栏继续展示“问事、成长、关系”，点击后只能进入对应的功能预告页，不得进入尚未发布的实际业务流程。
+
+## Release 约定
+
+- 维护分支：`release/r1.0`、`release/r2.0`、`release/r3.0`
+- 发布标签：`frontend-r1.0.0`、`frontend-r1.0.1`，按语义化版本递增
+- 每个 Release 的代码、测试范围与本地端口保持一一对应
+- `main` 只承载已经确认稳定的版本代码
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and

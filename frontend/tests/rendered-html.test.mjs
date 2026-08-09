@@ -22,20 +22,23 @@ test("服务端完整渲染 H5 原型欢迎页", async () => {
   assert.match(html, /已有档案/);
 });
 
-test("正式工程与原型使用同源样式", async () => {
+test("正式工程保留完整原型基础样式", async () => {
   const [formalCss, prototypeCss] = await Promise.all([
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../../../h5-prototype/app/globals.css", import.meta.url), "utf8"),
   ]);
-  assert.equal(formalCss, prototypeCss);
+  assert.ok(formalCss.startsWith(prototypeCss));
 });
 
-test("R1.0 主导航只开放今日和我的", async () => {
+test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const nav = page.match(/function MainNav[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(nav, /\["今日", 10/);
   assert.match(nav, /\["我的", 21/);
-  assert.doesNotMatch(nav, /问事|成长|关系/);
+  assert.match(nav, /PREVIEW-READ/);
+  assert.match(nav, /PREVIEW-GROWTH/);
+  assert.match(nav, /PREVIEW-RELATIONSHIP/);
+  assert.doesNotMatch(nav, /\["问事", 29|\["成长", 43|\["关系", 44/);
 });
 
 test("R1.0 可达页面白名单不包含后续版本模块", async () => {
@@ -44,7 +47,10 @@ test("R1.0 可达页面白名单不包含后续版本模块", async () => {
   for (const id of ["PROFILE-01", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-03", "MY-01", "MY-03", "MY-09", "MY-16"]) {
     assert.match(scope, new RegExp(`"${id}"`));
   }
-  assert.doesNotMatch(scope, /READ-|GRW-|REL-|LIFE-|PER-|SHOP-|GOODS-|ORDER-/);
+  assert.match(scope, /PREVIEW-READ/);
+  assert.match(scope, /PREVIEW-GROWTH/);
+  assert.match(scope, /PREVIEW-RELATIONSHIP/);
+  assert.doesNotMatch(scope.replaceAll("PREVIEW-READ", "").replaceAll("PREVIEW-GROWTH", "").replaceAll("PREVIEW-RELATIONSHIP", ""), /READ-|GRW-|REL-|LIFE-|PER-|SHOP-|GOODS-|ORDER-/);
 });
 
 test("R1.0 我的页面不展示后续版本入口", async () => {
@@ -54,6 +60,15 @@ test("R1.0 我的页面不展示后续版本入口", async () => {
   assert.match(myHome, /生命智慧档案库/);
   assert.match(myHome, /智慧种子/);
   assert.doesNotMatch(myHome, /商城|助学童子|生命之光|月运|年运|关系匹配/);
+});
+
+test("三个预告页统一说明后续上线与未来能力", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const preview = page.match(/function ComingSoonPage[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(preview, /这片新的枝叶正在生长/);
+  assert.match(preview, /将在后续版本与你见面/);
+  assert.match(preview, /未来将支持/);
+  assert.match(preview, /我知道了，返回今日/);
 });
 
 test("待后端能力具有明确候选契约", async () => {

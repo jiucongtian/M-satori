@@ -147,13 +147,14 @@ export default function WelcomePage() {
 }
 
 type ProfileData = { name: string; date: string; time: string; accuracy: string; place: string };
-const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05"];
+const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05", "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP"];
 const standaloneSteps = profileSteps.slice(10);
 const r1StepIds = new Set([
   "PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11",
   "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03",
   "MY-01", "MY-02", "MY-03", "MY-04", "MY-07", "MY-08",
   "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-16",
+  "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP",
 ]);
 
 function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialStep?: number }) {
@@ -267,6 +268,9 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
       {id === "MY-14" && <PersonArchiveManage onBack={back} onDelete={() => setStep(118)} />}
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact onBack={() => setStep(116)} onDone={() => setStep(111)} />}
+      {id === "PREVIEW-READ" && <ComingSoonPage kind="问事" navigate={navigateR1} />}
+      {id === "PREVIEW-GROWTH" && <ComingSoonPage kind="成长" navigate={navigateR1} />}
+      {id === "PREVIEW-RELATIONSHIP" && <ComingSoonPage kind="关系" navigate={navigateR1} />}
       {id === "REL-02" && <RelationshipDimension initialType={relationshipType} onBack={() => setStep(121)} onNext={(type) => { setRelationshipType(type); setStep(121); }} />}
       {id === "REL-03" && <RelationshipHistory onBack={() => setStep(44)} onOpen={(type) => { setRelationshipType(type); setStep(129); }} />}
       {id === "REL-04" && <RelationshipSource type={relationshipType} onBack={() => setStep(44)} onDimension={() => setStep(119)} onArchive={() => { setRelationshipSource("archive"); setStep(122); }} onCards={() => { setRelationshipSource("cards"); setStep(123); }} />}
@@ -613,8 +617,28 @@ function ReadingNetworkError({ onBack, onRetry }: { onBack: () => void; onRetry:
 }
 
 function MainNav({ active, navigate }: { active: string; navigate: (step: number) => void }) {
-  const tabs = [["今日", 10, "◉"], ["我的", 21, "○"]] as const;
+  const tabs = [["今日", 10, "◉"], ["问事", profileSteps.indexOf("PREVIEW-READ"), "◇"], ["成长", profileSteps.indexOf("PREVIEW-GROWTH"), "❧"], ["关系", profileSteps.indexOf("PREVIEW-RELATIONSHIP"), "∞"], ["我的", 21, "○"]] as const;
   return <nav className="main-nav" aria-label="主导航">{tabs.map(([label, step, icon]) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(step)}><i>{icon}</i><span>{label}</span></button>)}</nav>;
+}
+
+type ComingSoonKind = "问事" | "成长" | "关系";
+
+function ComingSoonPage({ kind, navigate }: { kind: ComingSoonKind; navigate: (step: number) => void }) {
+  const content = {
+    问事: { eyebrow: "ASK · DRAW · REFLECT", symbol: "问", title: "带着一个问题，\n听见新的角度", lead: "未来你可以围绕此刻关心的事随机抽取卡牌，获得温柔、清晰且可行动的个人指引。", features: ["写下情感、事业或个人状态问题", "随机抽取一至多张关系卡牌", "生成问事报告并保存历史记录"] },
+    成长: { eyebrow: "SEE YOUR GROWTH", symbol: "长", title: "让每一次看见，\n慢慢连成成长轨迹", lead: "未来这里会承接更长期的认识与复访，让每日感受、深度报告和阶段变化彼此连接。", features: ["生命之光与长期生命底图", "月运、年运及专项主题报告", "个人成长时间线与阶段回顾"] },
+    关系: { eyebrow: "BETWEEN TWO PEOPLE", symbol: "∞", title: "看见两个人之间，\n独特的关系语言", lead: "未来你可以从情感与事业合作两个角度，理解彼此的默契、互补、差异与相处方式。", features: ["从生命智慧档案库选择两个人", "情感伴侣与事业合作伙伴匹配", "生成隐私友好的关系报告"] },
+  }[kind];
+  return <section className="coming-soon-page">
+    <div className="coming-growth" aria-hidden="true"><i/><i/><span>{content.symbol}</span><b/><b/></div>
+    <p className="eyebrow">{content.eyebrow}</p>
+    <h1>{content.title.split("\n").map((line, index) => <span key={line}>{line}{index === 0 && <br/>}</span>)}</h1>
+    <p className="coming-lead">{content.lead}</p>
+    <div className="coming-state"><i>芽</i><span><strong>这片新的枝叶正在生长</strong><small>将在后续版本与你见面</small></span></div>
+    <div className="coming-features"><small>未来将支持</small>{content.features.map((feature, index) => <p key={feature}><b>{String(index + 1).padStart(2, "0")}</b><span>{feature}</span></p>)}</div>
+    <button className="primary" type="button" onClick={() => navigate(10)}>我知道了，返回今日 <span>→</span></button>
+    <MainNav active={kind} navigate={navigate}/>
+  </section>;
 }
 
 function MyHeader({ title, onBack }: { title: string; onBack: () => void }) {
