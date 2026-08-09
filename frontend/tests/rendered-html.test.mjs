@@ -77,6 +77,12 @@ test("预告页保持单屏且底部导航位置稳定", async () => {
   assert.match(css, /\.today-home>\.main-nav,\.my-home>\.main-nav,\.coming-soon-page>\.main-nav\{[^}]*position:absolute[^}]*left:-9px[^}]*right:-9px[^}]*bottom:0[^}]*height:52px[^}]*grid-template-columns:repeat\(5,1fr\)/);
 });
 
+test("五个根页面切换时不重新执行整页入场动画", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.today-home,\.my-home\{animation:none\}/);
+  assert.doesNotMatch(css, /\.coming-soon-page\{[^}]*animation:page-in/);
+});
+
 test("待后端能力具有明确候选契约", async () => {
   const support = await readFile(new URL("../src/api/contracts/support.ts", import.meta.url), "utf8");
   assert.match(support, /CONTRACT_PROPOSED/);

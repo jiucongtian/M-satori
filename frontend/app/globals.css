@@ -476,4 +476,5 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 
 /* One immutable bottom-nav geometry across all R1.0 root tabs. */
 .today-home,.my-home,.coming-soon-page{position:relative;padding-bottom:56px}
+.today-home,.my-home{animation:none}
 .today-home>.main-nav,.my-home>.main-nav,.coming-soon-page>.main-nav{position:absolute;z-index:20;left:-9px;right:-9px;bottom:0;width:auto;height:52px;margin:0;padding:10px 2px max(4px,env(safe-area-inset-bottom));transform:none;grid-template-columns:repeat(5,1fr);background:linear-gradient(to top,#f6f2e8 72%,rgba(246,242,232,.9));box-shadow:0 -10px 24px rgba(46,67,57,.06)}
