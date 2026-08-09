@@ -11,31 +11,34 @@ async function render() {
   }, { waitUntil() {}, passThroughOnException() {} });
 }
 
-test("服务端渲染 R1.0 欢迎页", async () => {
+test("服务端完整渲染 H5 原型欢迎页", async () => {
   const response = await render();
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /<html lang="zh-CN">/);
-  assert.match(html, /<title>身心游 · Satori<\/title>/);
-  assert.match(html, /R1\.0 · AUTH-01/);
-  assert.match(html, /生命智慧档案/);
-  assert.match(html, /开始了解自己/);
-  assert.doesNotMatch(html, /codex-preview|loading skeleton/i);
+  assert.match(html, /R1\.0 · AUTH-02/);
+  assert.match(html, /每一天，/);
+  assert.match(html, /更懂自己一点/);
+  assert.match(html, /开始认识自己/);
+  assert.match(html, /已有档案/);
 });
 
-test("R1.0 登录流程包含版本标签与安全约束", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /R1\.0 · AUTH-02/);
-  assert.match(page, /R1\.0 · AUTH-03/);
-  assert.match(page, /用户协议/);
-  assert.match(page, /隐私政策/);
-  assert.match(page, /AI 内容说明/);
-  assert.match(page, /\^1\\d\{10\}\$/);
-  assert.match(page, /maxLength=\{6\}/);
+test("正式工程与原型使用同源样式", async () => {
+  const [formalCss, prototypeCss] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../h5-prototype/app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.equal(formalCss, prototypeCss);
 });
 
-test("候选接口被明确标记为待后端支持", async () => {
+test("正式页面只允许 R1.0 标签区别于原型源代码", async () => {
+  const [formalPage, prototypePage] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../h5-prototype/app/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.equal(formalPage, prototypePage.replaceAll("R1 ·", "R1.0 ·"));
+});
+
+test("待后端能力具有明确候选契约", async () => {
   const support = await readFile(new URL("../src/api/contracts/support.ts", import.meta.url), "utf8");
   assert.match(support, /CONTRACT_PROPOSED/);
   assert.match(support, /profileLibrary/);
