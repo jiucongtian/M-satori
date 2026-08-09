@@ -71,6 +71,13 @@ test("三个预告页统一说明后续上线与未来能力", async () => {
   assert.match(preview, /我知道了，返回今日/);
 });
 
+test("预告页保持单屏且底部导航位置稳定", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.coming-soon-page\{[^}]*height:100%[^}]*overflow:hidden[^}]*display:flex/);
+  assert.match(css, /\.coming-soon-page>\.main-nav\{[^}]*position:sticky[^}]*bottom:0[^}]*transform:none/);
+  assert.doesNotMatch(css, /\.coming-soon-page>\.main-nav\{[^}]*position:fixed/);
+});
+
 test("待后端能力具有明确候选契约", async () => {
   const support = await readFile(new URL("../src/api/contracts/support.ts", import.meta.url), "utf8");
   assert.match(support, /CONTRACT_PROPOSED/);
