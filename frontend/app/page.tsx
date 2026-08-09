@@ -51,7 +51,7 @@ export default function WelcomePage() {
 
         {view === "welcome" ? (
           <>
-            <span className="screen-id">R1.0 · AUTH-02</span>
+            <span className="screen-id">R1.1 · AUTH-02</span>
             <header className="brand-row">
               <Brand />
               <button className="quiet-link" type="button" onClick={() => enterLogin("existing")}>已有档案</button>
@@ -90,7 +90,7 @@ export default function WelcomePage() {
           </>
         ) : view === "login" ? (
           <div className="login-page">
-            <span className="screen-id">R1.0 · {codeSent ? "AUTH-04" : "AUTH-03"}</span>
+            <span className="screen-id">R1.1 · {codeSent ? "AUTH-04" : "AUTH-03"}</span>
             <header className="login-header">
               <button className="back-button" type="button" onClick={() => setView("welcome")} aria-label="返回欢迎页">←</button>
               <Brand compact />
@@ -147,6 +147,7 @@ export default function WelcomePage() {
 }
 
 type ProfileData = { name: string; date: string; time: string; accuracy: string; place: string };
+type ReadingData = { question: string; category: string; cardCount: number };
 const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05", "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP"];
 const standaloneSteps = profileSteps.slice(10);
 const r1StepIds = new Set([
@@ -154,12 +155,14 @@ const r1StepIds = new Set([
   "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03",
   "MY-01", "MY-02", "MY-03", "MY-04", "MY-07", "MY-08",
   "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-16",
+  "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25",
   "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP",
 ]);
 
 function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialStep?: number }) {
   const [step, setStep] = useState(initialStep);
   const [data, setData] = useState<ProfileData>({ name: "", date: "1990-05-18", time: "08:30", accuracy: "准确到分钟", place: "杭州市 · 浙江省 · 中国" });
+  const [reading, setReading] = useState<ReadingData>({ question: "我该如何面对现在的工作变化？", category: "事业", cardCount: 2 });
   const [relationshipType, setRelationshipType] = useState("情感伴侣");
   const [relationshipSource, setRelationshipSource] = useState<"archive" | "cards">("archive");
   const [returnAfterSeed, setReturnAfterSeed] = useState<number | null>(null);
@@ -182,7 +185,7 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
 
   return (
     <div className="profile-flow">
-      <span className="screen-id">R1.0 · {id}</span>
+      <span className="screen-id">R1.1 · {id}</span>
       {!standaloneSteps.includes(id) && <header className="flow-header">
         <button className="back-button" type="button" onClick={back} aria-label="返回上一步">←</button>
         <div className="flow-progress" aria-label={`建档进度 ${Math.round(progress)}%`}><i style={{ width: `${progress}%` }} /></div>
@@ -287,27 +290,27 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
       {id === "REL-15" && <RelationshipComplete onHome={() => setStep(44)} onHistory={() => setStep(120)} />}
       {/^(SHOP|SEED|GOODS|ORDER)-/.test(id) && <CommercePage id={id} navigate={setStep} returnAfterSeed={returnAfterSeed} onReturnAfterSeed={() => { if (returnAfterSeed !== null) setStep(returnAfterSeed); setReturnAfterSeed(null); }} onSeedRecharge={(target) => { setReturnAfterSeed(target); setStep(137); }} />}
       {id === "READ-01" && <ReadingHome navigate={setStep} onNext={next} onHistory={() => setStep(45)} />}
-      {id === "READ-02" && <ReadingQuestion onBack={back} onNext={next} />}
-      {id === "READ-03" && <ReadingConfirm onBack={back} onNext={() => setStep(33)} onSafety={() => setStep(32)} />}
+      {id === "READ-02" && <ReadingQuestion value={reading} onChange={setReading} onBack={back} onNext={next} />}
+      {id === "READ-03" && <ReadingConfirm question={reading.question} onBack={back} onNext={() => setStep(33)} onSafety={() => setStep(32)} />}
       {id === "READ-04" && <ReadingSafety onBack={back} onContinue={() => setStep(33)} onRewrite={() => setStep(30)} />}
-      {id === "READ-05" && <ReadingSpread onBack={() => setStep(31)} onNext={next} />}
-      {id === "READ-06" && <ReadingConfig onBack={back} onNext={next} />}
-      {id === "READ-09" && <ReadingPayment onBack={back} onNext={next} onInsufficient={() => setStep(46)} />}
+      {id === "READ-05" && <ReadingSpread cardCount={reading.cardCount} onCardCount={(cardCount) => setReading({...reading, cardCount})} onBack={() => setStep(31)} onNext={next} />}
+      {id === "READ-06" && <ReadingConfig cardCount={reading.cardCount} onBack={back} onNext={next} />}
+      {id === "READ-09" && <ReadingPayment cardCount={reading.cardCount} category={reading.category} onBack={back} onNext={next} onInsufficient={() => setStep(46)} />}
       {id === "READ-10" && <ReadingShuffle onBack={back} onNext={next} />}
-      {id === "READ-11" && <ReadingDraw onBack={back} onNext={next} />}
-      {id === "READ-12" && <ReadingReveal onBack={back} onNext={next} />}
-      {id === "READ-13" && <ReadingGenerate onBack={back} onSuccess={() => setStep(41)} onFailure={() => setStep(40)} onLeave={() => setStep(47)} onNetworkError={() => setStep(51)} />}
-      {id === "READ-14" && <ReadingFailure onBack={back} onRetry={() => setStep(39)} />}
-      {id === "READ-15" && <ReadingReport onBack={() => setStep(38)} onNext={next} />}
-      {id === "READ-18" && <ReadingFeedback onBack={() => setStep(41)} onHome={() => setStep(29)} onShare={() => setStep(48)} />}
+      {id === "READ-11" && <ReadingDraw cardCount={reading.cardCount} onBack={back} onNext={next} />}
+      {id === "READ-12" && <ReadingReveal cardCount={reading.cardCount} onBack={back} onNext={next} />}
+      {id === "READ-13" && <ReadingGenerate cardCount={reading.cardCount} onBack={back} onSuccess={() => setStep(41)} onFailure={() => setStep(40)} onLeave={() => setStep(47)} onNetworkError={() => setStep(51)} />}
+      {id === "READ-14" && <ReadingFailure cardCount={reading.cardCount} onBack={back} onRetry={() => setStep(39)} />}
+      {id === "READ-15" && <ReadingReport cardCount={reading.cardCount} onBack={() => setStep(38)} onNext={next} />}
+      {id === "READ-18" && <ReadingFeedback cardCount={reading.cardCount} onBack={() => setStep(41)} onHome={() => setStep(29)} onShare={() => setStep(48)} />}
       {id === "GRW-01" && <GrowthHome name={data.name} navigate={setStep} />}
       {id === "REL-01" && <RelationshipHome navigate={setStep} onStart={(type) => { setRelationshipType(type); setStep(121); }} onHistory={() => setStep(120)} />}
       {id === "READ-19" && <ReadingHistory onBack={() => setStep(29)} onOpen={() => setStep(41)} navigate={setStep} />}
-      {id === "READ-20" && <ReadingInsufficient onBack={() => setStep(35)} onRecharge={() => { setReturnAfterSeed(35); setStep(137); }} onUseSingle={() => setStep(35)} />}
-      {id === "READ-21" && <ReadingMessageReturn onBack={() => setStep(29)} onOpen={() => setStep(41)} />}
-      {id === "READ-22" && <ReadingShareOptions onBack={() => setStep(42)} onNext={() => setStep(49)} />}
+      {id === "READ-20" && <ReadingInsufficient cardCount={reading.cardCount} onBack={() => setStep(35)} onRecharge={() => setStep(23)} onUseSingle={() => { setReading({...reading,cardCount:1}); setStep(35); }} />}
+      {id === "READ-21" && <ReadingMessageReturn cardCount={reading.cardCount} onBack={() => setStep(29)} onOpen={() => setStep(41)} />}
+      {id === "READ-22" && <ReadingShareOptions cardCount={reading.cardCount} onBack={() => setStep(42)} onNext={() => setStep(49)} />}
       {id === "READ-23" && <ReadingShareGenerating onBack={() => setStep(48)} onSuccess={() => setStep(50)} onFailure={() => setStep(51)} />}
-      {id === "READ-24" && <ReadingShareSuccess onBack={() => setStep(48)} onHome={() => setStep(29)} />}
+      {id === "READ-24" && <ReadingShareSuccess cardCount={reading.cardCount} onBack={() => setStep(48)} onHome={() => setStep(29)} />}
       {id === "READ-25" && <ReadingNetworkError onBack={() => setStep(29)} onRetry={() => setStep(39)} />}
       {id === "GRW-02" && <GrowthEmpty onBack={() => setStep(43)} onLife={() => setStep(55)} />}
       {id === "GRW-03" && <GrowthLibrary onBack={() => setStep(43)} onOpen={() => setStep(54)} />}
@@ -374,7 +377,7 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
 
 function ProfileRecovery({ onBack, onContinue, onRestart }: { onBack: () => void; onContinue: () => void; onRestart: () => void }) {
   return <section className="profile-recovery">
-    <span className="screen-id">R1.0 · AUTH-08</span>
+    <span className="screen-id">R1.1 · AUTH-08</span>
     <header className="recovery-header"><button className="back-button" type="button" onClick={onBack} aria-label="返回登录页">←</button><Brand compact /><span /></header>
     <div className="remembered-life" aria-hidden="true"><div className="saved-seed"><i /><i /></div><span className="memory-ring ring-a" /><span className="memory-ring ring-b" /></div>
     <p className="eyebrow">WELCOME BACK</p>
@@ -519,70 +522,75 @@ function ReadingHome({ navigate, onNext, onHistory }: { navigate: (step: number)
   return <section className="reading-page reading-home"><ReadingHeader /><div className="reading-orbit" aria-hidden="true"><div className="card-stack"><i /><i /><span>问</span></div><b /><b /></div><p className="eyebrow">ASK · DRAW · REFLECT</p><h1>带着一个问题<br />来听听牌想说什么</h1><p className="reading-lead">它不会替你决定未来，而是陪你换一个角度，看清此刻的自己与下一步。</p><button className="start-reading" type="button" onClick={onNext}><span>开始一次新的问事</span><b>→</b><small>自然写下你正在关心的事</small></button><div className="prompt-list"><header><strong>不知道怎么问？</strong><span>试试这些</span></header>{prompts.map(prompt => <button type="button" key={prompt} onClick={onNext}>{prompt}<b>›</b></button>)}</div><div className="reading-recent"><span><i>续</i><p><strong>最近一次问事</strong><small>工作方向 · 昨天</small></p></span><button type="button" onClick={onHistory}>全部记录</button></div><MainNav active="问事" navigate={navigate} /></section>;
 }
 
-function ReadingQuestion({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  const [question, setQuestion] = useState("我该如何面对现在的工作变化？");
+function ReadingQuestion({ value, onChange, onBack, onNext }: { value: ReadingData; onChange: (value: ReadingData) => void; onBack: () => void; onNext: () => void }) {
+  const question = value.question;
   const types = ["事业", "情感", "财富", "健康", "选择", "个人状态"];
-  const [type, setType] = useState("事业");
-  return <section className="reading-page question-input"><ReadingHeader onBack={onBack} /><p className="eyebrow">YOUR QUESTION</p><h1>此刻，你最想问什么？</h1><p className="reading-lead">尽量问与你自己有关、当下能够行动的问题。</p><div className="question-box"><textarea value={question} maxLength={120} onChange={e => setQuestion(e.target.value)} aria-label="输入想问的问题" /><div><small>{question.length} / 120</small><button type="button">清空</button></div></div><div className="question-guide"><strong>更容易获得启发的问法</strong><p>“我可以如何……”　“我需要看见什么……”</p><small>避免只问“会不会”“是不是”，也不替第三方窥探隐私。</small></div><div className="question-types"><small>这更接近哪个方向？</small><div>{types.map(item => <button type="button" key={item} className={type === item ? "active" : ""} onClick={() => setType(item)}>{item}</button>)}</div></div><button className="primary" type="button" onClick={onNext} disabled={question.trim().length < 6}>看看我真正想问的是什么 <span>→</span></button></section>;
+  const type = value.category;
+  return <section className="reading-page question-input"><ReadingHeader onBack={onBack} /><p className="eyebrow">YOUR QUESTION</p><h1>此刻，你最想问什么？</h1><p className="reading-lead">尽量问与你自己有关、当下能够行动的问题。</p><div className="question-box"><textarea value={question} maxLength={120} onChange={e => onChange({...value, question:e.target.value})} aria-label="输入想问的问题" /><div><small>{question.length} / 120</small><button type="button" onClick={() => onChange({...value, question:""})}>清空</button></div></div><div className="question-guide"><strong>更容易获得启发的问法</strong><p>“我可以如何……”　“我需要看见什么……”</p><small>避免只问“会不会”“是不是”，也不替第三方窥探隐私。</small></div><div className="question-types"><small>这更接近哪个方向？</small><div>{types.map(item => <button type="button" key={item} className={type === item ? "active" : ""} onClick={() => onChange({...value, category:item})}>{item}</button>)}</div></div><button className="primary" type="button" onClick={onNext} disabled={question.trim().length < 6}>看看我真正想问的是什么 <span>→</span></button></section>;
 }
 
-function ReadingConfirm({ onBack, onNext, onSafety }: { onBack: () => void; onNext: () => void; onSafety: () => void }) {
+function ReadingConfirm({ question, onBack, onNext, onSafety }: { question: string; onBack: () => void; onNext: () => void; onSafety: () => void }) {
   const [focus, setFocus] = useState("找到适合自己的应对方式");
-  return <section className="reading-page reading-confirm"><ReadingHeader onBack={onBack} /><p className="eyebrow">MAKE IT CLEAR</p><h1>让问题更靠近<br />你真正关心的事</h1><div className="original-question"><small>你刚才写下</small><p>“我该如何面对现在的工作变化？”</p></div><div className="clarified-question"><span>整理后的问题</span><h2>面对当前的工作变化，我可以如何看清自己的位置，并找到更适合的应对方式？</h2><button type="button">修改问题</button></div><div className="focus-choice"><small>这次最想获得什么？</small>{["看清变化背后的意义", "找到适合自己的应对方式", "理解内心真正的顾虑"].map(item => <button type="button" className={focus === item ? "active" : ""} key={item} onClick={() => setFocus(item)}><i>{focus === item ? "✓" : ""}</i>{item}</button>)}</div><div className="reading-boundary"><i>心</i><p><strong>牌提供理解，不替你做决定</strong>最后的选择仍然属于你。</p></div><button className="primary" type="button" onClick={onNext}>确认这个问题 <span>→</span></button><button className="prototype-failure" type="button" onClick={onSafety}>原型分支 · 查看安全替代路径</button></section>;
+  return <section className="reading-page reading-confirm"><ReadingHeader onBack={onBack} /><p className="eyebrow">MAKE IT CLEAR</p><h1>让问题更靠近<br />你真正关心的事</h1><div className="original-question"><small>你刚才写下</small><p>“{question}”</p></div><div className="clarified-question"><span>整理后的问题</span><h2>{question}</h2><button type="button" onClick={onBack}>修改问题</button></div><div className="focus-choice"><small>这次最想获得什么？</small>{["看清变化背后的意义", "找到适合自己的应对方式", "理解内心真正的顾虑"].map(item => <button type="button" className={focus === item ? "active" : ""} key={item} onClick={() => setFocus(item)}><i>{focus === item ? "✓" : ""}</i>{item}</button>)}</div><div className="reading-boundary"><i>心</i><p><strong>牌提供理解，不替你做决定</strong>最后的选择仍然属于你。</p></div><button className="primary" type="button" onClick={onNext}>确认这个问题 <span>→</span></button><button className="prototype-failure" type="button" onClick={onSafety}>查看安全替代路径</button></section>;
 }
 
 function ReadingSafety({ onBack, onContinue, onRewrite }: { onBack: () => void; onContinue: () => void; onRewrite: () => void }) {
   return <section className="reading-page reading-safety"><ReadingHeader onBack={onBack} /><div className="safety-lantern" aria-hidden="true"><i /><span>护</span></div><p className="eyebrow">A SAFER WAY TO ASK</p><h1>这个问题需要换一种<br />更安全的问法</h1><p className="reading-lead">卡牌不能代替医疗诊断、投资决策、法律意见，也不适合预测他人的隐私与意图。</p><div className="unsafe-example"><small>原来的问法</small><p>“我是不是得了严重的病？”</p></div><div className="safe-alternative"><small>可以换成</small><h2>“面对最近的身体不适，我可以怎样照顾好自己的情绪，并为就医做好准备？”</h2><span>建议：身体不适请及时咨询专业医生</span></div><button className="primary" type="button" onClick={onContinue}>使用建议问法继续 <span>→</span></button><button className="outline-button" type="button" onClick={onRewrite}>重新写一个问题</button><button className="text-action" type="button">查看紧急帮助与专业资源</button></section>;
 }
 
-function ReadingSpread({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  const [spread, setSpread] = useState("双卡");
-  const spreads = [{ name:"单卡", count:"1", title:"此刻的一份提醒", note:"适合问题清楚，希望获得一个聚焦方向", seed:"1" }, { name:"双卡", count:"2", title:"看见两面的关系", note:"适合理解双方、两个选择或内在拉扯", seed:"2" }, { name:"多卡", count:"3—5", title:"展开一段完整脉络", note:"适合较复杂的问题与多个影响因素", seed:"按张数" }];
-  return <section className="reading-page spread-select"><ReadingHeader onBack={onBack} /><p className="eyebrow">CHOOSE YOUR SPREAD</p><h1>这个问题，适合怎样展开？</h1><p className="reading-lead">我们根据问题推荐双卡，你也可以自己选择。</p><div className="spread-list">{spreads.map(item => <button type="button" key={item.name} className={spread === item.name ? "active" : ""} onClick={() => setSpread(item.name)}><div className={`spread-cards count-${item.count.charAt(0)}`}><i /><i /><i /></div><span><small>{item.name} · {item.count} 张</small><strong>{item.title}</strong><p>{item.note}</p></span><b>{spread === item.name ? "✓" : ""}</b><em>{item.seed} ●</em></button>)}</div><div className="spread-recommend"><span>荐</span><p><strong>为什么推荐双卡？</strong>你的问题同时包含外部变化与内心应对，两张牌更容易看见它们之间的关系。</p></div><button className="primary" type="button" onClick={onNext}>选择{spread}，继续 <span>→</span></button><p className="next-hint">下一步将确认两张牌各自的位置，确认前不会消耗智慧种子</p></section>;
+function ReadingSpread({ cardCount, onCardCount, onBack, onNext }: { cardCount:number; onCardCount:(count:number)=>void; onBack: () => void; onNext: () => void }) {
+  const mode = cardCount === 1 ? "单卡" : cardCount === 2 ? "双卡" : "多卡";
+  const spreads = [{ name:"单卡", count:1, title:"此刻的一份提醒", note:"适合问题清楚，希望获得一个聚焦方向" }, { name:"双卡", count:2, title:"看见两面的关系", note:"适合理解双方、两个选择或内在拉扯" }, { name:"多卡", count:3, title:"展开一段完整脉络", note:"适合较复杂的问题与多个影响因素" }];
+  return <section className="reading-page spread-select"><ReadingHeader onBack={onBack} /><p className="eyebrow">CHOOSE YOUR SPREAD</p><h1>这个问题，适合怎样展开？</h1><p className="reading-lead">我们根据问题推荐双卡，你也可以自己选择。</p><div className="spread-list">{spreads.map(item => <button type="button" key={item.name} className={mode === item.name ? "active" : ""} onClick={() => onCardCount(item.count)}><div className={`spread-cards count-${item.count}`}><i /><i /><i /></div><span><small>{item.name} · {item.name === "多卡" ? "3—5" : item.count} 张</small><strong>{item.title}</strong><p>{item.note}</p></span><b>{mode === item.name ? "✓" : ""}</b><em>{item.name === "多卡" ? "按张数" : item.count} ●</em></button>)}</div>{mode === "多卡" && <div className="multi-card-count"><small>选择多卡数量</small><div>{[3,4,5].map(count=><button type="button" className={cardCount===count?"active":""} onClick={()=>onCardCount(count)} key={count}>{count} 张 · {count} ●</button>)}</div></div>}<div className="spread-recommend"><span>荐</span><p><strong>为什么推荐双卡？</strong>你的问题同时包含外部变化与内心应对，两张牌更容易看见它们之间的关系。</p></div><button className="primary" type="button" onClick={onNext}>选择{mode} · {cardCount}张，继续 <span>→</span></button><p className="next-hint">下一步将确认每张牌各自的位置，确认前不会消耗智慧种子</p></section>;
 }
 
 function ReadingStep({ onBack, eyebrow, title, lead, children, action, onNext }: { onBack: () => void; eyebrow: string; title: React.ReactNode; lead?: string; children: React.ReactNode; action?: string; onNext?: () => void }) {
   return <section className="reading-page reading-step"><ReadingHeader onBack={onBack} /><p className="eyebrow">{eyebrow}</p><h1>{title}</h1>{lead && <p className="reading-lead">{lead}</p>}<div className="reading-step-body">{children}</div>{action && onNext && <button className="primary" type="button" onClick={onNext}>{action}<span>→</span></button>}</section>;
 }
 
-function ReadingConfig({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+function ReadingConfig({ cardCount, onBack, onNext }: { cardCount:number; onBack: () => void; onNext: () => void }) {
   const [mode,setMode]=useState("外部变化 / 内心应对");
-  return <ReadingStep onBack={onBack} eyebrow="TWO POSITIONS" title={<>为两张牌<br />确定各自的位置</>} lead="每张牌只回答一个角色，关系才会清晰。" action="确认位置配置" onNext={onNext}><div className="position-preview"><article><b>1</b><span>外部变化</span><small>我正在面对什么</small></article><i>↔</i><article><b>2</b><span>内心应对</span><small>我可以如何回应</small></article></div><div className="config-options">{["外部变化 / 内心应对","现状 / 下一步","担心的事 / 真正的需要"].map(x=><button className={mode===x?"active":""} onClick={()=>setMode(x)} key={x}><i>{mode===x?"✓":""}</i>{x}</button>)}</div><div className="rule-note">两张牌的位置确认后，将和抽到的牌一起冻结，不会在报告生成时悄悄交换。</div></ReadingStep>;
+  const positions = cardCount===1?["此刻的核心提醒"]:cardCount===2?mode.split(" / "):Array.from({length:cardCount},(_,i)=>i===0?"此刻的我":`影响方向 ${i}`);
+  return <ReadingStep onBack={onBack} eyebrow="CARD POSITIONS" title={<>为{cardCount}张牌<br />确定各自的位置</>} lead="每张牌只回答一个角色，关系才会清晰。" action="确认位置配置" onNext={onNext}><div className={`position-preview position-count-${cardCount}`}>{positions.map((position,index)=><article key={position}><b>{index+1}</b><span>{position}</span><small>{index===0?"问题的核心视角":"展开这一方向"}</small></article>)}</div>{cardCount===2&&<div className="config-options">{["外部变化 / 内心应对","现状 / 下一步","担心的事 / 真正的需要"].map(x=><button className={mode===x?"active":""} onClick={()=>setMode(x)} key={x}><i>{mode===x?"✓":""}</i>{x}</button>)}</div>}<div className="rule-note">位置确认后将和随机抽取结果一起冻结，不会在报告生成时交换或重抽。</div></ReadingStep>;
 }
 
 
-function ReadingPayment({ onBack, onNext, onInsufficient }: { onBack: () => void; onNext: () => void; onInsufficient: () => void }) {
-  return <ReadingStep onBack={onBack} eyebrow="CONFIRM & PLANT" title="确认这次问事" lead="种子只在报告任务成功创建后扣除。" action="确认并种下 2 颗智慧种子" onNext={onNext}><div className="reading-order"><small>本次内容</small><h2>工作变化 · 双卡问事</h2><p>外部变化 / 内心应对</p><div><span>卡牌体系</span><strong>默认关系智慧卡牌</strong></div><div><span>抽牌方式</span><strong>系统随机抽取</strong></div><div className="cost"><span>需要智慧种子</span><strong>2 ●</strong></div></div><div className="balance-change"><span>当前余额 <b>2</b></span><i>→</i><span>完成后 <b>0</b></span></div><p className="refund-note">生成失败或未形成有效报告，将自动退回智慧种子。</p><button className="prototype-failure" type="button" onClick={onInsufficient}>原型分支 · 查看智慧种子不足</button></ReadingStep>;
+function ReadingPayment({ cardCount, category, onBack, onNext, onInsufficient }: { cardCount:number; category:string; onBack: () => void; onNext: () => void; onInsufficient: () => void }) {
+  const balance=8;
+  const mode=cardCount===1?"单卡":cardCount===2?"双卡":"多卡";
+  return <ReadingStep onBack={onBack} eyebrow="CONFIRM & PLANT" title="确认这次问事" lead="种子只在报告任务成功创建后扣除。" action={`确认并种下 ${cardCount} 颗智慧种子`} onNext={onNext}><div className="reading-order"><small>本次内容</small><h2>{category} · {mode}问事</h2><p>{cardCount}张牌 · 五段式问事报告</p><div><span>卡牌体系</span><strong>默认关系智慧卡牌</strong></div><div><span>抽牌方式</span><strong>系统公平随机抽取</strong></div><div className="cost"><span>需要智慧种子</span><strong>{cardCount} ●</strong></div></div><div className="balance-change"><span>当前余额 <b>{balance}</b></span><i>→</i><span>完成后 <b>{balance-cardCount}</b></span></div><p className="refund-note">生成失败或未形成有效报告，将自动退回智慧种子。</p><button className="prototype-failure" type="button" onClick={onInsufficient}>查看智慧种子不足状态</button></ReadingStep>;
 }
 
 function ReadingShuffle({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   return <section className="reading-page immersive-reading"><ReadingHeader onBack={onBack}/><div className="shuffle-stage"><i/><i/><i/><i/><i/><span>静</span></div><p className="eyebrow">BE WITH YOUR QUESTION</p><h1>先让心安静下来</h1><p>在心里再读一遍你的问题。<br/>准备好时，让牌慢慢展开。</p><button className="primary" onClick={onNext}>我准备好了 <span>→</span></button><small>抽牌结果一经确认将被保存</small></section>;
 }
 
-function ReadingDraw({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  return <section className="reading-page draw-page"><ReadingHeader onBack={onBack}/><p className="eyebrow">TWO CARDS DRAWN</p><h1>两张牌已经为你抽出</h1><p className="reading-lead">系统完成公平随机抽取，结果已经保存。</p><div className="random-pair"><article><i/><span>1</span><small>外部变化</small></article><article><i/><span>2</span><small>内心应对</small></article></div><div className="fair-note"><span>衡</span><p><strong>本次抽取已经固定</strong>刷新或离开页面也不会改变结果。</p></div><button className="primary" onClick={onNext}>翻开这两张牌 <span>→</span></button></section>;
+function ReadingDraw({ cardCount, onBack, onNext }: { cardCount:number; onBack: () => void; onNext: () => void }) {
+  return <section className="reading-page draw-page"><ReadingHeader onBack={onBack}/><p className="eyebrow">CARDS DRAWN</p><h1>{cardCount}张牌已经为你抽出</h1><p className="reading-lead">系统完成公平随机抽取，结果已经保存。</p><div className={`random-pair random-count-${cardCount}`}>{Array.from({length:cardCount},(_,index)=><article key={index}><i/><span>{index+1}</span><small>{index===0?"核心视角":`方向 ${index}`}</small></article>)}</div><div className="fair-note"><span>衡</span><p><strong>本次抽取已经固定</strong>刷新或离开页面也不会改变结果。</p></div><button className="primary" onClick={onNext}>翻开这{cardCount}张牌 <span>→</span></button></section>;
 }
 
-function ReadingReveal({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  return <ReadingStep onBack={onBack} eyebrow="YOUR CARDS" title="牌已经回应了你的问题" lead="确认后，这两张牌与位置将冻结并用于生成报告。" action="确认卡牌，生成问事报告" onNext={onNext}><div className="revealed-pair"><article className="forest"><small>外部变化</small><i/><strong>辛巳</strong><p>在变化中辨认真正有价值的方向</p></article><article className="water"><small>内心应对</small><i/><strong>甲子</strong><p>允许自己回到起点，重新选择</p></article></div><div className="frozen-note"><span>封</span><p><strong>本次输入即将冻结</strong>问题、牌阵位置、抽牌方式与卡牌会被共同保存。</p></div></ReadingStep>;
+function ReadingReveal({ cardCount, onBack, onNext }: { cardCount:number; onBack: () => void; onNext: () => void }) {
+  const cards=["辛巳","甲子","乙卯","戊辰","庚午"];
+  return <ReadingStep onBack={onBack} eyebrow="YOUR CARDS" title="牌已经回应了你的问题" lead={`确认后，这${cardCount}张牌与位置将冻结并用于生成报告。`} action="确认卡牌，生成问事报告" onNext={onNext}><div className={`revealed-pair reveal-count-${cardCount}`}>{cards.slice(0,cardCount).map((card,index)=><article className={index%2?"water":"forest"} key={card}><small>{index===0?"核心视角":`方向 ${index}`}</small><i/><strong>{card}</strong><p>{index===0?"辨认真正重要的方向":"让新的观察慢慢显现"}</p></article>)}</div><div className="frozen-note"><span>封</span><p><strong>本次输入即将冻结</strong>问题、牌阵位置、抽牌方式与卡牌会被共同保存。</p></div></ReadingStep>;
 }
 
-function ReadingGenerate({ onBack, onSuccess, onFailure, onLeave, onNetworkError }: { onBack: () => void; onSuccess: () => void; onFailure: () => void; onLeave: () => void; onNetworkError: () => void }) {
-  return <section className="reading-page reading-generating"><ReadingHeader onBack={onBack}/><div className="reading-grow"><i/><i/><span>析</span></div><p className="eyebrow">READING THE CONNECTION</p><h1>正在读懂两张牌<br/>之间的关系</h1><div className="generation-list"><span className="done">✓ 固定问题与卡牌版本</span><span className="done">✓ 读取每张牌的生命信息</span><span className="active">· 理解两张牌的关系方向</span><span>· 整理五段式问事报告</span></div><p>可以离开页面，完成后会在消息中心提醒你</p><button className="text-action" onClick={onSuccess}>原型中直接查看报告 →</button><button className="outline-button" onClick={onLeave}>先离开，查看完成提醒</button><button className="prototype-failure" onClick={onFailure}>原型分支 · 查看生成失败</button><button className="prototype-failure" onClick={onNetworkError}>原型分支 · 查看网络中断</button></section>;
+function ReadingGenerate({ cardCount, onBack, onSuccess, onFailure, onLeave, onNetworkError }: { cardCount:number; onBack: () => void; onSuccess: () => void; onFailure: () => void; onLeave: () => void; onNetworkError: () => void }) {
+  return <section className="reading-page reading-generating"><ReadingHeader onBack={onBack}/><div className="reading-grow"><i/><i/><span>析</span></div><p className="eyebrow">READING THE CONNECTION</p><h1>正在读懂{cardCount}张牌<br/>共同呈现的方向</h1><div className="generation-list"><span className="done">✓ 固定问题与卡牌版本</span><span className="done">✓ 读取每张牌的生命信息</span><span className="active">· 理解卡牌之间的关系方向</span><span>· 整理五段式问事报告</span></div><p>可以离开页面，完成后会在消息中心提醒你</p><button className="text-action" onClick={onSuccess}>查看生成完成的报告 →</button><button className="outline-button" onClick={onLeave}>先离开，查看完成提醒</button><button className="prototype-failure" onClick={onFailure}>查看生成失败状态</button><button className="prototype-failure" onClick={onNetworkError}>查看网络中断状态</button></section>;
 }
 
-function ReadingFailure({ onBack, onRetry }: { onBack: () => void; onRetry: () => void }) {
-  return <ReadingStep onBack={onBack} eyebrow="PAUSED, NOT LOST" title={<>报告暂时没有长成</>} lead="问题、卡牌和抽取结果都已安全保存，不需要重新抽牌。"><div className="failure-seed"><span>●</span><i/></div><div className="failure-card"><p><strong>智慧种子没有损失</strong></p><span><b>01</b>本次 2 颗种子仍处于预留状态</span><span><b>02</b>重新生成不会再次扣除</span><span><b>03</b>超过处理时间会自动退回</span></div><button className="primary" onClick={onRetry}>使用原卡牌重新生成 <span>↻</span></button><button className="text-action">稍后在问事历史继续</button></ReadingStep>;
+function ReadingFailure({ cardCount, onBack, onRetry }: { cardCount:number; onBack: () => void; onRetry: () => void }) {
+  return <ReadingStep onBack={onBack} eyebrow="PAUSED, NOT LOST" title={<>报告暂时没有长成</>} lead="问题、卡牌和抽取结果都已安全保存，不需要重新抽牌。"><div className="failure-seed"><span>●</span><i/></div><div className="failure-card"><p><strong>智慧种子没有损失</strong></p><span><b>01</b>本次 {cardCount} 颗种子仍处于预留状态</span><span><b>02</b>重新生成不会再次扣除</span><span><b>03</b>超过处理时间会自动退回</span></div><button className="primary" onClick={onRetry}>使用原卡牌重新生成 <span>↻</span></button><button className="text-action">稍后在问事历史继续</button></ReadingStep>;
 }
 
-function ReadingReport({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING</p><h1>变化不是在催你离开<br/>而是在邀请你重新选择</h1><div className="report-card-pair"><span>辛巳<small>外部变化</small></span><i>↔</i><span>甲子<small>内心应对</small></span></div>{[["01 · 先说结论","你面对的并不是一个必须立刻做出决定的时刻。真正重要的，是辨认哪些变化值得回应，哪些只是外界的噪声。"],["02 · 此刻的你","你对工作中的价值与秩序非常敏锐，所以变化越多，越容易担心自己是否失去了原来的位置。"],["03 · 牌想对你说","外部正在筛选真正重要的事；内心则需要允许一次重新开始。你不必守住过去的答案。"],["04 · 可以试试","今天先写下：我想保留什么、愿意放下什么、下一步只验证什么。不要一次解决所有问题。"],["05 · 写给你的话","方向不是在焦虑中想出来的，而是在一次次诚实选择里逐渐清晰。"]].map(([h,p])=><article key={h}><h2>{h}</h2><p>{p}</p></article>)}<button className="primary" onClick={onNext}>完成阅读 <span>→</span></button></div></section>;
+function ReadingReport({ cardCount, onBack, onNext }: { cardCount:number; onBack: () => void; onNext: () => void }) {
+  const cards=["辛巳","甲子","乙卯","戊辰","庚午"];
+  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING</p><h1>变化不是在催你离开<br/>而是在邀请你重新选择</h1><div className={`report-card-pair report-count-${cardCount}`}>{cards.slice(0,cardCount).map((card,index)=><span key={card}>{card}<small>{index===0?"核心视角":`方向 ${index}`}</small></span>)}</div>{[["01 · 先说结论","你面对的并不是一个必须立刻做出决定的时刻。真正重要的，是辨认哪些变化值得回应，哪些只是外界的噪声。"],["02 · 此刻的你","你对工作中的价值与秩序非常敏锐，所以变化越多，越容易担心自己是否失去了原来的位置。"],["03 · 牌想对你说","牌面共同提醒你筛选真正重要的事，也允许自己重新选择，不必守住过去的答案。"],["04 · 可以试试","今天先写下：我想保留什么、愿意放下什么、下一步只验证什么。不要一次解决所有问题。"],["05 · 写给你的话","方向不是在焦虑中想出来的，而是在一次次诚实选择里逐渐清晰。"]].map(([h,p])=><article key={h}><h2>{h}</h2><p>{p}</p></article>)}<button className="primary" onClick={onNext}>完成阅读 <span>→</span></button></div></section>;
 }
 
 
-function ReadingFeedback({ onBack, onHome, onShare }: { onBack: () => void; onHome: () => void; onShare: () => void }) {
+function ReadingFeedback({ cardCount, onBack, onHome, onShare }: { cardCount:number; onBack: () => void; onHome: () => void; onShare: () => void }) {
   const [feeling,setFeeling]=useState("更清楚了");
-  return <section className="reading-page reading-feedback"><ReadingHeader onBack={onBack}/><div className="feedback-bloom"><span>✓</span><i/><i/></div><p className="eyebrow">READING COMPLETE</p><h1>这次问事已经完成</h1><p className="reading-lead">你的问题、卡牌与报告都已保存。</p><div className="feedback-question"><strong>现在的你，感觉怎么样？</strong><div>{["更清楚了","有些启发","还需要时间","没有帮助"].map(x=><button className={feeling===x?"active":""} onClick={()=>setFeeling(x)} key={x}>{x}</button>)}</div></div><div className="feedback-summary"><span>问事报告 <b>已保存</b></span><span>问事记录 <b>已归档</b></span><span>智慧种子 <b>-2</b></span></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button><button className="text-action" onClick={onShare}>生成问事分享卡</button></section>;
+  return <section className="reading-page reading-feedback"><ReadingHeader onBack={onBack}/><div className="feedback-bloom"><span>✓</span><i/><i/></div><p className="eyebrow">READING COMPLETE</p><h1>这次问事已经完成</h1><p className="reading-lead">你的问题、卡牌与报告都已保存。</p><div className="feedback-question"><strong>现在的你，感觉怎么样？</strong><div>{["更清楚了","有些启发","还需要时间","没有帮助"].map(x=><button className={feeling===x?"active":""} onClick={()=>setFeeling(x)} key={x}>{x}</button>)}</div></div><div className="feedback-summary"><span>问事报告 <b>已保存</b></span><span>问事记录 <b>已归档</b></span><span>智慧种子 <b>-{cardCount}</b></span></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button><button className="text-action" onClick={onShare}>生成问事分享卡</button></section>;
 }
 
 function ReadingHistory({ onBack, onOpen, navigate }: { onBack: () => void; onOpen: () => void; navigate: (step: number) => void }) {
@@ -590,26 +598,27 @@ function ReadingHistory({ onBack, onOpen, navigate }: { onBack: () => void; onOp
   return <section className="reading-page reading-history"><ReadingHeader onBack={onBack}/><p className="eyebrow">MY READINGS</p><h1>我的问事记录</h1><p className="reading-lead">问题、卡牌与报告会一起保存，方便你回看当时的自己。</p><div className="history-filters">{["全部","事业","情感","个人状态"].map(x=><button className={filter===x?"active":""} onClick={()=>setFilter(x)} key={x}>{x}</button>)}</div><div className="history-list"><button onClick={onOpen}><small>昨天 · 事业 · 双卡</small><h2>我该如何面对现在的工作变化？</h2><p><span>辛巳</span><i>×</i><span>甲子</span><b>已完成</b></p></button><button onClick={onOpen}><small>08月02日 · 情感 · 单卡</small><h2>这段关系里，我真正需要看见什么？</h2><p><span>乙卯</span><b>已完成</b></p></button><button onClick={onOpen}><small>07月28日 · 个人状态 · 双卡</small><h2>最近的疲惫正在提醒我什么？</h2><p><span>戊辰</span><i>×</i><span>庚午</span><b>已完成</b></p></button></div><MainNav active="问事" navigate={navigate}/></section>;
 }
 
-function ReadingInsufficient({ onBack, onRecharge, onUseSingle }: { onBack: () => void; onRecharge: () => void; onUseSingle: () => void }) {
-  return <section className="reading-page reading-empty"><ReadingHeader onBack={onBack}/><div className="empty-seed"><span>●</span><i/></div><p className="eyebrow">NEED MORE SEEDS</p><h1>还差 1 颗智慧种子</h1><p className="reading-lead">本次双卡问事需要 2 颗，你当前有 1 颗。问题与配置已经替你保存。</p><div className="seed-gap"><span>当前余额 <b>1 ●</b></span><i>→</i><span>本次需要 <b>2 ●</b></span></div><button className="primary" onClick={onRecharge}>去获得智慧种子 <span>→</span></button><button className="outline-button" onClick={onUseSingle}>改为单卡问事</button><button className="text-action" onClick={onBack}>暂时保存，稍后继续</button></section>;
+function ReadingInsufficient({ cardCount, onBack, onRecharge, onUseSingle }: { cardCount:number; onBack: () => void; onRecharge: () => void; onUseSingle: () => void }) {
+  const balance=1;
+  return <section className="reading-page reading-empty"><ReadingHeader onBack={onBack}/><div className="empty-seed"><span>●</span><i/></div><p className="eyebrow">NEED MORE SEEDS</p><h1>还差 {Math.max(0,cardCount-balance)} 颗智慧种子</h1><p className="reading-lead">本次{cardCount}张牌问事需要 {cardCount} 颗，你当前有 {balance} 颗。问题与配置已经替你保存。</p><div className="seed-gap"><span>当前余额 <b>{balance} ●</b></span><i>→</i><span>本次需要 <b>{cardCount} ●</b></span></div><button className="primary" onClick={onRecharge}>去获得智慧种子 <span>→</span></button>{cardCount>1&&<button className="outline-button" onClick={onUseSingle}>改为单卡问事</button>}<button className="text-action" onClick={onBack}>暂时保存，稍后继续</button></section>;
 }
 
-function ReadingMessageReturn({ onBack, onOpen }: { onBack: () => void; onOpen: () => void }) {
-  return <section className="reading-page reading-message"><ReadingHeader onBack={onBack}/><div className="message-bloom"><span>✓</span><i/><i/></div><p className="eyebrow">YOUR READING IS READY</p><h1>你的问事报告<br/>已经长好了</h1><p className="reading-lead">刚才离开没有影响生成。问题、两张卡牌和完整报告都已安全保存。</p><div className="message-card"><small>刚刚 · 问事报告</small><h2>面对当前的工作变化，我可以如何找到更适合的应对方式？</h2><p><span>辛巳</span><i>×</i><span>甲子</span><b>已完成</b></p></div><button className="primary" onClick={onOpen}>打开问事报告 <span>→</span></button><button className="text-action" onClick={onBack}>稍后从问事记录查看</button></section>;
+function ReadingMessageReturn({ cardCount, onBack, onOpen }: { cardCount:number; onBack: () => void; onOpen: () => void }) {
+  return <section className="reading-page reading-message"><ReadingHeader onBack={onBack}/><div className="message-bloom"><span>✓</span><i/><i/></div><p className="eyebrow">YOUR READING IS READY</p><h1>你的问事报告<br/>已经长好了</h1><p className="reading-lead">刚才离开没有影响生成。问题、{cardCount}张卡牌和完整报告都已安全保存。</p><div className="message-card"><small>刚刚 · {cardCount}张牌问事报告</small><h2>面对当前的工作变化，我可以如何找到更适合的应对方式？</h2><p><span>辛巳</span>{cardCount>1&&<><i>×</i><span>甲子</span></>}<b>已完成</b></p></div><button className="primary" onClick={onOpen}>打开问事报告 <span>→</span></button><button className="text-action" onClick={onBack}>稍后从问事记录查看</button></section>;
 }
 
-function ReadingShareOptions({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+function ReadingShareOptions({ cardCount, onBack, onNext }: { cardCount:number; onBack: () => void; onNext: () => void }) {
   const [privacy,setPrivacy]=useState("隐藏问题");
-  return <section className="reading-page reading-share"><ReadingHeader onBack={onBack}/><p className="eyebrow">SHARE THE INSIGHT</p><h1>把这一刻的看见<br/>分享出去</h1><p className="reading-lead">默认保护你的原始问题，只分享卡牌与对你有力量的一句话。</p><div className="reading-share-preview"><small>今日问事 · 双卡</small><div><span>辛巳</span><i>×</i><span>甲子</span></div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>身心游 · SATORI</footer></div><div className="share-privacy"><strong>分享时展示</strong>{["隐藏问题","展示问题主题","展示完整问题"].map(x=><button className={privacy===x?"active":""} onClick={()=>setPrivacy(x)} key={x}><i>{privacy===x?"✓":""}</i>{x}</button>)}</div><button className="primary" onClick={onNext}>生成分享图片 <span>→</span></button></section>;
+  return <section className="reading-page reading-share"><ReadingHeader onBack={onBack}/><p className="eyebrow">SHARE THE INSIGHT</p><h1>把这一刻的看见<br/>分享出去</h1><p className="reading-lead">默认保护你的原始问题，只分享卡牌与对你有力量的一句话。</p><div className="reading-share-preview"><small>今日问事 · {cardCount}张牌</small><div><span>辛巳</span>{cardCount>1&&<><i>×</i><span>甲子</span></>}</div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>身心游 · SATORI</footer></div><div className="share-privacy"><strong>分享时展示</strong>{["隐藏问题","展示问题主题","展示完整问题"].map(x=><button className={privacy===x?"active":""} onClick={()=>setPrivacy(x)} key={x}><i>{privacy===x?"✓":""}</i>{x}</button>)}</div><button className="primary" onClick={onNext}>生成分享图片 <span>→</span></button></section>;
 }
 
 function ReadingShareGenerating({ onBack, onSuccess, onFailure }: { onBack: () => void; onSuccess: () => void; onFailure: () => void }) {
   return <section className="reading-page reading-share-generating"><ReadingHeader onBack={onBack}/><div className="share-card-grow"><i/><i/><span>问</span></div><p className="eyebrow">GROWING A SHARE CARD</p><h1>正在把这次看见<br/>长成一张图片</h1><div className="render-progress"><i/><span>整理卡牌、金句与隐私信息</span></div><button className="text-action" onClick={onSuccess}>原型中查看生成完成 →</button><button className="prototype-failure" onClick={onFailure}>原型分支 · 查看生成失败</button></section>;
 }
 
-function ReadingShareSuccess({ onBack, onHome }: { onBack: () => void; onHome: () => void }) {
+function ReadingShareSuccess({ cardCount, onBack, onHome }: { cardCount:number; onBack: () => void; onHome: () => void }) {
   const [saved,setSaved]=useState(false);
-  return <section className="reading-page reading-share-success"><ReadingHeader onBack={onBack}/><div className="success-bloom"><i/><i/><i/><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved?"分享图片已保存":"问事分享图片已经长好"}</h1><div className="reading-share-preview ready"><small>今日问事 · 双卡</small><div><span>辛巳</span><i>×</i><span>甲子</span></div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>身心游 · SATORI</footer></div><div className="ready-actions"><button onClick={()=>setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved?"已保存到相册":"高清分享图"}</small></span></button><button><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button></section>;
+  return <section className="reading-page reading-share-success"><ReadingHeader onBack={onBack}/><div className="success-bloom"><i/><i/><i/><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved?"分享图片已保存":"问事分享图片已经长好"}</h1><div className="reading-share-preview ready"><small>今日问事 · {cardCount}张牌</small><div><span>辛巳</span>{cardCount>1&&<><i>×</i><span>甲子</span></>}</div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>身心游 · SATORI</footer></div><div className="ready-actions"><button onClick={()=>setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved?"已保存到相册":"高清分享图"}</small></span></button><button><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button></section>;
 }
 
 function ReadingNetworkError({ onBack, onRetry }: { onBack: () => void; onRetry: () => void }) {
@@ -617,7 +626,7 @@ function ReadingNetworkError({ onBack, onRetry }: { onBack: () => void; onRetry:
 }
 
 function MainNav({ active, navigate }: { active: string; navigate: (step: number) => void }) {
-  const tabs = [["今日", 10, "◉"], ["问事", profileSteps.indexOf("PREVIEW-READ"), "◇"], ["成长", profileSteps.indexOf("PREVIEW-GROWTH"), "❧"], ["关系", profileSteps.indexOf("PREVIEW-RELATIONSHIP"), "∞"], ["我的", 21, "○"]] as const;
+  const tabs = [["今日", 10, "◉"], ["问事", profileSteps.indexOf("READ-01"), "◇"], ["成长", profileSteps.indexOf("PREVIEW-GROWTH"), "❧"], ["关系", profileSteps.indexOf("PREVIEW-RELATIONSHIP"), "∞"], ["我的", 21, "○"]] as const;
   return <nav className="main-nav" aria-label="主导航">{tabs.map(([label, step, icon]) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(step)}><i>{icon}</i><span>{label}</span></button>)}</nav>;
 }
 

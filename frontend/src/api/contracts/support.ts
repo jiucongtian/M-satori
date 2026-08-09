@@ -18,5 +18,5 @@ export const apiSupportMatrix = {
   registrationReward: { capability: "新用户智慧种子赠送", status: "CONTRACT_PROPOSED", blocksRelease: true, note: "待后端实现幂等奖励领取接口" },
   wisdomSeeds: { capability: "智慧种子账户及流水", status: "CONTRACT_PROPOSED", blocksRelease: true, note: "待后端实现账户、流水、预占、核销和退回" },
   dailyInsight: { capability: "每日指引", status: "BACKEND_READY", blocksRelease: true, note: "待后端契约增加智慧种子结算字段" },
+  cardReading: { capability: "R1.1 抽卡问事", status: "CONTRACT_PROPOSED", blocksRelease: true, note: "待后端实现 /card-draws 与 /card-readings；前端已按系统随机、1—5张和智慧种子结算建模" },
 } satisfies Record<string, ApiContractMeta>;
-

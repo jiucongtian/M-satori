@@ -15,7 +15,7 @@ test("服务端完整渲染 H5 原型欢迎页", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /R1\.0 · AUTH-02/);
+  assert.match(html, /R1\.1 · AUTH-02/);
   assert.match(html, /每一天，/);
   assert.match(html, /更懂自己一点/);
   assert.match(html, /开始认识自己/);
@@ -30,30 +30,31 @@ test("正式工程保留完整原型基础样式", async () => {
   assert.ok(formalCss.startsWith(prototypeCss));
 });
 
-test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {
+test("R1.1 主导航开放问事且成长、关系仍进入预告页", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const nav = page.match(/function MainNav[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(nav, /\["今日", 10/);
   assert.match(nav, /\["我的", 21/);
-  assert.match(nav, /PREVIEW-READ/);
+  assert.match(nav, /\["问事", profileSteps\.indexOf\("READ-01"\)/);
   assert.match(nav, /PREVIEW-GROWTH/);
   assert.match(nav, /PREVIEW-RELATIONSHIP/);
-  assert.doesNotMatch(nav, /\["问事", 29|\["成长", 43|\["关系", 44/);
+  assert.doesNotMatch(nav, /\["问事", profileSteps\.indexOf\("PREVIEW-READ"\)|\["成长", 43|\["关系", 44/);
 });
 
-test("R1.0 可达页面白名单不包含后续版本模块", async () => {
+test("R1.1 可达页面白名单包含完整问事且排除后续版本模块", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const scope = page.match(/const r1StepIds = new Set\(\[[\s\S]*?\]\);/)?.[0] ?? "";
   for (const id of ["PROFILE-01", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-03", "MY-01", "MY-03", "MY-09", "MY-16"]) {
     assert.match(scope, new RegExp(`"${id}"`));
   }
-  assert.match(scope, /PREVIEW-READ/);
+  for (const id of ["READ-01","READ-02","READ-03","READ-04","READ-05","READ-06","READ-09","READ-10","READ-11","READ-12","READ-13","READ-14","READ-15","READ-18","READ-19","READ-20","READ-21","READ-22","READ-23","READ-24","READ-25"]) assert.match(scope,new RegExp(`"${id}"`));
   assert.match(scope, /PREVIEW-GROWTH/);
   assert.match(scope, /PREVIEW-RELATIONSHIP/);
-  assert.doesNotMatch(scope.replaceAll("PREVIEW-READ", "").replaceAll("PREVIEW-GROWTH", "").replaceAll("PREVIEW-RELATIONSHIP", ""), /READ-|GRW-|REL-|LIFE-|PER-|SHOP-|GOODS-|ORDER-/);
+  const withoutAllowed = scope.replaceAll(/"READ-[^"]+",?\s*/g, "").replaceAll("PREVIEW-READ", "").replaceAll("PREVIEW-GROWTH", "").replaceAll("PREVIEW-RELATIONSHIP", "");
+  assert.doesNotMatch(withoutAllowed, /GRW-|REL-|LIFE-|PER-|SHOP-|GOODS-|ORDER-/);
 });
 
-test("R1.0 我的页面不展示后续版本入口", async () => {
+test("R1.1 我的页面不展示后续版本入口", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const myHome = page.match(/function MyHome[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(myHome, /每日指引记录/);
@@ -89,4 +90,21 @@ test("待后端能力具有明确候选契约", async () => {
   assert.match(support, /profileLibrary/);
   assert.match(support, /registrationReward/);
   assert.match(support, /wisdomSeeds/);
+  assert.match(support, /cardReading/);
+});
+
+test("R1.1 问事支持1至5张随机抽牌并按张数消耗智慧种子", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /\[3,4,5\]\.map/);
+  assert.match(page, /系统公平随机抽取/);
+  assert.match(page, /确认并种下 \$\{cardCount\} 颗智慧种子/);
+  assert.doesNotMatch(page.match(/function MainNav[\s\S]*?\n}\n/)?.[0] ?? "", /PREVIEW-READ/);
+});
+
+test("R1.1 卡牌后端候选契约覆盖抽取、生成、历史、重试和反馈", async () => {
+  const contract = await readFile(new URL("../src/api/contracts/card-reading.ts", import.meta.url), "utf8");
+  for (const endpoint of ["/card-draws","/card-readings","/retry","/feedback"]) assert.match(contract,new RegExp(endpoint));
+  assert.match(contract, /CONTRACT_PROPOSED/);
+  assert.match(contract, /SYSTEM_RANDOM/);
+  assert.match(contract, /cardCount: 1 \| 2 \| 3 \| 4 \| 5/);
 });
