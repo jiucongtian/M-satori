@@ -75,13 +75,19 @@ test("三个预告页统一说明后续上线与未来能力", async () => {
 test("预告页保持单屏且底部导航位置稳定", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /\.coming-soon-page\{[^}]*height:100%[^}]*overflow:hidden[^}]*display:flex/);
-  assert.match(css, /\.today-home>\.main-nav,\.my-home>\.main-nav,\.coming-soon-page>\.main-nav\{[^}]*position:absolute[^}]*left:-9px[^}]*right:-9px[^}]*bottom:0[^}]*height:52px[^}]*grid-template-columns:repeat\(5,1fr\)/);
+  assert.match(css, /\.root-tab-page>\.main-nav\{[^}]*position:absolute[^}]*left:-9px[^}]*right:-9px[^}]*bottom:0[^}]*height:52px[^}]*grid-template-columns:repeat\(5,1fr\)/);
 });
 
 test("五个根页面切换时不重新执行整页入场动画", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(css, /\.today-home,\.my-home\{animation:none\}/);
-  assert.doesNotMatch(css, /\.coming-soon-page\{[^}]*animation:page-in/);
+  assert.match(css, /\.root-tab-page\{[^}]*animation:none/);
+});
+
+test("所有一级栏目必须使用统一 root-tab-page 导航契约", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  for (const className of ["today-home root-tab-page", "reading-page reading-home root-tab-page", "my-page my-home root-tab-page", "coming-soon-page root-tab-page"]) {
+    assert.match(page, new RegExp(`className="${className}"`));
+  }
 });
 
 test("待后端能力具有明确候选契约", async () => {
