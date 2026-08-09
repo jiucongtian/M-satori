@@ -1,5 +1,12 @@
 # vinext-starter
 
+## Satori R1.0 本地端口约定
+
+- `http://localhost:3000/`：H5 原型基准
+- `http://localhost:3001/`：R1.0 前端研发测试环境（本项目唯一开发端口）
+
+R1.0 仅开放：登录注册、本人生命智慧档案、四张关系卡牌、新用户赠种、今日首页、每日指引、我的基础页面、生命智慧档案库基础能力、智慧种子账户及消费记录。
+
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
 Drizzle support.

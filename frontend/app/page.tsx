@@ -149,6 +149,12 @@ export default function WelcomePage() {
 type ProfileData = { name: string; date: string; time: string; accuracy: string; place: string };
 const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05"];
 const standaloneSteps = profileSteps.slice(10);
+const r1StepIds = new Set([
+  "PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11",
+  "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03",
+  "MY-01", "MY-02", "MY-03", "MY-04", "MY-07", "MY-08",
+  "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-16",
+]);
 
 function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialStep?: number }) {
   const [step, setStep] = useState(initialStep);
@@ -158,6 +164,10 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
   const [returnAfterSeed, setReturnAfterSeed] = useState<number | null>(null);
   const id = profileSteps[step];
   const progress = Math.min(100, (step / 6) * 100);
+
+  function navigateR1(target: number) {
+    if (r1StepIds.has(profileSteps[target])) setStep(target);
+  }
 
   function next() {
     if (id === "PROFILE-08") return setStep(7);
@@ -230,30 +240,30 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
       {id === "PROFILE-10" && <ProfileResult name={data.name} onNext={next} onRestart={() => setStep(0)} />}
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} onNext={next} />}
-      {id === "HOME-01" && <TodayHome name={data.name} onNext={next} navigate={setStep} />}
+      {id === "HOME-01" && <TodayHome name={data.name} onNext={next} navigate={navigateR1} />}
       {id === "DAILY-01" && <DailyStart name={data.name} onBack={back} onNext={next} />}
       {id === "PAY-01" && <SeedPayment onBack={back} onNext={next} />}
       {id === "DAILY-02" && <DailyGenerating name={data.name} onBack={back} onNext={next} />}
-      {id === "DAILY-03" && <DailyReport name={data.name} onBack={back} onNext={next} />}
+      {id === "DAILY-03" && <DailyReport name={data.name} onBack={back} onNext={() => setStep(10)} />}
       {id === "DAILY-04" && <DailyAction onBack={back} onNext={next} />}
       {id === "DAILY-05" && <DailyShare name={data.name} onBack={back} onGenerate={next} onHome={() => setStep(10)} />}
       {id === "SHARE-01" && <ShareOptions onBack={back} onNext={next} />}
       {id === "SHARE-02" && <ShareGenerating onBack={back} onSuccess={next} onFailure={() => setStep(20)} />}
       {id === "SHARE-03" && <ShareSuccess onBack={back} onHome={() => setStep(10)} />}
       {id === "SHARE-04" && <ShareFailure onBack={back} onRetry={() => setStep(18)} onHome={() => setStep(10)} />}
-      {id === "MY-01" && <MyHome name={data.name} open={setStep} />}
+      {id === "MY-01" && <MyHome name={data.name} open={navigateR1} />}
       {id === "MY-02" && <MyProfile onBack={() => setStep(21)} />}
-      {id === "MY-03" && <MySeeds onBack={() => setStep(21)} onGetSeeds={() => setStep(137)} />}
-      {id === "MY-04" && <MyReports onBack={() => setStep(21)} onDaily={() => setStep(14)} onLife={() => setStep(55)} onPeriod={() => setStep(56)} />}
+      {id === "MY-03" && <MySeeds onBack={() => setStep(21)} />}
+      {id === "MY-04" && <MyReports onBack={() => setStep(21)} onDaily={() => setStep(14)} />}
       {id === "MY-05" && <MyBenefits onBack={() => setStep(21)} openShop={() => setStep(133)} openOrders={() => setStep(156)} />}
       {id === "MY-06" && <MyStudyCompanion onBack={() => setStep(21)} />}
       {id === "MY-07" && <MySettings onBack={() => setStep(21)} />}
       {id === "MY-08" && <MySupport onBack={() => setStep(21)} />}
-      {id === "MY-09" && <WisdomArchive onBack={() => setStep(21)} onAdd={() => setStep(112)} onSelf={() => setStep(22)} onPerson={() => setStep(115)} onSelect={() => setStep(117)} />}
+      {id === "MY-09" && <WisdomArchive onBack={() => setStep(21)} onAdd={() => setStep(112)} onSelf={() => setStep(22)} onPerson={() => setStep(115)} />}
       {id === "MY-10" && <NewPersonArchive onBack={() => setStep(111)} onNext={next} />}
       {id === "MY-11" && <ArchiveConfirm onBack={back} onNext={next} />}
       {id === "MY-12" && <ArchiveGenerating onBack={() => setStep(111)} onNext={next} />}
-      {id === "MY-13" && <PersonArchive onBack={() => setStep(111)} onManage={next} onMatch={() => setStep(117)} onReports={() => setStep(53)} />}
+      {id === "MY-13" && <PersonArchive onBack={() => setStep(111)} onManage={next} />}
       {id === "MY-14" && <PersonArchiveManage onBack={back} onDelete={() => setStep(118)} />}
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact onBack={() => setStep(116)} onDone={() => setStep(111)} />}
@@ -603,7 +613,7 @@ function ReadingNetworkError({ onBack, onRetry }: { onBack: () => void; onRetry:
 }
 
 function MainNav({ active, navigate }: { active: string; navigate: (step: number) => void }) {
-  const tabs = [["今日", 10, "◉"], ["问事", 29, "◇"], ["成长", 43, "❧"], ["关系", 44, "∞"], ["我的", 21, "○"]] as const;
+  const tabs = [["今日", 10, "◉"], ["我的", 21, "○"]] as const;
   return <nav className="main-nav" aria-label="主导航">{tabs.map(([label, step, icon]) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(step)}><i>{icon}</i><span>{label}</span></button>)}</nav>;
 }
 
@@ -612,8 +622,8 @@ function MyHeader({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 function MyHome({ name, open }: { name: string; open: (step: number) => void }) {
-  const items = [["报告与成长记录", "生命之光、日签与周期报告", 24, "册"], ["订单与权益", "商城订单、权益和交付", 25, "益"], ["助学童子", "学员专属学习与陪伴", 26, "童"], ["账号、隐私与设置", "安全、授权和数据管理", 27, "隐"], ["消息与帮助", "通知、客服和意见反馈", 28, "信"]] as const;
-  return <section className="my-page my-home"><header><Brand compact /><button className="my-message" type="button" onClick={() => open(28)}>信<i /></button></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "小满").slice(0,1)}</span></div><div><p>晚上好</p><h1>{name || "小满"}</h1><small>生命智慧档案已建立 · 共同成长第 1 天</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>我的主档案 · 已保存 5 位重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子</small><strong>2</strong></div><b>›</b></button><button type="button" onClick={() => open(25)}><span>益</span><div><small>可用权益</small><strong>3</strong></div><b>›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
+  const items = [["每日指引记录", "查看已经生成的每日指引", 24, "册"], ["账号、隐私与设置", "安全、授权和数据管理", 27, "隐"], ["消息与帮助", "通知、客服和意见反馈", 28, "信"]] as const;
+  return <section className="my-page my-home"><header><Brand compact /><button className="my-message" type="button" onClick={() => open(28)}>信<i /></button></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "小满").slice(0,1)}</span></div><div><p>晚上好</p><h1>{name || "小满"}</h1><small>生命智慧档案已建立 · 共同成长第 1 天</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>我的主档案 · 已保存 5 位重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子</small><strong>2</strong></div><b>›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
 }
 
 function MyProfile({ onBack }: { onBack: () => void }) {
@@ -621,18 +631,18 @@ function MyProfile({ onBack }: { onBack: () => void }) {
   return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>小</span><div><h1>小满的档案</h1><p>创建于 2026.08.06 · 当前版本 V1</p></div></div><div className="my-card-grid">{cards.map(([name,mark,tone]) => <article className={tone} key={name}><small>{name}</small><strong>{mark}</strong><i /></article>)}</div><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>1990.05.18</strong></p><p><span>出生时间</span><strong>08:30 · 准确到分钟</strong></p><p><span>出生地点</span><strong>杭州市 · 浙江省</strong></p></section><button className="outline-button" type="button">编辑出生资料</button><button className="text-action" type="button">查看版本与历史影响</button></section>;
 }
 
-function MySeeds({ onBack,onGetSeeds }: { onBack: () => void;onGetSeeds:()=>void }) {
+function MySeeds({ onBack }: { onBack: () => void }) {
   const [tab,setTab]=useState("最近记录");
   const records=[{kind:"使用",icon:"芽",title:"今日能量指引",time:"今天 08:56 · 已完成",value:"-1"},{kind:"获得",icon:"礼",title:"新用户启程礼",time:"今天 08:42 · 已到账",value:"+3"},{kind:"获得",icon:"友",title:"好友参与关系邀请",time:"08月05日 · 已到账",value:"+1"}];
   const shown=tab==="最近记录"?records:records.filter(x=>x.kind===tab);
-  return <section className="my-page my-detail"><MyHeader title="我的智慧种子" onBack={onBack} /><div className="seed-wallet"><small>可用智慧种子</small><strong>2</strong><span>●</span><p>每一颗种子，都可以开启一次新的看见</p><button type="button" onClick={onGetSeeds}>去获得智慧种子</button></div><div className="asset-tabs">{["最近记录","获得","使用"].map(x=><button key={x} className={tab===x?"active":""} onClick={()=>setTab(x)}>{x}</button>)}</div><div className="asset-list">{shown.map(x=><article key={x.title}><i>{x.icon}</i><span><strong>{x.title}</strong><small>{x.time}</small></span><b className={x.value.startsWith("+")?"plus":""}>{x.value}</b></article>)}</div>{shown.length===0&&<div className="prototype-empty">这一分类暂时没有记录</div>}<p className="asset-rule">智慧种子为全域统一价值凭证，具体使用数量会在确认前清楚展示。</p></section>;
+  return <section className="my-page my-detail"><MyHeader title="我的智慧种子" onBack={onBack} /><div className="seed-wallet"><small>可用智慧种子</small><strong>2</strong><span>●</span><p>每一颗种子，都可以开启一次新的看见</p></div><div className="asset-tabs">{["最近记录","获得","使用"].map(x=><button key={x} className={tab===x?"active":""} onClick={()=>setTab(x)}>{x}</button>)}</div><div className="asset-list">{shown.map(x=><article key={x.title}><i>{x.icon}</i><span><strong>{x.title}</strong><small>{x.time}</small></span><b className={x.value.startsWith("+")?"plus":""}>{x.value}</b></article>)}</div>{shown.length===0&&<div className="prototype-empty">这一分类暂时没有记录</div>}<p className="asset-rule">R1.0 可查看智慧种子余额、获得记录与消费记录。</p></section>;
 }
 
-function MyReports({ onBack,onDaily,onLife,onPeriod }: { onBack: () => void;onDaily:()=>void;onLife:()=>void;onPeriod:()=>void }) {
+function MyReports({ onBack,onDaily }: { onBack: () => void;onDaily:()=>void }) {
   const [filter,setFilter]=useState("全部");
-  const reports=[{type:"每日指引",title:"先稳住自己，再回应世界",note:"今日能量：中 · 已选择行动",action:onDaily,status:"今天"},{type:"生命之光",title:"你的天赋与人生剧本",note:"首份完整报告等待生成",action:onLife,status:"待生成"},{type:"周期",title:"八月月运 · 全面版",note:"五大领域与本月行动",action:onPeriod,status:"已完成"}];
+  const reports=[{type:"每日指引",title:"先稳住自己，再回应世界",note:"今日能量：中 · 已生成",action:onDaily,status:"今天"}];
   const shown=filter==="全部"?reports:reports.filter(x=>x.type===filter);
-  return <section className="my-page my-detail"><MyHeader title="报告与成长记录" onBack={onBack} /><div className="report-summary"><div><small>已沉淀内容</small><strong>2</strong><span>份</span></div><p>每一次看见<br />都在成为你的成长脉络</p></div><div className="report-filter">{["全部","生命之光","每日指引","周期"].map(x=><button key={x} className={filter===x?"active":""} onClick={()=>setFilter(x)}>{x}</button>)}</div><div className="my-report-list">{shown.map(x=><button className={x.status==="待生成"?"coming":""} onClick={x.action} key={x.title}><small>{x.type} · {x.status}</small><h2>{x.title}</h2><p>{x.note}</p><b>{x.status==="待生成"?"开启":"›"}</b></button>)}</div></section>;
+  return <section className="my-page my-detail"><MyHeader title="每日指引记录" onBack={onBack} /><div className="report-summary"><div><small>已生成内容</small><strong>1</strong><span>份</span></div><p>回看每一天<br />属于你的能量指引</p></div><div className="report-filter">{["全部","每日指引"].map(x=><button key={x} className={filter===x?"active":""} onClick={()=>setFilter(x)}>{x}</button>)}</div><div className="my-report-list">{shown.map(x=><button onClick={x.action} key={x.title}><small>{x.type} · {x.status}</small><h2>{x.title}</h2><p>{x.note}</p><b>›</b></button>)}</div></section>;
 }
 
 function MyBenefits({ onBack, openShop, openOrders }: { onBack: () => void; openShop:()=>void; openOrders:()=>void }) {
@@ -652,10 +662,10 @@ function MySupport({ onBack }: { onBack: () => void }) {
   return <section className="my-page my-detail"><MyHeader title="消息与帮助" onBack={onBack} /><div className="message-overview"><div><span>信</span><i>2</i></div><p><small>待你查看</small><strong>2 条新消息</strong></p><button>查看全部</button></div><div className="recent-messages"><h2>最近消息</h2><article><i>芽</i><span><strong>今日行动提醒</strong><small>别忘了为自己留白十分钟</small></span><time>刚刚</time></article><article><i>礼</i><span><strong>智慧种子已到账</strong><small>新用户启程礼已放入你的账户</small></span><time>今天</time></article></div><div className="support-grid"><button><i>?</i><span>帮助中心</span></button><button><i>话</i><span>联系客服</span></button><button><i>正</i><span>内容纠错</span></button><button><i>!</i><span>安全反馈</span></button></div></section>;
 }
 
-function WisdomArchive({onBack,onAdd,onSelf,onPerson,onSelect}:{onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:()=>void;onSelect:()=>void}){
+function WisdomArchive({onBack,onAdd,onSelf,onPerson}:{onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:()=>void}){
   const [group,setGroup]=useState("全部");
   const people=[["妈","妈妈","家人","四张卡牌已生成","已授权"],["言","周言","朋友","四张卡牌已生成","私人记录"],["林","林远","同事","出生时间待确认","待完善"],["舟","陈舟","朋友","四张卡牌已生成","私人记录"]];
-  return <section className="my-page archive-page"><MyHeader title="生命智慧档案库" onBack={onBack}/><div className="archive-owner" onClick={onSelf} role="button" tabIndex={0}><span>小</span><p><small>我的主档案 · 唯一</small><strong>小满的生命智慧档案</strong><b>四张关系卡牌已点亮</b></p><i>›</i></div><div className="archive-tools"><label>⌕<input aria-label="搜索档案" placeholder="搜索姓名、称呼或关系"/></label><button onClick={onAdd}>＋ 添加人物</button></div><div className="archive-groups">{["全部","家人","朋友","同事","其他"].map(x=><button key={x} className={group===x?"active":""} onClick={()=>setGroup(x)}>{x}</button>)}</div><div className="people-title"><strong>{group}档案</strong><small>共 {group==="全部"?5:group==="朋友"?2:1} 人</small></div><div className="people-list">{people.filter(x=>group==="全部"||x[2]===group).map((x,i)=><button key={x[1]} onClick={onPerson}><span>{x[0]}</span><p><strong>{x[1]}<em>{x[2]}</em></strong><small>{x[3]}</small></p><i className={i===0?"linked":""}>{x[4]}</i><b>›</b></button>)}</div><button className="archive-match" onClick={onSelect}><span>∞</span><p><strong>从档案库发起关系匹配</strong><small>选择两个人，理解这段关系</small></p><b>→</b></button></section>
+  return <section className="my-page archive-page"><MyHeader title="生命智慧档案库" onBack={onBack}/><div className="archive-owner" onClick={onSelf} role="button" tabIndex={0}><span>小</span><p><small>我的主档案 · 唯一</small><strong>小满的生命智慧档案</strong><b>四张关系卡牌已点亮</b></p><i>›</i></div><div className="archive-tools"><label>⌕<input aria-label="搜索档案" placeholder="搜索姓名、称呼或关系"/></label><button onClick={onAdd}>＋ 添加人物</button></div><div className="archive-groups">{["全部","家人","朋友","同事","其他"].map(x=><button key={x} className={group===x?"active":""} onClick={()=>setGroup(x)}>{x}</button>)}</div><div className="people-title"><strong>{group}档案</strong><small>共 {group==="全部"?5:group==="朋友"?2:1} 人</small></div><div className="people-list">{people.filter(x=>group==="全部"||x[2]===group).map((x,i)=><button key={x[1]} onClick={onPerson}><span>{x[0]}</span><p><strong>{x[1]}<em>{x[2]}</em></strong><small>{x[3]}</small></p><i className={i===0?"linked":""}>{x[4]}</i><b>›</b></button>)}</div></section>
 }
 
 function NewPersonArchive({onBack,onNext}:{onBack:()=>void;onNext:()=>void}){const [relation,setRelation]=useState("家人");return <section className="my-page archive-page"><MyHeader title="新建人物档案" onBack={onBack}/><p className="eyebrow">ONE IMPORTANT PERSON</p><h1>把一个重要的人<br/>轻轻放进你的关系地图</h1><label className="archive-field"><span>姓名或你熟悉的称呼</span><input defaultValue="妈妈"/></label><div className="relation-picks"><small>与我的关系</small><div>{["家人","朋友","同事","合作伙伴","其他"].map(x=><button key={x} className={relation===x?"active":""} onClick={()=>setRelation(x)}>{x}</button>)}</div></div><label className="archive-field"><span>具体关系（可选）</span><input defaultValue="母亲"/></label><div className="birth-fields"><label><span>出生日期</span><input defaultValue="1964.03.12"/></label><label><span>出生时间</span><input defaultValue="06:30"/></label></div><label className="archive-field"><span>出生地点</span><input defaultValue="浙江省 · 杭州市"/></label><label className="timeline-switch"><span><strong>我确认这些资料来自本人或正当知情</strong><small>档案默认仅自己可见，不代表对方已授权</small></span><input type="checkbox" defaultChecked/></label><button className="primary" onClick={onNext}>继续确认出生信息 <span>→</span></button></section>}
@@ -664,7 +674,7 @@ function ArchiveConfirm({onBack,onNext}:{onBack:()=>void;onNext:()=>void}){const
 
 function ArchiveGenerating({onBack,onNext}:{onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page generating-archive"><MyHeader title="正在生成档案" onBack={onBack}/><div className="archive-grow"><span>妈</span><i/><i/><b/><b/></div><p className="eyebrow">WISDOM IS TAKING SHAPE</p><h1>四张关系卡牌<br/>正在慢慢显现</h1><p>我们正在整理妈妈与时空、事业、家庭和自我的关系线索。</p><div className="life-progress"><i><b style={{width:"76%"}}/></i><span>正在生成 · 76%</span></div><div className="task-rule">你可以暂时离开，生成完成后会保存到生命智慧档案库。</div><button className="primary" onClick={onNext}>查看生成后的档案 <span>→</span></button></section>}
 
-function PersonArchive({onBack,onManage,onMatch,onReports}:{onBack:()=>void;onManage:()=>void;onMatch:()=>void;onReports:()=>void}){const cards=[["时空关系","甲辰","sunset"],["事业关系","丁卯","forest"],["家庭关系","辛酉","water"],["自我关系","己卯","earth"]];return <section className="my-page archive-page"><MyHeader title="人物生命智慧档案" onBack={onBack}/><div className="person-cover"><span>妈</span><small>家人 · 母亲</small><h1>妈妈的生命智慧档案</h1><p>资料完整 · 当前为私人记录</p></div><div className="my-card-grid compact-cards">{cards.map(x=><article className={x[2]} key={x[0]}><small>{x[0]}</small><strong>{x[1]}</strong><i/></article>)}</div><div className="person-feeling"><small>她给人的整体感觉</small><p>她更习惯用行动照顾关系，也常常把自己的需要放在后面。真正的松弛，来自允许自己被理解。</p></div><div className="person-actions"><button onClick={onMatch}><i>∞</i><span><strong>发起关系匹配</strong><small>从档案库继续选择另一个人</small></span><b>›</b></button><button onClick={onReports}><i>光</i><span><strong>查看可生成报告</strong><small>生命之光、月运、年运与关系报告</small></span><b>›</b></button></div><button className="outline-button" onClick={onManage}>管理人物资料与授权</button></section>}
+function PersonArchive({onBack,onManage}:{onBack:()=>void;onManage:()=>void}){const cards=[["时空关系","甲辰","sunset"],["事业关系","丁卯","forest"],["家庭关系","辛酉","water"],["自我关系","己卯","earth"]];return <section className="my-page archive-page"><MyHeader title="人物生命智慧档案" onBack={onBack}/><div className="person-cover"><span>妈</span><small>家人 · 母亲</small><h1>妈妈的生命智慧档案</h1><p>资料完整 · 当前为私人记录</p></div><div className="my-card-grid compact-cards">{cards.map(x=><article className={x[2]} key={x[0]}><small>{x[0]}</small><strong>{x[1]}</strong><i/></article>)}</div><div className="person-feeling"><small>她给人的整体感觉</small><p>她更习惯用行动照顾关系，也常常把自己的需要放在后面。真正的松弛，来自允许自己被理解。</p></div><button className="outline-button" onClick={onManage}>管理人物资料与授权</button></section>}
 
 function PersonArchiveManage({onBack,onDelete}:{onBack:()=>void;onDelete:()=>void}){return <section className="my-page archive-page"><MyHeader title="人物档案管理" onBack={onBack}/><div className="confirm-person"><span>妈</span><p><small>当前档案</small><strong>妈妈</strong><b>私人记录 · 资料完整</b></p></div><label className="archive-field"><span>姓名或称呼</span><input defaultValue="妈妈"/></label><label className="archive-field"><span>关系与标签</span><input defaultValue="家人 · 母亲 · 最重要的人"/></label><div className="manage-entry"><button><span><strong>编辑出生信息</strong><small>修改后四张卡牌与相关报告可能变化</small></span><b>›</b></button><button><span><strong>授权与共享状态</strong><small>尚未邀请对方确认关联</small></span><b>›</b></button><button><span><strong>归档这个人物</strong><small>保留资料，但不出现在默认列表</small></span><b>›</b></button></div><button className="primary" onClick={onBack}>保存修改 <span>→</span></button><button className="danger-action" onClick={onDelete}>删除这份人物档案</button></section>}
 
