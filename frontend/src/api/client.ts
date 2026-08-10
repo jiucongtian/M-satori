@@ -190,6 +190,24 @@ class SatoriApiClient {
     return this.request<Schemas["GenerationTaskEnvelope"]>(`/generation-tasks/${taskId}`).then((x) => x.data);
   }
   profiles() { return this.request<Schemas["LifeProfileListEnvelope"]>("/me/life-profiles?limit=50").then((x) => x.data); }
+  createProfile(displayName: string, relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER") {
+    return this.command<Schemas["LifeProfileEnvelope"]>("/me/life-profiles", {
+      method: "POST", body: JSON.stringify({ displayName, relationshipType, groupId: null }),
+    }).then((x) => x.data);
+  }
+  previewOtherProfile(profileId: string, birthInput: BirthInput) {
+    return this.command<Schemas["ProfileRevisionEnvelope"]>(`/me/life-profiles/${profileId}/revisions/preview`, {
+      method: "POST", body: JSON.stringify({ birthInput }),
+    }).then((x) => x.data);
+  }
+  confirmOtherProfile(profileId: string, revisionId: string, fingerprint: string, enhancedConfirmationAccepted: boolean) {
+    return this.command<Schemas["ProfileRevisionEnvelope"]>(`/me/life-profiles/${profileId}/revisions/${revisionId}/confirm`, {
+      method: "POST", body: JSON.stringify({ fingerprint, enhancedConfirmationAccepted }),
+    }).then((x) => x.data);
+  }
+  deleteProfile(profileId: string) {
+    return this.command<{ data: unknown }>(`/me/life-profiles/${profileId}`, { method: "DELETE" }).then((x) => x.data);
+  }
   profileGroups() { return this.request<Schemas["ProfileGroupListEnvelope"]>("/me/life-profile-groups").then((x) => x.data); }
 }
 
