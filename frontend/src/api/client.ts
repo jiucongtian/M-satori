@@ -189,7 +189,7 @@ class SatoriApiClient {
   generationTask(taskId: string) {
     return this.request<Schemas["GenerationTaskEnvelope"]>(`/generation-tasks/${taskId}`).then((x) => x.data);
   }
-  profiles() { return this.request<Schemas["LifeProfileListEnvelope"]>("/me/life-profiles?limit=100").then((x) => x.data); }
+  profiles() { return this.request<Schemas["LifeProfileListEnvelope"]>("/me/life-profiles?limit=50").then((x) => x.data); }
   profileGroups() { return this.request<Schemas["ProfileGroupListEnvelope"]>("/me/life-profile-groups").then((x) => x.data); }
 }
 
