@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: R1.0 H5 contract frozen by ADR-0001 and ADR-0002.
 servers:
-  - url: https://api.staging.satori.example.com/api/v1
-    description: Staging placeholder; replace at deployment.
+  - url: https://test-satori.shenxinyou.com/api/v1
+    description: R1.0 test environment
   - url: http://localhost:3000/api/v1
     description: Local API
 tags:
