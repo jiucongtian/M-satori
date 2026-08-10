@@ -111,7 +111,6 @@ services:
 
 networks:
   backend:
-    internal: true
 
 volumes:
   postgres-data:

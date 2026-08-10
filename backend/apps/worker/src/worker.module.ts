@@ -7,6 +7,7 @@ import {
   IdentityModule,
   IntegrationsModule,
   OperationsModule,
+  SeedLedgerModule,
 } from '@satori/modules';
 import { GenerationTaskWorker } from '../../../packages/modules/src/generation-task/generation-task.worker.js';
 
@@ -14,6 +15,7 @@ import { GenerationTaskWorker } from '../../../packages/modules/src/generation-t
   imports: [
     RuntimeInfrastructureModule,
     IdentityModule,
+    SeedLedgerModule,
     GenerationTaskModule,
     DailyInsightModule,
     FeedbackModule,

@@ -20,7 +20,10 @@ export default defineConfig({
       thresholds: { statements: 80, lines: 80 },
     },
     projects: [
-      defineProject({ ...base, test: { ...base.test, name: 'unit', include: ['packages/**/*.spec.ts'] } }),
+      defineProject({
+        ...base,
+        test: { ...base.test, name: 'unit', include: ['packages/**/*.spec.ts', 'apps/**/*.spec.ts'] },
+      }),
       defineProject({
         ...base,
         test: { ...base.test, name: 'integration', include: ['tests/integration/**/*.test.ts'] },
