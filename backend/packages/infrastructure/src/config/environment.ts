@@ -72,6 +72,13 @@ export const environmentSchema = z
         message: 'Production SMS gateway URL and API key are required',
       });
     }
+    if (environment.NODE_ENV === 'production' && environment.DAILY_INSIGHT_STUB_MODE !== 'SUCCESS') {
+      context.addIssue({
+        code: 'custom',
+        path: ['DAILY_INSIGHT_STUB_MODE'],
+        message: 'Failure and delay generator modes are test-only',
+      });
+    }
   });
 
 export type Environment = z.infer<typeof environmentSchema>;
