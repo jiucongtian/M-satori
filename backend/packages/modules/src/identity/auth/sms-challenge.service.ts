@@ -7,8 +7,9 @@ import {
   RuntimeInfrastructure,
   smsChallenges,
 } from '@satori/infrastructure';
-import { eq } from 'drizzle-orm';
-import { randomInt } from 'node:crypto';
+import { and, eq } from 'drizzle-orm';
+import { randomInt, timingSafeEqual } from 'node:crypto';
+import { identities } from '@satori/infrastructure';
 import { AuthCrypto } from './auth.crypto.js';
 import { SMS_GATEWAY, type SmsGateway } from './sms.gateway.js';
 import { SmsRateLimiter, type RateLimitSnapshot } from './sms-rate-limiter.js';
@@ -114,6 +115,50 @@ export class SmsChallengeService {
         };
       },
     );
+  }
+
+  async consumeForAccountDeletion(userId: string, challengeId: string, verificationCode: string) {
+    const outcome = await this.infrastructure.database.transaction(async (tx) => {
+      const [challenge] = await tx
+        .select()
+        .from(smsChallenges)
+        .where(eq(smsChallenges.id, challengeId))
+        .for('update')
+        .limit(1);
+      if (!challenge || challenge.consumedAt || challenge.purpose !== 'ACCOUNT_DELETION') {
+        return 'SMS_CHALLENGE_NOT_FOUND' as const;
+      }
+      const [identity] = await tx
+        .select({ id: identities.id })
+        .from(identities)
+        .where(
+          and(
+            eq(identities.userId, userId),
+            eq(identities.provider, 'PHONE'),
+            eq(identities.providerSubjectHash, challenge.phoneHash),
+          ),
+        )
+        .limit(1);
+      if (!identity) return 'SMS_CHALLENGE_NOT_FOUND' as const;
+      if (challenge.expiresAt <= new Date()) return 'SMS_CODE_EXPIRED' as const;
+      if (challenge.attempts >= challenge.maxAttempts) return 'SMS_CODE_ATTEMPTS_EXCEEDED' as const;
+      const suppliedHash = this.crypto.hashVerificationCode(challenge.id, verificationCode);
+      if (!timingSafeEqual(Buffer.from(suppliedHash, 'hex'), Buffer.from(challenge.codeHash, 'hex'))) {
+        const attempts = challenge.attempts + 1;
+        await tx.update(smsChallenges).set({ attempts }).where(eq(smsChallenges.id, challenge.id));
+        return attempts >= challenge.maxAttempts
+          ? ('SMS_CODE_ATTEMPTS_EXCEEDED' as const)
+          : ('SMS_CODE_INVALID' as const);
+      }
+      await tx
+        .update(smsChallenges)
+        .set({ consumedAt: new Date() })
+        .where(eq(smsChallenges.id, challenge.id));
+      return null;
+    });
+    if (outcome) {
+      throw new BadRequestException({ code: outcome, message: 'SMS challenge could not be accepted' });
+    }
   }
 }
 

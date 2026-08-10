@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { RuntimeInfrastructure } from '@satori/infrastructure';
 import { AccessTokenGuard } from './auth/access-token.guard.js';
@@ -14,6 +14,7 @@ import { ConsentGuard } from './auth/consent.guard.js';
 import { MeController } from './me/me.controller.js';
 import { MeService } from './me/me.service.js';
 
+@Global()
 @Module({
   controllers: [SmsChallengeController, SessionController, MeController],
   providers: [
@@ -34,6 +35,6 @@ import { MeService } from './me/me.service.js';
     { provide: APP_GUARD, useClass: AccessTokenGuard },
     { provide: APP_GUARD, useClass: ConsentGuard },
   ],
-  exports: [AuthCrypto, AccessTokenService],
+  exports: [AuthCrypto, AccessTokenService, SmsChallengeService],
 })
 export class IdentityModule {}

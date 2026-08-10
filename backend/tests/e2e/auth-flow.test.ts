@@ -2,13 +2,16 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import {
   dailyInsights,
+  deletionRequests,
   generationTasks,
   newId,
   outbox,
   RuntimeInfrastructure,
   revisions,
   seedEntries,
+  sessions,
   subjects,
+  users,
 } from '@satori/infrastructure';
 import { and, eq } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
@@ -22,12 +25,14 @@ import { GenerationTaskService } from '../../packages/modules/src/generation-tas
 import { GenerationTaskController } from '../../packages/modules/src/generation-task/generation-task.controller.js';
 import { OutboxPublisher } from '../../packages/modules/src/generation-task/outbox.publisher.js';
 import { DailyInsightService } from '../../packages/modules/src/daily-insight/daily-insight.service.js';
+import { AccountDeletionService } from '../../packages/modules/src/feedback/account-deletion.service.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
 
 describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
   let app: NestFastifyApplication;
   let accessToken: string;
+  let secondaryAccessToken: string;
   const suffix = String(randomInt(10_000_000, 99_999_999));
   const phone = `138${suffix}`;
 
@@ -364,6 +369,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     );
     const otherSession = await createSession(otherChallenge, '123456', 'cross-owner-session-01');
     const otherToken = otherSession.json<{ data: { accessToken: string } }>().data.accessToken;
+    secondaryAccessToken = otherToken;
     const crossOwner = await app.inject({
       method: 'GET',
       url: `/api/v1/me/life-profiles/${profile.profileId}`,
@@ -836,6 +842,57 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     });
   });
 
+  it('stores idempotent feedback and hides targets owned by another user', async () => {
+    const history = await app.inject({
+      method: 'GET',
+      url: '/api/v1/daily-insights?limit=1',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    const targetId = history.json<{ data: { dailyInsightId: string }[] }>().data[0]!.dailyInsightId;
+    const payload = {
+      target: { type: 'DAILY_INSIGHT', id: targetId, sectionCode: 'theme' },
+      rating: 'HELPFUL',
+      reasons: ['NOT_ACCURATE', 'TOO_GENERIC'],
+      comment: '这段内容有帮助，但可以更具体。',
+    };
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/feedback',
+      headers: authHeaders('daily-feedback-create-01'),
+      payload,
+    });
+    expect(created.statusCode).toBe(201);
+    const feedbackId = created.json<{ data: { feedbackId: string } }>().data.feedbackId;
+    const replay = await app.inject({
+      method: 'POST',
+      url: '/api/v1/feedback',
+      headers: authHeaders('daily-feedback-create-01'),
+      payload,
+    });
+    expect(replay.json<{ data: { feedbackId: string } }>().data.feedbackId).toBe(feedbackId);
+
+    const crossOwner = await app.inject({
+      method: 'POST',
+      url: '/api/v1/feedback',
+      headers: {
+        authorization: `Bearer ${secondaryAccessToken}`,
+        'content-type': 'application/json',
+        'idempotency-key': 'cross-owner-feedback-01',
+      },
+      payload,
+    });
+    expect(crossOwner.statusCode).toBe(404);
+    expect(crossOwner.json<{ error: { code: string } }>().error.code).toBe('FEEDBACK_TARGET_NOT_FOUND');
+    const unsafe = await app.inject({
+      method: 'POST',
+      url: '/api/v1/feedback',
+      headers: authHeaders('unsafe-feedback-create-01'),
+      payload: { ...payload, comment: 'unsafe\u0000comment' },
+    });
+    expect(unsafe.statusCode).toBe(400);
+    expect(unsafe.json<{ error: { code: string } }>().error.code).toBe('FEEDBACK_COMMENT_UNSAFE');
+  });
+
   it('persists generation tasks, publishes outbox once, replays events and enforces retry rules', async () => {
     const userId = decodeJwtSubject(accessToken);
     const tasks = app.get(GenerationTaskService);
@@ -994,10 +1051,126 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(response.headers['access-control-allow-credentials']).toBe('true');
   });
 
+  it('reauthenticates, cancels and idempotently executes account deletion', async () => {
+    const challengeId = await createChallenge(
+      'account-delete-challenge-01',
+      'account-delete-device-01',
+      phone,
+      'ACCOUNT_DELETION',
+    );
+    const invalid = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/account-deletion-requests',
+      headers: authHeaders('account-delete-invalid-01'),
+      payload: { smsChallengeId: challengeId, verificationCode: '000000', reason: 'PRIVACY_CONCERN' },
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json<{ error: { code: string } }>().error.code).toBe('SMS_CODE_INVALID');
+
+    const request = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/account-deletion-requests',
+      headers: authHeaders('account-delete-create-01'),
+      payload: { smsChallengeId: challengeId, verificationCode: '123456', reason: 'PRIVACY_CONCERN' },
+    });
+    expect(request.statusCode).toBe(202);
+    const requestData = request.json<{
+      data: { requestId: string; status: string; canCancel: boolean };
+    }>().data;
+    expect(requestData).toMatchObject({ status: 'PENDING', canCancel: true });
+    const replay = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/account-deletion-requests',
+      headers: authHeaders('account-delete-create-01'),
+      payload: { smsChallengeId: challengeId, verificationCode: '123456', reason: 'PRIVACY_CONCERN' },
+    });
+    expect(replay.json<{ data: { requestId: string } }>().data.requestId).toBe(requestData.requestId);
+    const infrastructure = app.get(RuntimeInfrastructure);
+    const duplicateRateLimitKeys = await infrastructure.redis.keys(
+      `${infrastructure.environment.QUEUE_PREFIX}:rate:sms:*`,
+    );
+    if (duplicateRateLimitKeys.length > 0) await infrastructure.redis.del(...duplicateRateLimitKeys);
+    const duplicateChallenge = await createChallenge(
+      'account-delete-challenge-duplicate',
+      'account-delete-device-duplicate',
+      phone,
+      'ACCOUNT_DELETION',
+    );
+    const duplicate = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/account-deletion-requests',
+      headers: authHeaders('account-delete-create-duplicate'),
+      payload: { smsChallengeId: duplicateChallenge, verificationCode: '123456', reason: 'OTHER' },
+    });
+    expect(duplicate.json<{ data: { requestId: string } }>().data.requestId).toBe(requestData.requestId);
+    const current = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me/account-deletion-request',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(current.json<{ data: { requestId: string } }>().data.requestId).toBe(requestData.requestId);
+    const cancelled = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/me/account-deletion-request',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(cancelled.statusCode).toBe(204);
+
+    const deletionRateLimitKeys = await infrastructure.redis.keys(
+      `${infrastructure.environment.QUEUE_PREFIX}:rate:sms:*`,
+    );
+    if (deletionRateLimitKeys.length > 0) await infrastructure.redis.del(...deletionRateLimitKeys);
+    const secondChallenge = await createChallenge(
+      'account-delete-challenge-02',
+      'account-delete-device-02',
+      phone,
+      'ACCOUNT_DELETION',
+    );
+    const secondRequest = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/account-deletion-requests',
+      headers: authHeaders('account-delete-create-02'),
+      payload: { smsChallengeId: secondChallenge, verificationCode: '123456', reason: 'OTHER' },
+    });
+    const secondRequestId = secondRequest.json<{ data: { requestId: string } }>().data.requestId;
+    await infrastructure.database
+      .update(deletionRequests)
+      .set({ cancellableUntil: new Date(Date.now() - 1_000) })
+      .where(eq(deletionRequests.id, secondRequestId));
+    const notCancellable = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/me/account-deletion-request',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(notCancellable.statusCode).toBe(409);
+    expect(notCancellable.json<{ error: { code: string } }>().error.code).toBe(
+      'ACCOUNT_DELETION_NOT_CANCELLABLE',
+    );
+
+    const ledgerCount = (await infrastructure.database.select().from(seedEntries)).length;
+    const deletion = app.get(AccountDeletionService);
+    await deletion.process(secondRequestId);
+    await deletion.process(secondRequestId);
+    expect((await infrastructure.database.select().from(seedEntries)).length).toBe(ledgerCount);
+    const [deletedUser] = await infrastructure.database
+      .select()
+      .from(users)
+      .where(eq(users.id, decodeJwtSubject(accessToken)))
+      .limit(1);
+    expect(deletedUser).toMatchObject({ status: 'DISABLED' });
+    expect(deletedUser?.deletedAt).toBeInstanceOf(Date);
+    expect(
+      (await infrastructure.database.select().from(sessions)).filter(
+        (session) => session.userId === deletedUser?.id && session.revokedAt === null,
+      ),
+    ).toHaveLength(0);
+  });
+
   async function createChallenge(
     idempotencyKey: string,
     deviceId: string,
     nationalNumber = phone,
+    purpose: 'LOGIN' | 'ACCOUNT_DELETION' | 'SECURITY_CONFIRMATION' = 'LOGIN',
   ): Promise<string> {
     const response = await app.inject({
       method: 'POST',
@@ -1005,7 +1178,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
       payload: {
         phone: { countryCode: '+86', nationalNumber },
-        purpose: 'LOGIN',
+        purpose,
         device: { deviceId, timezone: 'Asia/Shanghai' },
       },
     });

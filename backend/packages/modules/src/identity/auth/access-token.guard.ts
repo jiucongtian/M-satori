@@ -3,7 +3,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PUBLIC_ROUTE } from '@satori/contracts';
 import { RuntimeInfrastructure, sessions, users } from '@satori/infrastructure';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull } from 'drizzle-orm';
 import type { FastifyRequest } from 'fastify';
 import { AccessTokenService } from './access-token.service.js';
 import type { AuthenticatedRequest } from './authenticated-request.js';
@@ -38,7 +38,7 @@ export class AccessTokenGuard implements CanActivate {
           eq(sessions.userId, claims.userId),
           isNull(sessions.revokedAt),
           gt(sessions.expiresAt, new Date()),
-          eq(users.status, 'ACTIVE'),
+          inArray(users.status, ['ACTIVE', 'DELETION_PENDING']),
         ),
       )
       .limit(1);

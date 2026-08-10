@@ -59,12 +59,6 @@ export class SmsChallengeController {
         message: 'A 16-128 character Idempotency-Key is required',
       });
     }
-    if (body.purpose !== 'LOGIN') {
-      throw new BadRequestException({
-        code: 'AUTHENTICATION_REQUIRED',
-        message: 'Authenticated purpose is not available on the public challenge route',
-      });
-    }
     const result = await this.challenges.issue({
       countryCode: body.phone.countryCode,
       nationalNumber: body.phone.nationalNumber,

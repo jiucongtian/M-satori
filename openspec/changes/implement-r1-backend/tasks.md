@@ -100,11 +100,11 @@
 
 ## 10. 非核心反馈与账号注销
 
-- [ ] 10.1 实现 `POST /api/v1/feedback` 的 LIFE_REPORT/DAILY_INSIGHT 目标校验、rating/reason、文本安全和幂等历史保存
-- [ ] 10.2 实现 DELETE_ACCOUNT SMS challenge 和 `POST /api/v1/me/account-deletion-requests` 的重新认证、影响快照及 202 状态
-- [ ] 10.3 实现 `GET /api/v1/me/account-deletion-request` 和 `DELETE /api/v1/me/account-deletion-request` 的查询/可撤回状态机
-- [ ] 10.4 实现注销后的 Session 撤销、数据处理任务、账务/审计保留和删除传播
-- [ ] 10.5 添加反馈越权、注销重复提交、验证码失败、不可撤回状态和删除恢复测试
+- [x] 10.1 实现 `POST /api/v1/feedback` 的 LIFE_REPORT/DAILY_INSIGHT 目标校验、rating/reason、文本安全和幂等历史保存
+- [x] 10.2 实现 DELETE_ACCOUNT SMS challenge 和 `POST /api/v1/me/account-deletion-requests` 的重新认证、影响快照及 202 状态
+- [x] 10.3 实现 `GET /api/v1/me/account-deletion-request` 和 `DELETE /api/v1/me/account-deletion-request` 的查询/可撤回状态机
+- [x] 10.4 实现注销后的 Session 撤销、数据处理任务、账务/审计保留和删除传播
+- [x] 10.5 添加反馈越权、注销重复提交、验证码失败、不可撤回状态和删除恢复测试
 
 ## 11. 联调、质量与发布门禁
 

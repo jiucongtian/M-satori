@@ -3,6 +3,7 @@ import { GENERATION_QUEUE, queueExecutionPolicy, RuntimeInfrastructure } from '@
 import { Worker, type Job } from 'bullmq';
 import { GenerationTaskRunner } from './generation-task.runner.js';
 import { GenerationTaskService } from './generation-task.service.js';
+import { AccountDeletionService } from '../feedback/account-deletion.service.js';
 
 @Injectable()
 export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown {
@@ -13,11 +14,12 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
     private readonly infrastructure: RuntimeInfrastructure,
     private readonly tasks: GenerationTaskService,
     private readonly runner: GenerationTaskRunner,
+    private readonly accountDeletion: AccountDeletionService,
   ) {}
 
   onModuleInit() {
     const policy = queueExecutionPolicy(this.infrastructure.environment);
-    this.worker = new Worker<{ taskId: string }>(
+    this.worker = new Worker<{ taskId?: string; requestId?: string }>(
       GENERATION_QUEUE,
       (job) => this.process(job, policy.jobTimeoutMs),
       {
@@ -40,7 +42,13 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
     await this.worker?.close();
   }
 
-  private async process(job: Job<{ taskId: string }>, timeoutMs: number) {
+  private async process(job: Job<{ taskId?: string; requestId?: string }>, timeoutMs: number) {
+    if (job.name === 'account.deletion.scheduled') {
+      if (job.data.requestId) await this.accountDeletion.process(job.data.requestId);
+      return;
+    }
+    if (!job.name.startsWith('generation.task.')) return;
+    if (!job.data.taskId) throw new Error('Generation task job is missing taskId');
     const task = await this.tasks.claim(job.data.taskId);
     if (!task) return;
     const heartbeat = setInterval(() => void this.tasks.heartbeat(task.id), Math.max(1_000, timeoutMs / 3));
@@ -67,8 +75,8 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
     }
   }
 
-  private async onFailed(job: Job<{ taskId: string }> | undefined, error: Error) {
-    if (!job) return;
+  private async onFailed(job: Job<{ taskId?: string; requestId?: string }> | undefined, error: Error) {
+    if (!job || !job.name.startsWith('generation.task.') || !job.data.taskId) return;
     const attempts = Number(job.opts.attempts ?? 1);
     const terminal = job.attemptsMade >= attempts;
     const failed = await this.tasks.failAttempt(

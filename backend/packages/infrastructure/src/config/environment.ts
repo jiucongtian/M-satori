@@ -43,6 +43,7 @@ export const environmentSchema = z
     DAILY_INSIGHT_HISTORY_DAYS: z.coerce.number().int().positive().default(90),
     DAILY_INSIGHT_PRICE: z.coerce.number().int().positive().default(1),
     REGISTRATION_REWARD_AMOUNT: z.coerce.number().int().positive().default(3),
+    ACCOUNT_DELETION_CANCELLATION_HOURS: z.coerce.number().int().positive().default(168),
   })
   .superRefine((environment, context) => {
     if (environment.CORS_ORIGINS.split(',').some((origin) => origin.trim() === '*')) {

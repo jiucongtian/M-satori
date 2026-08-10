@@ -9,6 +9,7 @@ describe('runtime baseline', () => {
     expect(environment.DAILY_INSIGHT_PRICE).toBe(1);
     expect(environment.REGISTRATION_REWARD_AMOUNT).toBe(3);
     expect(environment.OTP_TTL_SECONDS).toBe(300);
+    expect(environment.ACCOUNT_DELETION_CANCELLATION_HOURS).toBe(168);
   });
 
   it('rejects invalid configuration', () => {
