@@ -130,6 +130,12 @@ class SatoriApiClient {
     return this.refreshing;
   }
 
+  async logout() {
+    await this.request<null>("/auth/sessions/current", { method: "DELETE" });
+    // The bearer token lives only in memory; the revoked session cannot be reused.
+    this.accessToken = null;
+  }
+
   bootstrap() {
     return this.request<Schemas["BootstrapEnvelope"]>("/app/bootstrap").then((x) => x.data);
   }

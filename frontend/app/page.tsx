@@ -193,7 +193,7 @@ export default function WelcomePage() {
         ) : view === "recovery" ? (
           <ProfileRecovery onBack={() => setView("login")} onContinue={() => { setResumeStep(3); setView("profile"); }} onRestart={() => { setResumeStep(0); setView("profile"); }} />
         ) : (
-          <ProfileFlow onExit={() => setView("login")} initialStep={resumeStep} />
+          <ProfileFlow onExit={() => setView("login")} onLogout={() => setView("welcome")} initialStep={resumeStep} />
         )}
       </section>
     </main>
@@ -211,7 +211,7 @@ const r1StepIds = new Set([
   "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP",
 ]);
 
-function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialStep?: number }) {
+function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void; onLogout: () => void; initialStep?: number }) {
   const [step, setStep] = useState(initialStep);
   const [data, setData] = useState<ProfileData>({ name: "", date: "1990-05-18", time: "08:30", accuracy: "准确到分钟", place: "杭州", locationId: "", gender: "FEMALE", relationshipType: "OTHER" });
   const [locations, setLocations] = useState<Location[]>([]);
@@ -383,6 +383,13 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
     finally { setApiBusy(false); }
   }
 
+  async function logout() {
+    setApiBusy(true); setApiError("");
+    try { await api.logout(); onLogout(); }
+    catch (error) { setApiError(apiMessage(error)); }
+    finally { setApiBusy(false); }
+  }
+
   function navigateR1(target: number) {
     if (r1StepIds.has(profileSteps[target])) setStep(target);
   }
@@ -481,7 +488,7 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
       {id === "MY-04" && <MyReports home={home} insight={dailyInsight} onBack={() => setStep(21)} onDaily={() => home?.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : undefined} />}
       {id === "MY-05" && <MyBenefits onBack={() => setStep(21)} openShop={() => setStep(133)} openOrders={() => setStep(156)} />}
       {id === "MY-06" && <MyStudyCompanion onBack={() => setStep(21)} />}
-      {id === "MY-07" && <MySettings onBack={() => setStep(21)} />}
+      {id === "MY-07" && <MySettings onBack={() => setStep(21)} onLogout={logout} busy={apiBusy} />}
       {id === "MY-08" && <MySupport onBack={() => setStep(21)} />}
       {id === "MY-09" && <WisdomArchive profiles={profiles} self={home?.profile || null} onBack={() => setStep(21)} onAdd={() => setStep(112)} onSelf={() => setStep(22)} onPerson={openOtherProfile} />}
       {id === "MY-10" && <NewPersonArchive data={otherData} locations={locations} busy={apiBusy} onChange={setOtherData} onBack={() => setStep(111)} onNext={createOtherProfile} />}
@@ -894,9 +901,9 @@ function MyStudyCompanion({ onBack }: { onBack: () => void }) {
   return <section className="my-page my-detail study-companion"><MyHeader title="助学童子" onBack={onBack} /><div className="companion-orbit"><span>童</span><i /><i /></div><p className="eyebrow">FOR ACADEMY STUDENTS</p><h1>把课堂里的理解<br />带回每天的生活</h1><p className="companion-lead">助学童子为身心游关系学院学员提供课程复习、练习陪伴和专属权益。</p><div className="student-state"><small>当前身份</small><strong>尚未绑定学院学员身份</strong><p>绑定后可查看你的课程、练习和智慧种子赠送记录。</p></div><button className="primary" type="button">绑定学员身份 <span>→</span></button><button className="text-action" type="button">先了解助学童子</button></section>;
 }
 
-function MySettings({ onBack }: { onBack: () => void }) {
+function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: () => void; busy: boolean }) {
   const groups = [["账号安全", "手机号、登录设备与异常提醒"], ["隐私中心", "数据用途、授权与分享管理"], ["数据管理", "导出、删除与账号注销"], ["通知设置", "日签提醒、消息与锁屏隐私"], ["通用设置", "语言、文字大小与动态效果"]];
-  return <section className="my-page my-detail"><MyHeader title="账号、隐私与设置" onBack={onBack} /><div className="safety-score"><span>安</span><div><small>当前状态</small><strong>账号与资料保护正常</strong><p>上次安全检查：今天</p></div></div><div className="settings-list">{groups.map(([title,note]) => <button type="button" key={title}><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><p className="settings-foot"><span className="lock" />生命智慧档案默认仅自己可见</p></section>;
+  return <section className="my-page my-detail"><MyHeader title="账号、隐私与设置" onBack={onBack} /><div className="safety-score"><span>安</span><div><small>当前状态</small><strong>账号与资料保护正常</strong><p>上次安全检查：今天</p></div></div><div className="settings-list">{groups.map(([title,note]) => <button type="button" key={title}><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><button className="danger-action" type="button" onClick={onLogout} disabled={busy}>{busy ? "正在退出…" : "退出当前账号"}</button><p className="settings-foot"><span className="lock" />退出后需要重新验证手机号才能进入档案</p></section>;
 }
 
 function MySupport({ onBack }: { onBack: () => void }) {

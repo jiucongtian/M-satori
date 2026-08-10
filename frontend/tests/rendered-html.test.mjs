@@ -98,12 +98,13 @@ test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access T
   assert.match(client, /private accessToken: string \| null = null/);
   assert.match(client, /Idempotency-Key/);
   assert.match(client, /\/auth\/sessions\/refresh/);
+  assert.match(client, /\/auth\/sessions\/current/);
   assert.doesNotMatch(client, /localStorage\.setItem\([^\n]*(access|token)/i);
 });
 
 test("R1 核心页面调用真实后端能力", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  for (const call of ["api.sendSms", "api.createSession", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
+  for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
     assert.match(page, new RegExp(call.replace(".", "\\.")));
   }
   assert.doesNotMatch(page, /验证码已发送，原型中/);
