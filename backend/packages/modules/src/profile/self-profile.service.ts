@@ -107,8 +107,11 @@ export class SelfProfileService {
   async listRevisions(
     userId: string,
     input: { cursor?: string; limit?: number },
+    profileId?: string,
   ): Promise<ApiListEnvelope<ProfileRevisionDto>> {
-    const profile = await this.findSelfProfile(userId);
+    const profile = profileId
+      ? await this.findOwnedProfile(userId, profileId)
+      : await this.findSelfProfile(userId);
     if (!profile) return { data: [], meta: { nextCursor: null, hasMore: false } };
     const limit = normalizePageLimit(input.limit);
     const cursor = input.cursor ? this.cursors.decode(input.cursor) : null;
@@ -145,11 +148,17 @@ export class SelfProfileService {
     };
   }
 
-  async getRevision(userId: string, revisionId: string): Promise<ProfileRevisionDto> {
+  async getRevision(userId: string, revisionId: string, profileId?: string): Promise<ProfileRevisionDto> {
     const [row] = await this.infrastructure.database
       .select()
       .from(revisions)
-      .where(and(eq(revisions.id, revisionId), eq(revisions.ownerUserId, userId)))
+      .where(
+        and(
+          eq(revisions.id, revisionId),
+          eq(revisions.ownerUserId, userId),
+          profileId ? eq(revisions.profileId, profileId) : undefined,
+        ),
+      )
       .limit(1);
     if (!row) {
       throw new NotFoundException({
@@ -164,6 +173,7 @@ export class SelfProfileService {
     userId: string;
     birthInput: BirthInput;
     idempotencyKey: string;
+    profileId?: string;
   }): Promise<ProfileRevisionDto> {
     validateBirthInput(input.birthInput);
     const location = await this.locations.get(input.birthInput.locationId);
@@ -173,22 +183,45 @@ export class SelfProfileService {
     const chart = this.calculator.calculate(input.birthInput, location);
     const fingerprint = `sha256:${hashPayload({ birthInput: input.birthInput, location, algorithmVersion: chart.algorithmVersion })}`;
     const result = await this.idempotency.execute(
-      { actorKey: `user:${input.userId}`, operation: 'previewSelfProfile', key: input.idempotencyKey },
+      {
+        actorKey: `user:${input.userId}`,
+        operation: input.profileId ? `previewProfile:${input.profileId}` : 'previewSelfProfile',
+        key: input.idempotencyKey,
+      },
       input.birthInput,
       async () => {
         const dto = await this.infrastructure.database.transaction(async (tx) => {
           await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${input.userId}, 1))`);
-          let [profile] = await tx
-            .select()
-            .from(lifeProfiles)
-            .where(
-              and(
-                eq(lifeProfiles.ownerUserId, input.userId),
-                eq(lifeProfiles.relationshipType, 'SELF'),
-                isNull(lifeProfiles.deletedAt),
-              ),
-            )
-            .limit(1);
+          let [profile] = input.profileId
+            ? await tx
+                .select()
+                .from(lifeProfiles)
+                .where(
+                  and(
+                    eq(lifeProfiles.id, input.profileId),
+                    eq(lifeProfiles.ownerUserId, input.userId),
+                    isNull(lifeProfiles.deletedAt),
+                  ),
+                )
+                .for('update')
+                .limit(1)
+            : await tx
+                .select()
+                .from(lifeProfiles)
+                .where(
+                  and(
+                    eq(lifeProfiles.ownerUserId, input.userId),
+                    eq(lifeProfiles.relationshipType, 'SELF'),
+                    isNull(lifeProfiles.deletedAt),
+                  ),
+                )
+                .limit(1);
+          if (!profile && input.profileId) {
+            throw new NotFoundException({
+              code: 'LIFE_PROFILE_NOT_FOUND',
+              message: 'Life profile not found',
+            });
+          }
           if (!profile) {
             const subjectId = newId();
             await tx.insert(subjects).values({
@@ -280,6 +313,7 @@ export class SelfProfileService {
     fingerprint: string;
     enhancedConfirmationAccepted: boolean;
     idempotencyKey: string;
+    profileId?: string;
   }) {
     const result = await this.idempotency.execute(
       {
@@ -293,7 +327,13 @@ export class SelfProfileService {
           const [revision] = await tx
             .select()
             .from(revisions)
-            .where(and(eq(revisions.id, input.revisionId), eq(revisions.ownerUserId, input.userId)))
+            .where(
+              and(
+                eq(revisions.id, input.revisionId),
+                eq(revisions.ownerUserId, input.userId),
+                input.profileId ? eq(revisions.profileId, input.profileId) : undefined,
+              ),
+            )
             .for('update')
             .limit(1);
           if (!revision) {
@@ -390,6 +430,21 @@ export class SelfProfileService {
         and(
           eq(lifeProfiles.ownerUserId, userId),
           eq(lifeProfiles.relationshipType, 'SELF'),
+          isNull(lifeProfiles.deletedAt),
+        ),
+      )
+      .limit(1);
+    return profile;
+  }
+
+  private async findOwnedProfile(userId: string, profileId: string) {
+    const [profile] = await this.infrastructure.database
+      .select()
+      .from(lifeProfiles)
+      .where(
+        and(
+          eq(lifeProfiles.id, profileId),
+          eq(lifeProfiles.ownerUserId, userId),
           isNull(lifeProfiles.deletedAt),
         ),
       )

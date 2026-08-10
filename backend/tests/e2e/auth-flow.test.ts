@@ -8,8 +8,9 @@ import {
   RuntimeInfrastructure,
   revisions,
   seedEntries,
+  subjects,
 } from '@satori/infrastructure';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -224,6 +225,236 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(list.json<{ data: unknown[] }>().data).toHaveLength(2);
+  });
+
+  it('isolates, groups, versions and safely deletes OTHER profiles', async () => {
+    const groupResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/life-profile-groups',
+      headers: authHeaders('profile-group-create-01'),
+      payload: { name: '家人', sortOrder: 10 },
+    });
+    expect(groupResponse.statusCode).toBe(201);
+    const groupId = groupResponse.json<{ data: { groupId: string } }>().data.groupId;
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/life-profiles',
+      headers: authHeaders('other-profile-create-01'),
+      payload: { displayName: '家人甲', relationshipType: 'FAMILY', groupId },
+    });
+    expect(created.statusCode).toBe(201);
+    const profile = created.json<{
+      data: { profileId: string; subjectId: string; subjectType: string; state: string };
+    }>().data;
+    expect(profile).toMatchObject({ subjectType: 'OTHER', state: 'NOT_CREATED' });
+
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me/life-profiles?limit=20',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json<{ data: { subjectType: string }[] }>().data.map((item) => item.subjectType)).toEqual(
+      expect.arrayContaining(['SELF', 'OTHER']),
+    );
+    const firstPage = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me/life-profiles?limit=1',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    const firstPageData = firstPage.json<{
+      data: unknown[];
+      meta: { hasMore: boolean; nextCursor: string | null };
+    }>();
+    expect(firstPageData.data).toHaveLength(1);
+    expect(firstPageData.meta).toMatchObject({ hasMore: true });
+    expect(firstPageData.meta.nextCursor).toBeTruthy();
+
+    const groupList = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me/life-profile-groups',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(groupList.json<{ data: { groupId: string; profileCount: number }[] }>().data).toContainEqual(
+      expect.objectContaining({ groupId, profileCount: 1 }),
+    );
+    const renamedGroup = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/me/life-profile-groups/${groupId}`,
+      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      payload: { name: '重要关系', sortOrder: 1 },
+    });
+    expect(renamedGroup.json<{ data: { name: string; sortOrder: number } }>().data).toMatchObject({
+      name: '重要关系',
+      sortOrder: 1,
+    });
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: `/api/v1/me/life-profiles/${profile.profileId}/revisions/preview`,
+      headers: authHeaders('other-profile-preview-01'),
+      payload: profilePayload({ year: 1988, month: 8, day: 8, isLeapMonth: false }),
+    });
+    expect(preview.statusCode).toBe(201);
+    const revision = preview.json<{
+      data: { revisionId: string; inputFingerprint: string; cards: unknown[] };
+    }>().data;
+    expect(revision.cards).toHaveLength(4);
+    const confirmed = await app.inject({
+      method: 'POST',
+      url: `/api/v1/me/life-profiles/${profile.profileId}/revisions/${revision.revisionId}/confirm`,
+      headers: authHeaders('other-profile-confirm-01'),
+      payload: { fingerprint: revision.inputFingerprint, enhancedConfirmationAccepted: true },
+    });
+    expect(confirmed.statusCode).toBe(200);
+    const revisionList = await app.inject({
+      method: 'GET',
+      url: `/api/v1/me/life-profiles/${profile.profileId}/revisions`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(revisionList.json<{ data: { revisionId: string }[] }>().data).toContainEqual(
+      expect.objectContaining({ revisionId: revision.revisionId }),
+    );
+
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/me/life-profiles/${profile.profileId}`,
+      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      payload: { displayName: '家人乙', relationshipType: 'FRIEND', groupId: null },
+    });
+    expect(
+      patched.json<{ data: { displayName: string; relationshipType: string; groupId: null } }>().data,
+    ).toMatchObject({ displayName: '家人乙', relationshipType: 'FRIEND', groupId: null });
+    const regrouped = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/me/life-profiles/${profile.profileId}`,
+      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      payload: { groupId },
+    });
+    expect(regrouped.json<{ data: { groupId: string } }>().data.groupId).toBe(groupId);
+
+    const infrastructure = app.get(RuntimeInfrastructure);
+    const userId = decodeJwtSubject(accessToken);
+    const selfSubjects = await infrastructure.database
+      .select({ id: subjects.id })
+      .from(subjects)
+      .where(and(eq(subjects.ownerUserId, userId), eq(subjects.type, 'SELF')));
+    expect(selfSubjects).toHaveLength(1);
+    await expect(
+      infrastructure.database.insert(subjects).values({
+        id: newId(),
+        ownerUserId: userId,
+        type: 'SELF',
+        displayNameCiphertext: 'duplicate-self-must-fail',
+      }),
+    ).rejects.toThrow('Failed query');
+    expect(
+      await infrastructure.database
+        .select({ id: subjects.id })
+        .from(subjects)
+        .where(and(eq(subjects.ownerUserId, userId), eq(subjects.type, 'SELF'))),
+    ).toHaveLength(1);
+
+    const otherPhone = `139${String(randomInt(10_000_000, 99_999_999))}`;
+    const otherChallenge = await createChallenge(
+      'cross-owner-challenge-01',
+      'cross-owner-device-01',
+      otherPhone,
+    );
+    const otherSession = await createSession(otherChallenge, '123456', 'cross-owner-session-01');
+    const otherToken = otherSession.json<{ data: { accessToken: string } }>().data.accessToken;
+    const crossOwner = await app.inject({
+      method: 'GET',
+      url: `/api/v1/me/life-profiles/${profile.profileId}`,
+      headers: { authorization: `Bearer ${otherToken}` },
+    });
+    expect(crossOwner.statusCode).toBe(404);
+    expect(crossOwner.json<{ error: { code: string } }>().error.code).toBe('LIFE_PROFILE_NOT_FOUND');
+
+    const [historicalInsight] = await infrastructure.database
+      .insert(dailyInsights)
+      .values({
+        id: newId(),
+        ownerUserId: userId,
+        subjectId: profile.subjectId,
+        profileRevisionId: revision.revisionId,
+        localDate: '2099-01-01',
+        timezone: 'Asia/Shanghai',
+        contentPolicyVersion: 'profile-delete-e2e',
+        status: 'PENDING',
+      })
+      .returning();
+    if (!historicalInsight) throw new Error('Historical insight setup failed');
+    const [activeTask] = await infrastructure.database
+      .insert(generationTasks)
+      .values({
+        id: newId(),
+        ownerUserId: userId,
+        targetType: 'DAILY_INSIGHT',
+        targetId: historicalInsight.id,
+        status: 'RUNNING',
+        stage: 'GENERATING_CONTENT',
+        maxAttempts: 3,
+      })
+      .returning();
+    if (!activeTask) throw new Error('Generation task setup failed');
+    const blocked = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/me/life-profiles/${profile.profileId}`,
+      headers: idempotentAuthHeaders('other-profile-delete-blocked'),
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect(blocked.json<{ error: { code: string } }>().error.code).toBe('PROFILE_DELETION_BLOCKED');
+    await infrastructure.database
+      .update(generationTasks)
+      .set({ status: 'FAILED', terminalAt: new Date() })
+      .where(eq(generationTasks.id, activeTask.id));
+
+    const deletedGroup = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/me/life-profile-groups/${groupId}`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(deletedGroup.statusCode).toBe(204);
+    const ungrouped = await app.inject({
+      method: 'GET',
+      url: `/api/v1/me/life-profiles/${profile.profileId}`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(ungrouped.json<{ data: { groupId: null } }>().data.groupId).toBeNull();
+    const accepted = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/me/life-profiles/${profile.profileId}`,
+      headers: idempotentAuthHeaders('other-profile-delete-accepted'),
+    });
+    expect(accepted.statusCode).toBe(202);
+    expect(accepted.json<{ data: { requestId: string; status: string } }>().data).toMatchObject({
+      status: 'PENDING',
+    });
+    expect(
+      await infrastructure.database
+        .select({ id: dailyInsights.id })
+        .from(dailyInsights)
+        .where(eq(dailyInsights.id, historicalInsight.id)),
+    ).toHaveLength(1);
+    const afterDelete = await app.inject({
+      method: 'GET',
+      url: `/api/v1/me/life-profiles/${profile.profileId}`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(afterDelete.statusCode).toBe(404);
+
+    const selfProfile = list
+      .json<{ data: { profileId: string; subjectType: string }[] }>()
+      .data.find((item) => item.subjectType === 'SELF');
+    const selfDelete = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/me/life-profiles/${selfProfile!.profileId}`,
+      headers: idempotentAuthHeaders('self-profile-delete-rejected'),
+    });
+    expect(selfDelete.statusCode).toBe(409);
+    expect(selfDelete.json<{ error: { code: string } }>().error.code).toBe('SELF_PROFILE_DELETE_NOT_ALLOWED');
   });
 
   it('claims the registration reward exactly once and settles an immutable seed ledger', async () => {
@@ -763,13 +994,17 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(response.headers['access-control-allow-credentials']).toBe('true');
   });
 
-  async function createChallenge(idempotencyKey: string, deviceId: string): Promise<string> {
+  async function createChallenge(
+    idempotencyKey: string,
+    deviceId: string,
+    nationalNumber = phone,
+  ): Promise<string> {
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/sms-challenges',
       headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
       payload: {
-        phone: { countryCode: '+86', nationalNumber: phone },
+        phone: { countryCode: '+86', nationalNumber },
         purpose: 'LOGIN',
         device: { deviceId, timezone: 'Asia/Shanghai' },
       },
@@ -811,6 +1046,13 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     return {
       authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json',
+      'idempotency-key': idempotencyKey,
+    };
+  }
+
+  function idempotentAuthHeaders(idempotencyKey: string) {
+    return {
+      authorization: `Bearer ${accessToken}`,
       'idempotency-key': idempotencyKey,
     };
   }

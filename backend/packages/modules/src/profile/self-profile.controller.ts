@@ -26,7 +26,7 @@ import {
 import type { AuthenticatedRequest } from '../identity/auth/authenticated-request.js';
 import { SelfProfileService } from './self-profile.service.js';
 
-class BirthDateDto {
+export class BirthDateDto {
   @IsInt()
   @Min(1900)
   @Max(2100)
@@ -46,7 +46,7 @@ class BirthDateDto {
   isLeapMonth!: boolean;
 }
 
-class BirthTimeDto {
+export class BirthTimeDto {
   @IsOptional()
   @Matches(/^\d{2}:\d{2}$/)
   localTime!: string | null;
@@ -56,7 +56,7 @@ class BirthTimeDto {
   hourBranchCode!: HourBranch | null;
 }
 
-class BirthInputDto implements BirthInput {
+export class BirthInputDto implements BirthInput {
   @IsIn(['SOLAR', 'LUNAR'])
   calendarType!: 'SOLAR' | 'LUNAR';
 
@@ -78,13 +78,13 @@ class BirthInputDto implements BirthInput {
   calculationGender!: 'MALE' | 'FEMALE';
 }
 
-class PreviewProfileDto {
+export class PreviewProfileDto {
   @ValidateNested()
   @Type(() => BirthInputDto)
   birthInput!: BirthInputDto;
 }
 
-class ConfirmProfileDto {
+export class ConfirmProfileDto {
   @IsString()
   fingerprint!: string;
 
@@ -92,7 +92,7 @@ class ConfirmProfileDto {
   enhancedConfirmationAccepted!: boolean;
 }
 
-class RevisionListQuery {
+export class RevisionListQuery {
   @IsOptional()
   @IsString()
   cursor?: string;
@@ -155,7 +155,7 @@ export class SelfProfileController {
   }
 }
 
-function requireIdempotencyKey(value: string | undefined): string {
+export function requireIdempotencyKey(value: string | undefined): string {
   if (!value || value.length < 16 || value.length > 128) {
     throw new BadRequestException({
       code: 'IDEMPOTENCY_KEY_REQUIRED',
