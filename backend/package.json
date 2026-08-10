@@ -65,5 +65,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.66.0",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "find-my-way": "9.7.0"
   }
 }

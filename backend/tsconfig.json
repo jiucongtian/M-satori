@@ -29,7 +29,7 @@
     "packages/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
-    "drizzle.config.ts",
+    "drizzle*.config.ts",
     "vitest.config.ts"
   ]
 }
