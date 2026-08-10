@@ -47,7 +47,7 @@ services:
     image: satori-backend-migrate:test
     env_file: .env.production
     environment: *app-environment
-    command: ['node_modules/.bin/drizzle-kit', 'migrate', '--config=drizzle.production.config.ts']
+    command: ['node_modules/.bin/tsx', 'scripts/migrate.ts']
     depends_on:
       postgres:
         condition: service_healthy

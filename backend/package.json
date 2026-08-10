@@ -24,7 +24,7 @@
     "test:e2e": "vitest run --project e2e",
     "test:coverage": "RUN_DATABASE_TESTS=true vitest run --coverage",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed-legal-documents.ts",
     "db:reconcile-seeds": "tsx scripts/reconcile-seed-ledger.ts",
     "db:check": "drizzle-kit check",
