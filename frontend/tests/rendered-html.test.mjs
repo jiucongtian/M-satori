@@ -90,3 +90,22 @@ test("待后端能力具有明确候选契约", async () => {
   assert.match(support, /registrationReward/);
   assert.match(support, /wisdomSeeds/);
 });
+
+test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access Token", async () => {
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(client, /const API_BASE = "\/api\/v1"/);
+  assert.match(client, /credentials: "include"/);
+  assert.match(client, /private accessToken: string \| null = null/);
+  assert.match(client, /Idempotency-Key/);
+  assert.match(client, /\/auth\/sessions\/refresh/);
+  assert.doesNotMatch(client, /localStorage\.setItem\([^\n]*(access|token)/i);
+});
+
+test("R1 核心页面调用真实后端能力", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  for (const call of ["api.sendSms", "api.createSession", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask"]) {
+    assert.match(page, new RegExp(call.replace(".", "\\.")));
+  }
+  assert.doesNotMatch(page, /验证码已发送，原型中/);
+  assert.doesNotMatch(page, /原型中直接查看结果/);
+});

@@ -1,9 +1,23 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { api, ApiError } from "@/src/api/client";
+import type { Bootstrap, DailyInsight, HomeOverview, Location, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
 type View = "welcome" | "login" | "recovery" | "profile";
 type LoginIntent = "new" | "existing";
+
+function apiMessage(error: unknown) {
+  if (error instanceof ApiError) return `${error.message}${error.requestId ? `（请求 ${error.requestId}）` : ""}`;
+  return "网络连接失败，请稍后重试";
+}
+
+function stepForAction(action: string) {
+  if (action === "CONFIRM_PROFILE") return 5;
+  if (action === "CLAIM_REGISTRATION_REWARD") return 9;
+  if (action === "CREATE_TODAY_DAILY_INSIGHT" || action === "VIEW_HOME") return 10;
+  return 0;
+}
 
 export default function WelcomePage() {
   const [view, setView] = useState<View>("welcome");
@@ -14,34 +28,75 @@ export default function WelcomePage() {
   const [codeSent, setCodeSent] = useState(false);
   const [message, setMessage] = useState("");
   const [resumeStep, setResumeStep] = useState(0);
-  const [loginIntent, setLoginIntent] = useState<LoginIntent>("new");
+  const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  const [challengeId, setChallengeId] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const normalizedPhone = phone.replace(/\D/g, "").slice(0, 11);
   const phoneReady = /^1\d{10}$/.test(normalizedPhone);
   const codeReady = /^\d{6}$/.test(code);
 
+  useEffect(() => {
+    let active = true;
+    api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
+    api.refresh().then(async (restored) => {
+      if (!active || !restored) return;
+      const me = await api.me();
+      if (!active) return;
+      setResumeStep(stepForAction(me.nextAction));
+      setView("profile");
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
   function enterLogin(intent: LoginIntent = "new") {
-    setLoginIntent(intent);
+    void intent;
     setStarted(false);
     setView("login");
     setMessage("");
   }
 
-  function sendCode() {
+  async function sendCode() {
     if (!phoneReady) return setMessage("请输入正确的 11 位手机号码");
     if (!agreed) return setMessage("请先阅读并同意用户协议与隐私政策");
-    setCodeSent(true);
-    setMessage("验证码已发送，原型中输入任意 6 位数字即可继续");
+    setBusy(true);
+    try {
+      const challenge = await api.sendSms(normalizedPhone);
+      setChallengeId(challenge.challengeId);
+      setCodeSent(true);
+      setMessage(`验证码已发送至 ${challenge.phoneMasked}`);
+    } catch (error) {
+      setMessage(apiMessage(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!phoneReady || !agreed) return sendCode();
+    if (!phoneReady || !agreed) return void sendCode();
     if (!codeReady) return setMessage("请输入 6 位验证码");
-    setMessage("");
-    setResumeStep(loginIntent === "existing" ? 10 : 0);
-    setView("profile");
+    if (!challengeId) return void sendCode();
+    setBusy(true);
+    try {
+      const consentAcceptances = (bootstrap?.requiredLegalDocuments || [])
+        .filter((document) => document.required)
+        .map(({ documentId, version }) => ({ documentId, version }));
+      const session = await api.createSession(challengeId, code, consentAcceptances);
+      setMessage("登录成功");
+      setResumeStep(stepForAction(session.nextAction));
+      setView("profile");
+    } catch (error) {
+      setMessage(apiMessage(error));
+    } finally {
+      setBusy(false);
+    }
   }
+
+  const legalHref = (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY") => {
+    const document = bootstrap?.requiredLegalDocuments.find((item) => item.type === type);
+    return document ? `/api/v1/legal-documents/${encodeURIComponent(document.documentId)}` : "#";
+  };
 
   return (
     <main className="stage">
@@ -73,7 +128,7 @@ export default function WelcomePage() {
             <div className="bottom-panel">
               <div className="trust-note"><span className="lock" aria-hidden="true" /><span>你的出生资料默认仅自己可见，也可以随时管理</span></div>
               <button className="primary" type="button" onClick={() => setStarted(true)}>开始认识自己 <span aria-hidden="true">→</span></button>
-              <p className="agreement">继续即表示你已阅读并同意 <a href="#">用户协议</a> 与 <a href="#">隐私政策</a></p>
+              <p className="agreement">继续即表示你已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a> 与 <a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a></p>
             </div>
 
             {started && (
@@ -118,22 +173,21 @@ export default function WelcomePage() {
               </div>
               <div className="field code-field">
                 <input id="code" type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="6 位验证码" maxLength={6} value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0,6)); setMessage(""); }} />
-                <button type="button" className="send-code" onClick={sendCode}>{codeSent ? "重新发送" : "获取验证码"}</button>
+                <button type="button" className="send-code" onClick={sendCode} disabled={busy}>{busy ? "发送中" : codeSent ? "重新发送" : "获取验证码"}</button>
               </div>
 
               <label className="consent-row">
                 <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setMessage(""); }} />
                 <span className="checkmark" aria-hidden="true">✓</span>
-                <span>我已阅读并同意 <a href="#">用户协议</a>、<a href="#">隐私政策</a>，并知晓出生资料的用途</span>
+                <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并知晓出生资料的用途</span>
               </label>
               <span className="rule-id">AUTH-05 · 协议与隐私确认</span>
 
               <div className={`form-message ${message.startsWith("登录成功") ? "success" : ""}`} aria-live="polite">{message || "验证码仅用于身份验证，我们不会用它向你营销"}</div>
 
-              <button className="primary login-submit" type="submit" disabled={!phoneReady || !codeReady || !agreed}>登录 / 注册 <span>→</span></button>
+              <button className="primary login-submit" type="submit" disabled={!phoneReady || !codeReady || !agreed || busy}>{busy ? "登录中…" : "登录 / 注册"} <span>→</span></button>
             </form>
 
-            <button className="prototype-branch" type="button" onClick={() => setView("recovery")}>原型分支 · 查看老用户未完成建档</button>
             <div className="login-footer"><span className="lock" aria-hidden="true" />账号与生命智慧档案会安全绑定，不会公开展示手机号</div>
           </div>
         ) : view === "recovery" ? (
@@ -146,7 +200,7 @@ export default function WelcomePage() {
   );
 }
 
-type ProfileData = { name: string; date: string; time: string; accuracy: string; place: string };
+type ProfileData = { name: string; date: string; time: string; accuracy: string; place: string; locationId: string; gender: "MALE" | "FEMALE" };
 const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05", "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP"];
 const standaloneSteps = profileSteps.slice(10);
 const r1StepIds = new Set([
@@ -159,12 +213,121 @@ const r1StepIds = new Set([
 
 function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialStep?: number }) {
   const [step, setStep] = useState(initialStep);
-  const [data, setData] = useState<ProfileData>({ name: "", date: "1990-05-18", time: "08:30", accuracy: "准确到分钟", place: "杭州市 · 浙江省 · 中国" });
+  const [data, setData] = useState<ProfileData>({ name: "", date: "1990-05-18", time: "08:30", accuracy: "准确到分钟", place: "杭州", locationId: "", gender: "FEMALE" });
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [revision, setRevision] = useState<ProfileRevision | null>(null);
+  const [home, setHome] = useState<HomeOverview | null>(null);
+  const [account, setAccount] = useState<WisdomSeedAccount | null>(null);
+  const [transactions, setTransactions] = useState<WisdomSeedTransaction[]>([]);
+  const [dailyInsight, setDailyInsight] = useState<DailyInsight | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [apiBusy, setApiBusy] = useState(false);
+  const [apiError, setApiError] = useState("");
   const [relationshipType, setRelationshipType] = useState("情感伴侣");
   const [relationshipSource, setRelationshipSource] = useState<"archive" | "cards">("archive");
   const [returnAfterSeed, setReturnAfterSeed] = useState<number | null>(null);
   const id = profileSteps[step];
   const progress = Math.min(100, (step / 6) * 100);
+
+  async function loadOverview() {
+    const [homeResult, accountResult, transactionResult] = await Promise.allSettled([
+      api.home(), api.seedAccount(), api.seedTransactions(),
+    ]);
+    if (homeResult.status === "fulfilled") {
+      setHome(homeResult.value);
+      setData((current) => ({ ...current, name: current.name || homeResult.value.profile.displayName }));
+    }
+    if (accountResult.status === "fulfilled") setAccount(accountResult.value);
+    if (transactionResult.status === "fulfilled") setTransactions(transactionResult.value);
+  }
+
+  useEffect(() => {
+    const overviewTimer = window.setTimeout(() => void loadOverview(), 0);
+    if (initialStep === 5) {
+      api.selfProfile().then((profile) => profile.pendingRevisionId ? api.profileRevision(profile.pendingRevisionId) : null)
+        .then((pending) => pending && setRevision(pending)).catch(() => undefined);
+    }
+    return () => window.clearTimeout(overviewTimer);
+  }, [initialStep]);
+
+  useEffect(() => {
+    if (step !== 4 || data.place.trim().length < 2) return;
+    const timer = window.setTimeout(() => {
+      api.searchLocations(data.place).then(setLocations).catch((error) => setApiError(apiMessage(error)));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [step, data.place]);
+
+  useEffect(() => {
+    if (!taskId || step !== 13) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const task = await api.generationTask(taskId);
+        if (task.status === "READY") {
+          window.clearInterval(timer);
+          const insight = await api.dailyInsight(dailyInsight?.localDate || new Date().toISOString().slice(0, 10));
+          setDailyInsight(insight);
+          await loadOverview();
+          setStep(14);
+        } else if (task.status === "FAILED") {
+          window.clearInterval(timer);
+          setApiError(task.failure?.message || "今日指引生成失败，智慧种子会按规则退回");
+        }
+      } catch (error) {
+        setApiError(apiMessage(error));
+      }
+    }, 1200);
+    return () => window.clearInterval(timer);
+  }, [taskId, step, dailyInsight?.localDate]);
+
+  async function previewProfile() {
+    if (!data.locationId) return setApiError("请从搜索结果中选择出生地点");
+    setApiBusy(true); setApiError("");
+    try {
+      const [year, month, day] = data.date.split("-").map(Number);
+      const exact = data.accuracy === "准确到分钟" || data.accuracy === "大致时间";
+      const value = await api.previewProfile({
+        calendarType: "SOLAR",
+        date: { year, month, day, isLeapMonth: false },
+        timePrecision: data.accuracy === "准确到分钟" ? "EXACT_MINUTE" : data.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
+        time: { localTime: exact ? data.time : null, hourBranchCode: null },
+        locationId: data.locationId,
+        calculationGender: data.gender,
+      });
+      setRevision(value);
+      setStep(6);
+    } catch (error) { setApiError(apiMessage(error)); }
+    finally { setApiBusy(false); }
+  }
+
+  async function confirmProfile() {
+    if (!revision?.inputFingerprint) return setApiError("档案预览缺少校验指纹，请重新生成");
+    setApiBusy(true); setApiError("");
+    try {
+      await api.confirmProfile(revision.revisionId, revision.inputFingerprint, Boolean(revision.requiresEnhancedConfirmation));
+      await loadOverview();
+      setStep(8);
+    } catch (error) { setApiError(apiMessage(error)); }
+    finally { setApiBusy(false); }
+  }
+
+  async function claimReward() {
+    setApiBusy(true); setApiError("");
+    try { const result = await api.claimRegistrationReward(); setAccount(result.account); await loadOverview(); setStep(10); }
+    catch (error) { setApiError(apiMessage(error)); }
+    finally { setApiBusy(false); }
+  }
+
+  async function startDailyInsight() {
+    setApiBusy(true); setApiError("");
+    try {
+      const result = await api.createTodayInsight();
+      setDailyInsight(result.dailyInsight);
+      if (result.dailyInsight.status === "READY") { await loadOverview(); setStep(14); }
+      else { setTaskId(result.task?.taskId || null); setStep(13); }
+    } catch (error) { setApiError(apiMessage(error)); }
+    finally { setApiBusy(false); }
+  }
 
   function navigateR1(target: number) {
     if (r1StepIds.has(profileSteps[target])) setStep(target);
@@ -188,6 +351,7 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
         <div className="flow-progress" aria-label={`建档进度 ${Math.round(progress)}%`}><i style={{ width: `${progress}%` }} /></div>
         <button className="save-exit" type="button" onClick={onExit}>保存退出</button>
       </header>}
+      {apiError && <div className="form-message" role="alert">{apiError}</div>}
 
       {id === "PROFILE-01" && <ProfileIntro onNext={next} />}
       {id === "PROFILE-02" && (
@@ -202,6 +366,10 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
         <FlowStep eyebrow="BIRTH DATE" title={`${data.name || "你"}，你的出生日期是？`} note="首版使用公历日期。接近节气边界时，系统会结合具体时间与地点计算。">
           <label className="field-label" htmlFor="birth-date">公历出生日期</label>
           <div className="field profile-field"><input id="birth-date" type="date" value={data.date} max="2026-08-06" onChange={(e) => setData({ ...data, date: e.target.value })} /></div>
+          <label className="field-label">计算性别</label>
+          <div className="choice-grid">
+            {([["FEMALE", "女"], ["MALE", "男"]] as const).map(([value, label]) => <button key={value} type="button" className={data.gender === value ? "choice active" : "choice"} onClick={() => setData({ ...data, gender: value })}><i />{label}<span>用于传统排盘规则计算</span></button>)}
+          </div>
           <div className="soft-card"><span>历</span><p><strong>为什么需要日期？</strong>它是建立生命智慧档案的基础，不会出现在公开分享中。</p></div>
           <FlowNext onClick={next} disabled={!data.date}>继续</FlowNext>
         </FlowStep>
@@ -218,10 +386,10 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
       {id === "PROFILE-05" && (
         <FlowStep eyebrow="BIRTH PLACE" title="你出生在哪里？" note="出生地点用于确认当地时区与时间规则，不需要开启当前定位。">
           <label className="field-label" htmlFor="birth-place">搜索城市或区县</label>
-          <div className="field profile-field place-field"><span>⌖</span><input id="birth-place" placeholder="城市、区县或国家" value={data.place} onChange={(e) => setData({ ...data, place: e.target.value })} /></div>
-          <button className="place-result" type="button" onClick={() => setData({ ...data, place: "杭州市 · 浙江省 · 中国" })}><span className="place-pin">杭</span><span><strong>杭州市</strong><small>浙江省 · 中国 · Asia/Shanghai</small></span><b>{data.place.includes("杭州市") ? "✓" : "选择"}</b></button>
+          <div className="field profile-field place-field"><span>⌖</span><input id="birth-place" placeholder="城市、区县或国家" value={data.place} onChange={(e) => setData({ ...data, place: e.target.value, locationId: "" })} /></div>
+          {locations.map((location) => <button className="place-result" type="button" key={location.locationId} onClick={() => setData({ ...data, place: location.displayName, locationId: location.locationId })}><span className="place-pin">{location.displayName.slice(0, 1)}</span><span><strong>{location.displayName}</strong><small>{location.administrativePath.join(" · ")} · {location.timezone}</small></span><b>{data.locationId === location.locationId ? "✓" : "选择"}</b></button>)}
           <p className="input-helper">搜索不到出生地？<a href="#">提交地点反馈</a></p>
-          <FlowNext onClick={next} disabled={!data.place}>继续</FlowNext>
+          <FlowNext onClick={next} disabled={!data.locationId}>继续</FlowNext>
         </FlowStep>
       )}
       {id === "PROFILE-07" && (
@@ -229,32 +397,33 @@ function ProfileFlow({ onExit, initialStep = 0 }: { onExit: () => void; initialS
           <div className="summary-card">
             <SummaryRow label="称呼" value={data.name} edit={() => setStep(1)} />
             <SummaryRow label="出生日期" value={`${data.date} · 公历`} edit={() => setStep(2)} />
+            <SummaryRow label="计算性别" value={data.gender === "FEMALE" ? "女" : "男"} edit={() => setStep(2)} />
             <SummaryRow label="出生时间" value={`${data.time} · ${data.accuracy}`} edit={() => setStep(3)} />
             <SummaryRow label="出生地点" value={data.place} edit={() => setStep(4)} />
             <SummaryRow label="时间规则" value="将根据地点、时区与已确认规则处理" />
           </div>
           <div className="privacy-inline"><span className="lock" /><p>仅用于生成你的个人内容，默认仅你自己可见。<a href="#">查看数据用途</a></p></div>
-          <FlowNext onClick={next}>确认并生成生命智慧档案</FlowNext>
+          <FlowNext onClick={previewProfile} disabled={apiBusy}>{apiBusy ? "正在计算…" : "确认并生成生命智慧档案"}</FlowNext>
         </FlowStep>
       )}
       {id === "PROFILE-08" && <Calculating name={data.name} onDone={next} />}
-      {id === "PROFILE-10" && <ProfileResult name={data.name} onNext={next} onRestart={() => setStep(0)} />}
-      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} onNext={next} />}
-      {id === "GIFT-01" && <SeedGift name={data.name} onNext={next} />}
-      {id === "HOME-01" && <TodayHome name={data.name} onNext={next} navigate={navigateR1} />}
+      {id === "PROFILE-10" && <ProfileResult name={data.name} revision={revision} onNext={confirmProfile} onRestart={() => setStep(0)} busy={apiBusy} />}
+      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} onNext={next} />}
+      {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
+      {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
       {id === "DAILY-01" && <DailyStart name={data.name} onBack={back} onNext={next} />}
-      {id === "PAY-01" && <SeedPayment onBack={back} onNext={next} />}
-      {id === "DAILY-02" && <DailyGenerating name={data.name} onBack={back} onNext={next} />}
-      {id === "DAILY-03" && <DailyReport name={data.name} onBack={back} onNext={() => setStep(10)} />}
+      {id === "PAY-01" && <SeedPayment balance={account?.available || 0} busy={apiBusy} onBack={back} onNext={startDailyInsight} />}
+      {id === "DAILY-02" && <DailyGenerating name={data.name} balance={account?.available || 0} onBack={back} />}
+      {id === "DAILY-03" && <DailyReport name={data.name} insight={dailyInsight} balance={account?.available || 0} onBack={back} onNext={() => setStep(10)} />}
       {id === "DAILY-04" && <DailyAction onBack={back} onNext={next} />}
       {id === "DAILY-05" && <DailyShare name={data.name} onBack={back} onGenerate={next} onHome={() => setStep(10)} />}
       {id === "SHARE-01" && <ShareOptions onBack={back} onNext={next} />}
       {id === "SHARE-02" && <ShareGenerating onBack={back} onSuccess={next} onFailure={() => setStep(20)} />}
       {id === "SHARE-03" && <ShareSuccess onBack={back} onHome={() => setStep(10)} />}
       {id === "SHARE-04" && <ShareFailure onBack={back} onRetry={() => setStep(18)} onHome={() => setStep(10)} />}
-      {id === "MY-01" && <MyHome name={data.name} open={navigateR1} />}
+      {id === "MY-01" && <MyHome name={data.name} balance={account?.available || 0} open={navigateR1} />}
       {id === "MY-02" && <MyProfile onBack={() => setStep(21)} />}
-      {id === "MY-03" && <MySeeds onBack={() => setStep(21)} />}
+      {id === "MY-03" && <MySeeds account={account} transactions={transactions} onBack={() => setStep(21)} />}
       {id === "MY-04" && <MyReports onBack={() => setStep(21)} onDaily={() => setStep(14)} />}
       {id === "MY-05" && <MyBenefits onBack={() => setStep(21)} openShop={() => setStep(133)} openOrders={() => setStep(156)} />}
       {id === "MY-06" && <MyStudyCompanion onBack={() => setStep(21)} />}
@@ -410,26 +579,17 @@ function SummaryRow({ label, value, edit }: { label: string; value: string; edit
 }
 
 function Calculating({ name, onDone }: { name: string; onDone: () => void }) {
-  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>四柱</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages"><span className="done">✓ 校验出生地点与时间</span><span className="done">✓ 应用时间规则</span><span className="active">· 计算四柱与基础结构</span><span>· 准备你的档案摘要</span></div><p>原型中可以直接查看计算完成状态</p><button className="text-action" type="button" onClick={onDone}>查看计算结果 →</button></div>;
+  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>四柱</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages"><span className="done">✓ 校验出生地点与时间</span><span className="done">✓ 应用时间规则</span><span className="done">✓ 计算四柱与基础结构</span><span className="active">· 准备你的档案摘要</span></div><p>计算已经完成，请确认预览结果。</p><button className="text-action" type="button" onClick={onDone}>查看计算结果 →</button></div>;
 }
 
-function ProfileResult({ name, onNext, onRestart }: { name: string; onNext: () => void; onRestart: () => void }) {
-  const cards = [
-    { title: "时空关系卡牌", mark: "庚午", tone: "sunset" },
-    { title: "事业关系卡牌", mark: "辛巳", tone: "forest" },
-    { title: "家庭关系卡牌", mark: "甲子", tone: "water" },
-    { title: "自我关系卡牌", mark: "戊辰", tone: "earth" },
-  ];
-  return <div className="profile-result"><span className="result-spark">✦</span><p className="eyebrow">PROFILE CREATED</p><h1>{name}，你的生命智慧档案<br /><em>已经建立</em></h1><p>四张关系卡牌，是你理解自己、关系与成长节律的共同起点。</p><div className="wisdom-card-panel"><small>生命智慧档案 · V1</small><div className="wisdom-card-grid">{cards.map((card) => <article className={`wisdom-card ${card.tone}`} key={card.title}><i aria-hidden="true" /><span>{card.title}</span><strong>{card.mark}</strong><small>关系 · 智慧</small></article>)}</div><p>演示卡牌仅用于页面设计，不代表真实计算。</p></div><button className="primary" type="button" onClick={onNext}>读懂我的四张卡牌 <span>→</span></button><button className="text-action" type="button" onClick={onRestart}>重新体验建档流程</button></div>;
+function ProfileResult({ name, revision, onNext, onRestart, busy }: { name: string; revision: ProfileRevision | null; onNext: () => void; onRestart: () => void; busy: boolean }) {
+  const tones = ["sunset", "forest", "water", "earth"];
+  const cards = (revision?.cards || []).map((card, index) => ({ title: card.title, mark: card.cardCode, tone: tones[index % tones.length] }));
+  return <div className="profile-result"><span className="result-spark">✦</span><p className="eyebrow">PROFILE PREVIEW</p><h1>{name}，你的生命智慧档案<br /><em>已经算好</em></h1><p>四张关系卡牌，是你理解自己、关系与成长节律的共同起点。</p><div className="wisdom-card-panel"><small>生命智慧档案 · V{revision?.revisionNumber || 1}</small><div className="wisdom-card-grid">{cards.map((card) => <article className={`wisdom-card ${card.tone}`} key={card.title}><i aria-hidden="true" /><span>{card.title}</span><strong>{card.mark}</strong><small>关系 · 智慧</small></article>)}</div>{revision?.warnings?.map((warning) => <p key={warning}>{warning}</p>)}</div><button className="primary" type="button" onClick={onNext} disabled={busy}>{busy ? "正在确认…" : "确认档案并读懂四张卡牌"} <span>→</span></button><button className="text-action" type="button" onClick={onRestart}>重新填写出生资料</button></div>;
 }
 
-function RelationshipFirstLook({ name, onNext }: { name: string; onNext: () => void }) {
-  const insights = [
-    ["时空关系卡牌", "庚午", "你天生愿意走向更大的世界，也需要为热烈找到方向。"],
-    ["事业关系卡牌", "辛巳", "你对价值与品质很敏锐，越专注，越容易被看见。"],
-    ["家庭关系卡牌", "甲子", "你重视关系里的真诚，也常常是重新开始的那个人。"],
-    ["自我关系卡牌", "戊辰", "你的力量来自稳稳扎根，把复杂的事一步步变简单。"],
-  ];
+function RelationshipFirstLook({ name, revision, onNext }: { name: string; revision: ProfileRevision | null; onNext: () => void }) {
+  const insights = (revision?.cards || []).map((card) => [card.title, card.cardCode, card.summary]);
   return <section className="first-look">
     <p className="eyebrow">YOUR INNER SEASONS</p>
     <h1>{name}，先感受一下<br /><em>你的生命底色</em></h1>
@@ -443,8 +603,7 @@ function RelationshipFirstLook({ name, onNext }: { name: string; onNext: () => v
   </section>;
 }
 
-function SeedGift({ name, onNext }: { name: string; onNext: () => void }) {
-  const [claimed, setClaimed] = useState(false);
+function SeedGift({ name, claimed = false, busy, onClaim, onNext }: { name: string; claimed?: boolean; busy: boolean; onClaim: () => void; onNext: () => void }) {
   return <section className={`seed-gift ${claimed ? "claimed" : ""}`}>
     <p className="eyebrow">A GIFT FOR YOUR JOURNEY</p>
     <h1>{claimed ? `${name}，种子已入袋` : `送给${name}的第一袋智慧种子`}</h1>
@@ -453,12 +612,13 @@ function SeedGift({ name, onNext }: { name: string; onNext: () => void }) {
     <div className="seed-value"><span>新手启程礼</span><strong>3 颗</strong><span>智慧种子</span></div>
     <div className="growth-path" aria-label="智慧种子的成长路径"><span className="active"><i>●</i>种下</span><b /><span><i>♧</i>发芽</span><b /><span><i>❧</i>枝叶</span><b /><span><i>✦</i>结果</span></div>
     <p className="seed-rule">智慧种子是身心游全域统一的价值凭证，可用于日签、问事、关系与成长报告。</p>
-    {!claimed ? <button className="primary" type="button" onClick={() => setClaimed(true)}>收下 3 颗智慧种子 <span>＋</span></button> : <button className="primary" type="button" onClick={onNext}>进入今日首页 <span>→</span></button>}
+    {!claimed ? <button className="primary" type="button" disabled={busy} onClick={onClaim}>{busy ? "领取中…" : "收下 3 颗智慧种子"} <span>＋</span></button> : <button className="primary" type="button" onClick={onNext}>进入今日首页 <span>→</span></button>}
   </section>;
 }
 
-function TodayHome({ name, onNext, navigate }: { name: string; onNext: () => void; navigate: (step: number) => void }) {
-  return <section className="today-home"><div className="life-growth" aria-hidden="true"><i className="living-seed" /><i className="living-stem" /><i className="living-leaf leaf-left" /><i className="living-leaf leaf-right" /><i className="living-leaf leaf-top" /><span className="growth-ring ring-one" /><span className="growth-ring ring-two" /></div><header><Brand compact /><div className="seed-balance"><i>●</i><span>智慧种子</span><strong>3</strong></div></header><p className="eyebrow">TODAY · 立秋</p><h1>{name}，早上好</h1><p className="home-note">今天不必急着证明什么，先让自己的节奏回来。</p><article className="daily-guide"><small>今日能量指引</small><div className="daily-sun"><span>中</span><small>今日能量</small></div><h2>把重要的事<br />放在心静之后</h2><p>用 1 颗智慧种子，生成属于你的完整今日指引。</p><button type="button" onClick={onNext}>开启今日指引 <span>1 ●</span></button></article><MainNav active="今日" navigate={navigate} /></section>;
+function TodayHome({ name, home, onNext, navigate }: { name: string; home: HomeOverview | null; onNext: () => void; navigate: (step: number) => void }) {
+  const ready = home?.dailyInsight.state === "READY";
+  return <section className="today-home"><div className="life-growth" aria-hidden="true"><i className="living-seed" /><i className="living-stem" /><i className="living-leaf leaf-left" /><i className="living-leaf leaf-right" /><i className="living-leaf leaf-top" /><span className="growth-ring ring-one" /><span className="growth-ring ring-two" /></div><header><Brand compact /><div className="seed-balance"><i>●</i><span>智慧种子</span><strong>{home?.wisdomSeedAccount.available ?? "—"}</strong></div></header><p className="eyebrow">TODAY · {home?.dailyInsight.localDate || new Date().toLocaleDateString("zh-CN")}</p><h1>{name}，你好</h1><p className="home-note">今天不必急着证明什么，先让自己的节奏回来。</p><article className="daily-guide"><small>今日能量指引</small><div className="daily-sun"><span>{ready ? "成" : "中"}</span><small>{ready ? "已生成" : "今日能量"}</small></div><h2>{ready ? "今天的专属指引已经准备好" : "把重要的事放在心静之后"}</h2><p>{ready ? "可以随时回来阅读，不会再次消耗智慧种子。" : "用 1 颗智慧种子，生成属于你的完整今日指引。"}</p><button type="button" onClick={onNext}>{ready ? "查看今日指引" : "开启今日指引"} <span>{ready ? "→" : "1 ●"}</span></button></article><MainNav active="今日" navigate={navigate} /></section>;
 }
 
 function DailyHeader({ onBack, balance = 3 }: { onBack: () => void; balance?: number }) {
@@ -469,16 +629,17 @@ function DailyStart({ name, onBack, onNext }: { name: string; onBack: () => void
   return <section className="daily-page daily-start"><DailyHeader onBack={onBack} /><div className="daily-seed-scene" aria-hidden="true"><i /><span>中</span><b>今日能量</b></div><p className="eyebrow">DAILY GUIDANCE</p><h1>{name}，今天的能量<br />正在邀请你慢下来</h1><p className="daily-lead">结合你的生命智慧档案与今日节律，为你整理一份只属于今天的行动指引。</p><div className="will-get"><small>你将获得</small><span><b>01</b>今日整体能量</span><span><b>02</b>事业与外部节奏</span><span><b>03</b>情绪与个人状态</span><span><b>04</b>一个可完成的小行动</span></div><div className="cost-preview"><span><i>●</i><small>本次需要</small></span><strong>1 颗智慧种子</strong></div><button className="primary" type="button" onClick={onNext}>继续开启 <span>→</span></button></section>;
 }
 
-function SeedPayment({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  return <section className="daily-page seed-payment"><DailyHeader onBack={onBack} /><p className="eyebrow">PLANT A SEED</p><h1>种下一颗智慧种子</h1><p className="daily-lead">每一次使用，都是为一次更清晰的看见投入能量。</p><div className="pay-seed" aria-hidden="true"><i /><span>●</span><small>智慧种子</small></div><div className="payment-card"><div><span>今日能量指引</span><strong>1 颗</strong></div><div><span>当前余额</span><strong>3 颗</strong></div><div className="after"><span>完成后余额</span><strong>2 颗</strong></div></div><p className="payment-note"><span className="lock" />确认后将立即生成，生成失败会自动退回。</p><button className="primary" type="button" onClick={onNext}>确认种下 1 颗智慧种子 <span>●</span></button><button className="text-action" type="button" onClick={onBack}>再想一想</button></section>;
+function SeedPayment({ balance, busy, onBack, onNext }: { balance: number; busy: boolean; onBack: () => void; onNext: () => void }) {
+  return <section className="daily-page seed-payment"><DailyHeader onBack={onBack} balance={balance} /><p className="eyebrow">PLANT A SEED</p><h1>种下一颗智慧种子</h1><p className="daily-lead">每一次使用，都是为一次更清晰的看见投入能量。</p><div className="pay-seed" aria-hidden="true"><i /><span>●</span><small>智慧种子</small></div><div className="payment-card"><div><span>今日能量指引</span><strong>1 颗</strong></div><div><span>当前余额</span><strong>{balance} 颗</strong></div><div className="after"><span>完成后余额</span><strong>{Math.max(0, balance - 1)} 颗</strong></div></div><p className="payment-note"><span className="lock" />确认后将立即生成，生成失败会自动退回。</p><button className="primary" type="button" disabled={busy || balance < 1} onClick={onNext}>{busy ? "正在提交…" : balance < 1 ? "智慧种子不足" : "确认种下 1 颗智慧种子"} <span>●</span></button><button className="text-action" type="button" onClick={onBack}>再想一想</button></section>;
 }
 
-function DailyGenerating({ name, onBack, onNext }: { name: string; onBack: () => void; onNext: () => void }) {
-  return <section className="daily-page daily-generating"><DailyHeader onBack={onBack} balance={2} /><div className="growing-report" aria-hidden="true"><div className="report-soil" /><i className="report-stem" /><i className="report-leaf a" /><i className="report-leaf b" /><span>●</span></div><p className="eyebrow">YOUR SEED IS GROWING</p><h1>{name}，你的今日指引<br />正在生长</h1><div className="generation-list"><span className="done">✓ 感受你的今日节律</span><span className="done">✓ 连接生命智慧档案</span><span className="active">· 整理事业与个人状态</span><span>· 长成今日行动建议</span></div><p className="quiet-wait">不用着急，给它一点生长的时间</p><button className="text-action" type="button" onClick={onNext}>原型中直接查看结果 →</button></section>;
+function DailyGenerating({ name, balance, onBack }: { name: string; balance: number; onBack: () => void }) {
+  return <section className="daily-page daily-generating"><DailyHeader onBack={onBack} balance={balance} /><div className="growing-report" aria-hidden="true"><div className="report-soil" /><i className="report-stem" /><i className="report-leaf a" /><i className="report-leaf b" /><span>●</span></div><p className="eyebrow">YOUR SEED IS GROWING</p><h1>{name}，你的今日指引<br />正在生长</h1><div className="generation-list"><span className="done">✓ 感受你的今日节律</span><span className="done">✓ 连接生命智慧档案</span><span className="active">· 整理事业与个人状态</span><span>· 长成今日行动建议</span></div><p className="quiet-wait">不用着急，生成完成后会自动打开</p></section>;
 }
 
-function DailyReport({ name, onBack, onNext }: { name: string; onBack: () => void; onNext: () => void }) {
-  return <section className="daily-page daily-report"><DailyHeader onBack={onBack} balance={2} /><div className="report-scroll"><p className="eyebrow">TODAY · 立秋</p><h1>{name}的今日能量指引</h1><div className="energy-header"><div><span>中</span><small>今日能量</small></div><p><small>今日关键词</small><strong>先稳住自己，再回应世界</strong></p></div><article className="report-opening"><b>今日总览</b><h2>把重要的事，放在心静之后</h2><p>今天的能量不是催你向前冲，而是提醒你先理清内心的次序。外界可能有一些声音拉扯注意力，但只要你不急着回应，就会重新看见真正重要的方向。</p></article><div className="report-columns"><article><small>事业 · 外部节奏</small><h3>先确认，再承诺</h3><p>适合梳理边界与优先级。面对临时需求，给自己一次确认时间，清晰会比速度更有力量。</p></article><article><small>情绪 · 个人状态</small><h3>允许感受经过</h3><p>今天可能对细节更加敏锐。无需立刻给情绪下结论，让它停留片刻，答案会自然浮现。</p></article></div><blockquote>“真正的稳定，不是没有波动，而是知道怎样回到自己。”</blockquote><button className="primary" type="button" onClick={onNext}>收下今天的行动 <span>→</span></button></div></section>;
+function DailyReport({ name, insight, balance, onBack, onNext }: { name: string; insight: DailyInsight | null; balance: number; onBack: () => void; onNext: () => void }) {
+  const content = insight?.content;
+  return <section className="daily-page daily-report"><DailyHeader onBack={onBack} balance={balance} /><div className="report-scroll"><p className="eyebrow">TODAY · {insight?.localDate || "今日"}</p><h1>{name}的今日能量指引</h1><div className="energy-header"><div><span>中</span><small>今日能量</small></div><p><small>今日关键词</small><strong>{content?.theme || "回到自己的节奏"}</strong></p></div><article className="report-opening"><b>今日总览</b><h2>{content?.theme || "把重要的事，放在心静之后"}</h2><p>{content?.insight || insight?.fallback?.message || "今天的指引已经生成。"}</p></article><div className="report-columns"><article><small>今日行动</small><h3>从一件小事开始</h3><p>{content?.action || "为自己留出一点安静的时间。"}</p></article><article><small>今日反思</small><h3>问问自己</h3><p>{content?.reflectionQuestion || "此刻对我真正重要的是什么？"}</p></article></div>{content?.notice && <blockquote>{content.notice}</blockquote>}<button className="primary" type="button" onClick={onNext}>收下今天的行动 <span>→</span></button></div></section>;
 }
 
 function DailyAction({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
@@ -645,9 +806,9 @@ function MyHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return <header className="my-header"><button className="back-button" type="button" onClick={onBack}>←</button><strong>{title}</strong><button type="button" className="header-more">•••</button></header>;
 }
 
-function MyHome({ name, open }: { name: string; open: (step: number) => void }) {
+function MyHome({ name, balance, open }: { name: string; balance: number; open: (step: number) => void }) {
   const items = [["每日指引记录", "查看已经生成的每日指引", 24, "册"], ["账号、隐私与设置", "安全、授权和数据管理", 27, "隐"], ["消息与帮助", "通知、客服和意见反馈", 28, "信"]] as const;
-  return <section className="my-page my-home"><header><Brand compact /><button className="my-message" type="button" onClick={() => open(28)}>信<i /></button></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "小满").slice(0,1)}</span></div><div><p>晚上好</p><h1>{name || "小满"}</h1><small>生命智慧档案已建立 · 共同成长第 1 天</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>我的主档案 · 已保存 5 位重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子</small><strong>2</strong></div><b>›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
+  return <section className="my-page my-home"><header><Brand compact /><button className="my-message" type="button" onClick={() => open(28)}>信<i /></button></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子</small><strong>{balance}</strong></div><b>›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
 }
 
 function MyProfile({ onBack }: { onBack: () => void }) {
@@ -655,11 +816,11 @@ function MyProfile({ onBack }: { onBack: () => void }) {
   return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>小</span><div><h1>小满的档案</h1><p>创建于 2026.08.06 · 当前版本 V1</p></div></div><div className="my-card-grid">{cards.map(([name,mark,tone]) => <article className={tone} key={name}><small>{name}</small><strong>{mark}</strong><i /></article>)}</div><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>1990.05.18</strong></p><p><span>出生时间</span><strong>08:30 · 准确到分钟</strong></p><p><span>出生地点</span><strong>杭州市 · 浙江省</strong></p></section><button className="outline-button" type="button">编辑出生资料</button><button className="text-action" type="button">查看版本与历史影响</button></section>;
 }
 
-function MySeeds({ onBack }: { onBack: () => void }) {
+function MySeeds({ account, transactions, onBack }: { account: WisdomSeedAccount | null; transactions: WisdomSeedTransaction[]; onBack: () => void }) {
   const [tab,setTab]=useState("最近记录");
-  const records=[{kind:"使用",icon:"芽",title:"今日能量指引",time:"今天 08:56 · 已完成",value:"-1"},{kind:"获得",icon:"礼",title:"新用户启程礼",time:"今天 08:42 · 已到账",value:"+3"},{kind:"获得",icon:"友",title:"好友参与关系邀请",time:"08月05日 · 已到账",value:"+1"}];
+  const records=transactions.map((item) => ({ kind: item.amount >= 0 ? "获得" : "使用", icon: item.businessType === "REGISTRATION_REWARD" ? "礼" : "芽", title: item.title || (item.businessType === "REGISTRATION_REWARD" ? "新用户启程礼" : "今日能量指引"), time: new Date(item.createdAt).toLocaleString("zh-CN"), value: `${item.amount > 0 ? "+" : ""}${item.amount}` }));
   const shown=tab==="最近记录"?records:records.filter(x=>x.kind===tab);
-  return <section className="my-page my-detail"><MyHeader title="我的智慧种子" onBack={onBack} /><div className="seed-wallet"><small>可用智慧种子</small><strong>2</strong><span>●</span><p>每一颗种子，都可以开启一次新的看见</p></div><div className="asset-tabs">{["最近记录","获得","使用"].map(x=><button key={x} className={tab===x?"active":""} onClick={()=>setTab(x)}>{x}</button>)}</div><div className="asset-list">{shown.map(x=><article key={x.title}><i>{x.icon}</i><span><strong>{x.title}</strong><small>{x.time}</small></span><b className={x.value.startsWith("+")?"plus":""}>{x.value}</b></article>)}</div>{shown.length===0&&<div className="prototype-empty">这一分类暂时没有记录</div>}<p className="asset-rule">R1.0 可查看智慧种子余额、获得记录与消费记录。</p></section>;
+  return <section className="my-page my-detail"><MyHeader title="我的智慧种子" onBack={onBack} /><div className="seed-wallet"><small>可用智慧种子</small><strong>{account?.available ?? "—"}</strong><span>●</span><p>每一颗种子，都可以开启一次新的看见</p></div><div className="asset-tabs">{["最近记录","获得","使用"].map(x=><button key={x} className={tab===x?"active":""} onClick={()=>setTab(x)}>{x}</button>)}</div><div className="asset-list">{shown.map(x=><article key={`${x.title}-${x.time}`}><i>{x.icon}</i><span><strong>{x.title}</strong><small>{x.time}</small></span><b className={x.value.startsWith("+")?"plus":""}>{x.value}</b></article>)}</div>{shown.length===0&&<div className="prototype-empty">这一分类暂时没有记录</div>}<p className="asset-rule">余额与流水来自当前后端账户。</p></section>;
 }
 
 function MyReports({ onBack,onDaily }: { onBack: () => void;onDaily:()=>void }) {
