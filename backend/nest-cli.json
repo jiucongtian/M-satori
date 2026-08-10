@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "monorepo": true,
+  "sourceRoot": "apps/api/src",
+  "compilerOptions": { "deleteOutDir": true }
+}

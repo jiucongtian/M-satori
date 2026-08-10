@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    pull_policy: never
+    environment:
+      POSTGRES_DB: satori
+      POSTGRES_USER: satori
+      POSTGRES_PASSWORD: satori
+      TZ: UTC
+    ports:
+      - '5432:5432'
+    volumes:
+      - satori-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U satori -d satori']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    pull_policy: never
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - satori-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  satori-postgres:
+  satori-redis:

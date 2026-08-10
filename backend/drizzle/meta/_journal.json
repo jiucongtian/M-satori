@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786345473383,
+      "tag": "0000_flat_major_mapleleaf",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786346272273,
+      "tag": "0001_safe_overlord",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786347068297,
+      "tag": "0002_fresh_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786348387085,
+      "tag": "0003_jazzy_betty_ross",
+      "breakpoints": true
+    }
+  ]
+}

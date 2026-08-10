@@ -1,0 +1,86 @@
+import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
+import { GENERATION_QUEUE, queueExecutionPolicy, RuntimeInfrastructure } from '@satori/infrastructure';
+import { Worker, type Job } from 'bullmq';
+import { GenerationTaskRunner } from './generation-task.runner.js';
+import { GenerationTaskService } from './generation-task.service.js';
+
+@Injectable()
+export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown {
+  private worker?: Worker;
+  private recoveryTimer?: NodeJS.Timeout;
+
+  constructor(
+    private readonly infrastructure: RuntimeInfrastructure,
+    private readonly tasks: GenerationTaskService,
+    private readonly runner: GenerationTaskRunner,
+  ) {}
+
+  onModuleInit() {
+    const policy = queueExecutionPolicy(this.infrastructure.environment);
+    this.worker = new Worker<{ taskId: string }>(
+      GENERATION_QUEUE,
+      (job) => this.process(job, policy.jobTimeoutMs),
+      {
+        connection: this.infrastructure.redis,
+        prefix: this.infrastructure.environment.QUEUE_PREFIX,
+        concurrency: policy.concurrency,
+      },
+    );
+    this.worker.on('failed', (job, error) => void this.onFailed(job, error));
+    this.recoveryTimer = setInterval(
+      () => void this.tasks.recoverStaleTasks(),
+      Math.max(5_000, policy.jobTimeoutMs / 2),
+    );
+    this.recoveryTimer.unref();
+    void this.tasks.recoverStaleTasks();
+  }
+
+  async onApplicationShutdown() {
+    if (this.recoveryTimer) clearInterval(this.recoveryTimer);
+    await this.worker?.close();
+  }
+
+  private async process(job: Job<{ taskId: string }>, timeoutMs: number) {
+    const task = await this.tasks.claim(job.data.taskId);
+    if (!task) return;
+    const heartbeat = setInterval(() => void this.tasks.heartbeat(task.id), Math.max(1_000, timeoutMs / 3));
+    heartbeat.unref();
+    try {
+      await Promise.race([
+        this.runner.run(task),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                Object.assign(new Error('Generation timed out'), {
+                  code: 'GENERATION_TIMEOUT',
+                  retryable: true,
+                }),
+              ),
+            timeoutMs,
+          ),
+        ),
+      ]);
+      await this.tasks.succeed(task.id);
+    } finally {
+      clearInterval(heartbeat);
+    }
+  }
+
+  private async onFailed(job: Job<{ taskId: string }> | undefined, error: Error) {
+    if (!job) return;
+    const attempts = Number(job.opts.attempts ?? 1);
+    const terminal = job.attemptsMade >= attempts;
+    const failed = await this.tasks.failAttempt(
+      job.data.taskId,
+      {
+        code: String((error as Error & { code?: string }).code ?? 'GENERATION_TEMPORARILY_FAILED'),
+        message: error.message,
+        retryable: (error as Error & { retryable?: boolean }).retryable !== false,
+      },
+      terminal,
+    );
+    if (terminal && failed)
+      await this.runner.finalFailure(failed.target.type, failed.taskId, failed.target.id);
+  }
+}
