@@ -1,6 +1,7 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import {
+  dailyInsights,
   generationTasks,
   newId,
   outbox,
@@ -395,6 +396,9 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
   });
 
   it('creates today once, publishes validated content and consumes one seed at most once', async () => {
+    const alternateChallenge = await createChallenge('daily-device-challenge', 'daily-device-secondary');
+    const alternateSession = await createSession(alternateChallenge, '123456', 'daily-device-session');
+    const alternateToken = alternateSession.json<{ data: { accessToken: string } }>().data.accessToken;
     const [first, concurrent] = await Promise.all([
       app.inject({
         method: 'POST',
@@ -405,7 +409,11 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       app.inject({
         method: 'POST',
         url: '/api/v1/daily-insights/today',
-        headers: authHeaders('daily-today-create-02'),
+        headers: {
+          authorization: `Bearer ${alternateToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'daily-today-create-02',
+        },
         payload: {},
       }),
     ]);
@@ -433,10 +441,17 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       payload: {},
     });
     expect(replay.statusCode).toBe(200);
-    expect(
-      replay.json<{ data: { dailyInsight: { status: string; content: { notice: string } }; task: null } }>()
-        .data,
-    ).toMatchObject({
+    const readyData = replay.json<{
+      data: {
+        dailyInsight: {
+          status: string;
+          profileRevisionId: string;
+          content: { notice: string; theme: string };
+        };
+        task: null;
+      };
+    }>().data;
+    expect(readyData).toMatchObject({
       dailyInsight: { status: 'READY', content: { notice: '内容用于自我观察与成长参考。' } },
       task: null,
     });
@@ -464,6 +479,107 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     );
     const account = await app.get(SeedLedgerService).getAccount(decodeJwtSubject(accessToken));
     expect(account).toMatchObject({ available: 2, reserved: 0, totalSpent: 1 });
+
+    const infrastructure = app.get(RuntimeInfrastructure);
+    const firstHistoricalDate = shiftLocalDate(firstData.dailyInsight.localDate, -2);
+    await infrastructure.database
+      .update(dailyInsights)
+      .set({ localDate: firstHistoricalDate })
+      .where(eq(dailyInsights.id, firstData.dailyInsight.dailyInsightId));
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/api/v1/daily-insights/today',
+      headers: authHeaders('daily-today-second-day'),
+      payload: {},
+    });
+    expect(second.statusCode).toBe(202);
+    const secondData = second.json<{
+      data: {
+        dailyInsight: { dailyInsightId: string; localDate: string; content: null };
+        task: { taskId: string };
+      };
+    }>().data;
+    expect(secondData.dailyInsight.content).toBeNull();
+    await tasks.claim(secondData.task.taskId);
+    await daily.generate(secondData.task.taskId, secondData.dailyInsight.dailyInsightId);
+    await tasks.succeed(secondData.task.taskId);
+    await infrastructure.database
+      .update(dailyInsights)
+      .set({ localDate: shiftLocalDate(firstData.dailyInsight.localDate, -1) })
+      .where(eq(dailyInsights.id, secondData.dailyInsight.dailyInsightId));
+
+    const third = await app.inject({
+      method: 'POST',
+      url: '/api/v1/daily-insights/today',
+      headers: authHeaders('daily-today-third-day'),
+      payload: {},
+    });
+    expect(third.statusCode).toBe(202);
+    const thirdData = third.json<{
+      data: { dailyInsight: { dailyInsightId: string; localDate: string }; task: { taskId: string } };
+    }>().data;
+    await tasks.claim(thirdData.task.taskId);
+    await daily.generate(thirdData.task.taskId, thirdData.dailyInsight.dailyInsightId);
+    await tasks.succeed(thirdData.task.taskId);
+
+    const entriesBeforeReplay = await infrastructure.database.select().from(seedEntries);
+    const dailyConsumesBefore = entriesBeforeReplay.filter(
+      (entry) => entry.type === 'CONSUME' && entry.resourceId !== null,
+    ).length;
+    await daily.generate(thirdData.task.taskId, thirdData.dailyInsight.dailyInsightId);
+    await tasks.succeed(thirdData.task.taskId);
+    const entriesAfterReplay = await infrastructure.database.select().from(seedEntries);
+    expect(
+      entriesAfterReplay.filter((entry) => entry.type === 'CONSUME' && entry.resourceId !== null),
+    ).toHaveLength(dailyConsumesBefore);
+
+    await infrastructure.database
+      .update(dailyInsights)
+      .set({ localDate: shiftLocalDate(firstData.dailyInsight.localDate, -3) })
+      .where(eq(dailyInsights.id, thirdData.dailyInsight.dailyInsightId));
+    const beforeInsufficient = {
+      insights: (await infrastructure.database.select().from(dailyInsights)).length,
+      tasks: (await infrastructure.database.select().from(generationTasks)).length,
+      entries: (await infrastructure.database.select().from(seedEntries)).length,
+    };
+    const insufficient = await app.inject({
+      method: 'POST',
+      url: '/api/v1/daily-insights/today',
+      headers: authHeaders('daily-today-insufficient'),
+      payload: {},
+    });
+    expect(insufficient.statusCode).toBe(409);
+    expect(insufficient.json<{ error: { code: string } }>().error.code).toBe('INSUFFICIENT_WISDOM_SEEDS');
+    expect({
+      insights: (await infrastructure.database.select().from(dailyInsights)).length,
+      tasks: (await infrastructure.database.select().from(generationTasks)).length,
+      entries: (await infrastructure.database.select().from(seedEntries)).length,
+    }).toEqual(beforeInsufficient);
+    await infrastructure.database
+      .update(dailyInsights)
+      .set({ localDate: firstData.dailyInsight.localDate })
+      .where(eq(dailyInsights.id, thirdData.dailyInsight.dailyInsightId));
+
+    const historical = await app.inject({
+      method: 'GET',
+      url: `/api/v1/daily-insights/${firstHistoricalDate}`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(historical.statusCode).toBe(200);
+    expect(
+      historical.json<{
+        data: { profileRevisionId: string; content: { theme: string } };
+      }>().data,
+    ).toMatchObject({
+      profileRevisionId: readyData.dailyInsight.profileRevisionId,
+      content: { theme: readyData.dailyInsight.content.theme },
+    });
+    expect(await app.get(SeedLedgerService).getAccount(decodeJwtSubject(accessToken))).toMatchObject({
+      available: 0,
+      reserved: 0,
+      totalSpent: 3,
+    });
   });
 
   it('returns an existing user directly to the persisted home state', async () => {
@@ -703,6 +819,12 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const payload = token.split('.')[1];
     if (!payload) throw new Error('Invalid JWT');
     return (JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { sub: string }).sub;
+  }
+
+  function shiftLocalDate(localDate: string, days: number): string {
+    const date = new Date(`${localDate}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
   }
 
   function profilePayload(date: { year: number; month: number; day: number; isLeapMonth: boolean }) {

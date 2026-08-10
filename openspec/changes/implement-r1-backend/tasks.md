@@ -86,7 +86,7 @@
 - [x] 8.7 实现 `GET /api/v1/daily-insights/{localDate}` 的查询-only 状态/正文/task/fallback/SeedSettlement
 - [x] 8.8 实现游标分页 `GET /api/v1/daily-insights` 历史列表和配置化可见天数
 - [x] 8.9 实现 `GET /api/v1/me/home-overview` 的档案/cards、赠礼、种子余额、今日状态和 nextAction 聚合
-- [ ] 8.10 添加本地跨日、多设备并发、重复 today、余额不足、半成品不可见、任务重放、最多核销一次和历史稳定性测试
+- [x] 8.10 添加本地跨日、多设备并发、重复 today、余额不足、半成品不可见、任务重放、最多核销一次和历史稳定性测试
 
 ## 9. 生命智慧档案库与分组
 
