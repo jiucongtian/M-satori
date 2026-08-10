@@ -108,13 +108,13 @@
 
 ## 11. 联调、质量与发布门禁
 
-- [ ] 11.1 为交接矩阵每一行建立自动契约测试和状态报告，将已完成接口推进到 INTEGRATED/VERIFIED
-- [ ] 11.2 完成注册、consent、档案 preview/confirm、四张卡、赠种、每日指引和次日回访首页 E2E 及主要异常路径
-- [ ] 11.3 完成本人/他人档案库与分组 E2E，并验证所有私有资源 owner 隔离
-- [ ] 11.4 执行核心模块不低于 80% 覆盖率门禁及 OpenAPI/SSE/生成 Schema/Aqua Stub 契约测试
-- [ ] 11.5 执行账号枚举、验证码滥用、Cookie/CORS、越权、幂等重放、敏感日志、删除传播和账务并发安全测试
+- [x] 11.1 为交接矩阵每一行建立自动契约测试和状态报告，将已完成接口推进到 INTEGRATED/VERIFIED
+- [x] 11.2 完成注册、consent、档案 preview/confirm、四张卡、赠种、每日指引和次日回访首页 E2E 及主要异常路径
+- [x] 11.3 完成本人/他人档案库与分组 E2E，并验证所有私有资源 owner 隔离
+- [x] 11.4 执行核心模块不低于 80% 覆盖率门禁及 OpenAPI/SSE/生成 Schema/Aqua Stub 契约测试
+- [x] 11.5 执行账号枚举、验证码滥用、Cookie/CORS、越权、幂等重放、敏感日志、删除传播和账务并发安全测试
 - [ ] 11.6 执行认证/首页 P95、BullMQ 积压、SSE 连接和并发种子结算压测，冻结 R1.0 SLO/告警
-- [ ] 11.7 编写数据库/Redis恢复、Outbox补投、死信、SSE降级、供应商故障、账务对账、密钥轮换和事故 Runbook
+- [x] 11.7 编写数据库/Redis恢复、Outbox补投、死信、SSE降级、供应商故障、账务对账、密钥轮换和事故 Runbook
 - [ ] 11.8 在 Staging 执行迁移/备份恢复，验证 consent、Session 撤销、删除和账务事实不会被复活或改写
 - [ ] 11.9 向前端交付 Base URL、CORS/Cookie/HTTPS、测试账号/验证码、种子测试数据、成功/失败/超时触发方式和接口负责人
 - [ ] 11.10 用 Feature Flag 逐能力关闭 Mock，完成联调、灰度、API/Worker独立回滚和 R1.0 Go/No-Go 验收

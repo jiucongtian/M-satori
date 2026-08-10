@@ -33,6 +33,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
   let app: NestFastifyApplication;
   let accessToken: string;
   let secondaryAccessToken: string;
+  let refreshCookie: string;
   const suffix = String(randomInt(10_000_000, 99_999_999));
   const phone = `138${suffix}`;
 
@@ -78,6 +79,8 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(firstBody.user.userId).toBe(secondBody.user.userId);
     expect([firstBody.isNewUser, secondBody.isNewUser].filter(Boolean)).toHaveLength(1);
     accessToken = secondBody.accessToken;
+    const secondCookie = second.headers['set-cookie'];
+    refreshCookie = (Array.isArray(secondCookie) ? secondCookie[0] : secondCookie)?.split(';')[0] ?? '';
 
     const cookie = first.headers['set-cookie'];
     expect(cookie).toContain('HttpOnly');
@@ -1103,6 +1106,15 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       payload: { smsChallengeId: duplicateChallenge, verificationCode: '123456', reason: 'OTHER' },
     });
     expect(duplicate.json<{ data: { requestId: string } }>().data.requestId).toBe(requestData.requestId);
+    const refreshedPending = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/sessions/refresh',
+      headers: { cookie: refreshCookie },
+    });
+    expect(refreshedPending.statusCode).toBe(200);
+    accessToken = refreshedPending.json<{ data: { accessToken: string } }>().data.accessToken;
+    const rotatedCookie = refreshedPending.headers['set-cookie'];
+    refreshCookie = (Array.isArray(rotatedCookie) ? rotatedCookie[0] : rotatedCookie)?.split(';')[0] ?? '';
     const current = await app.inject({
       method: 'GET',
       url: '/api/v1/me/account-deletion-request',

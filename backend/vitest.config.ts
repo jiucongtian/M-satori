@@ -16,6 +16,9 @@ export default defineConfig({
     alias,
   },
   test: {
+    coverage: {
+      thresholds: { statements: 80, lines: 80 },
+    },
     projects: [
       defineProject({ ...base, test: { ...base.test, name: 'unit', include: ['packages/**/*.spec.ts'] } }),
       defineProject({

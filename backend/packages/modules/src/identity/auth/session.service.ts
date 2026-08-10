@@ -43,7 +43,7 @@ export interface SessionResponse {
   isNewUser: boolean;
   user: {
     userId: string;
-    status: 'ACTIVE';
+    status: 'ACTIVE' | 'DELETION_PENDING';
     phoneMasked: string;
     requiresConsent: boolean;
     createdAt: string;
@@ -152,7 +152,9 @@ export class SessionService {
       }
       if (current.expiresAt <= new Date()) return { error: 'REFRESH_TOKEN_INVALID' as const };
       const [user] = await tx.select().from(users).where(eq(users.id, current.userId)).limit(1);
-      if (!user || user.status !== 'ACTIVE') return { error: 'SESSION_REVOKED' as const };
+      if (!user || !['ACTIVE', 'DELETION_PENDING'].includes(user.status)) {
+        return { error: 'SESSION_REVOKED' as const };
+      }
       const nextSessionId = newId();
       const nextRefreshToken = this.crypto.deriveRefreshToken(nextSessionId);
       await tx.insert(sessions).values({
@@ -167,7 +169,12 @@ export class SessionService {
         .update(sessions)
         .set({ revokedAt: new Date(), replacedBySessionId: nextSessionId })
         .where(eq(sessions.id, current.id));
-      return { sessionId: nextSessionId, userId: current.userId, userCreatedAt: user.createdAt };
+      return {
+        sessionId: nextSessionId,
+        userId: current.userId,
+        userCreatedAt: user.createdAt,
+        userStatus: user.status as 'ACTIVE' | 'DELETION_PENDING',
+      };
     });
     if ('error' in outcome) {
       throw new UnauthorizedException({ code: outcome.error, message: 'Refresh session failed' });
@@ -182,7 +189,7 @@ export class SessionService {
         isNewUser: false,
         user: {
           userId: outcome.userId,
-          status: 'ACTIVE',
+          status: outcome.userStatus,
           phoneMasked: '',
           requiresConsent: false,
           createdAt: outcome.userCreatedAt.toISOString(),
