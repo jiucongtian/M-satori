@@ -1,51 +1,12 @@
-export interface WisdomSeedAccount {
-  accountId: string;
-  available: number;
-  reserved: number;
-  totalEarned: number;
-  totalSpent: number;
-  updatedAt: string;
-}
+/**
+ * Compatibility aliases for the original R1 frontend prototypes.
+ * The source of truth is generated.ts, generated from backend/openapi/openapi.yaml.
+ */
+import type { components } from "./generated";
 
-export type WisdomSeedTransactionType =
-  | "GRANT"
-  | "RESERVE"
-  | "CONSUME"
-  | "RELEASE"
-  | "REFUND"
-  | "ADJUSTMENT";
-
-export interface WisdomSeedTransaction {
-  transactionId: string;
-  type: WisdomSeedTransactionType;
-  amount: number;
-  balanceAfter: number;
-  title: string;
-  relatedResource?: { type: string; id: string };
-  createdAt: string;
-}
-
-export interface RegistrationReward {
-  rewardId: string;
-  status: "AVAILABLE" | "CLAIMED" | "EXPIRED";
-  wisdomSeedAmount: number;
-  claimedAt: string | null;
-}
-
-export interface LifeProfileListItem {
-  profileId: string;
-  subjectType: "SELF" | "OTHER";
-  displayName: string;
-  relationshipType: "SELF" | "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER";
-  groupId: string | null;
-  currentRevisionId: string;
-  updatedAt: string;
-}
-
-export interface SeedSettlement {
-  currency: "WISDOM_SEED";
-  amount: number;
-  status: "RESERVED" | "CONSUMED" | "RELEASED" | "REFUNDED";
-  transactionId: string;
-}
-
+export type WisdomSeedAccount = components["schemas"]["WisdomSeedAccount"];
+export type WisdomSeedTransaction = components["schemas"]["WisdomSeedTransaction"];
+export type WisdomSeedTransactionType = WisdomSeedTransaction["type"];
+export type RegistrationReward = components["schemas"]["RegistrationReward"];
+export type LifeProfileListItem = components["schemas"]["LifeProfile"];
+export type SeedSettlement = components["schemas"]["SeedSettlement"];

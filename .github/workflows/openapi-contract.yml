@@ -1,0 +1,40 @@
+name: OpenAPI contract
+
+on:
+  pull_request:
+    paths:
+      - "backend/openapi/**"
+      - "frontend/src/api/contracts/generated.ts"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - ".github/workflows/openapi-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run api:check
+        working-directory: frontend
+
+  breaking-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: git fetch --depth=1 origin ${{ github.base_ref }}
+      - uses: oasdiff/oasdiff-action/breaking@v0
+        with:
+          base: "origin/${{ github.base_ref }}:backend/openapi/openapi.yaml"
+          revision: "HEAD:backend/openapi/openapi.yaml"
+          fail-on: WARN
+          review: false

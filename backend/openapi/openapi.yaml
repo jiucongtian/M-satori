@@ -1,0 +1,495 @@
+openapi: 3.1.0
+info:
+  title: Satori R1.0 API
+  version: 1.0.0
+  description: R1.0 H5 contract frozen by ADR-0001 and ADR-0002.
+servers:
+  - url: https://api.staging.satori.example.com/api/v1
+    description: Staging placeholder; replace at deployment.
+  - url: http://localhost:3000/api/v1
+    description: Local API
+tags:
+  - name: Foundation
+  - name: Auth
+  - name: Me
+  - name: Profile
+  - name: ProfileLibrary
+  - name: WisdomSeed
+  - name: Generation
+  - name: DailyInsight
+paths:
+  /app/bootstrap:
+    get:
+      tags: [Foundation]
+      operationId: getBootstrap
+      security: []
+      responses:
+        '200': {description: Bootstrap configuration, content: {application/json: {schema: {$ref: '#/components/schemas/BootstrapEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /legal-documents/{documentId}:
+    get:
+      tags: [Foundation]
+      operationId: getLegalDocument
+      security: []
+      parameters:
+        - {name: documentId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Published legal document, content: {application/json: {schema: {$ref: '#/components/schemas/LegalDocumentEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/sms-challenges:
+    post:
+      tags: [Auth]
+      operationId: createSmsChallenge
+      security: []
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CreateSmsChallengeRequest'}}}
+      responses:
+        '202': {description: Challenge accepted, headers: {Retry-After: {schema: {type: integer}}}, content: {application/json: {schema: {$ref: '#/components/schemas/SmsChallengeEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/sessions:
+    post:
+      tags: [Auth]
+      operationId: createSession
+      security: []
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateSessionRequest'}}}}
+      responses:
+        '201':
+          description: Session created; refresh token is only set as a secure cookie.
+          headers: {Set-Cookie: {schema: {type: string}, description: satori_refresh HttpOnly; Secure; SameSite=Lax}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/SessionEnvelope'}}}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/sessions/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshSession
+      security: [{refreshCookie: []}]
+      responses:
+        '200':
+          description: Access token refreshed and refresh cookie rotated.
+          headers: {Set-Cookie: {schema: {type: string}}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/RefreshSessionEnvelope'}}}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/sessions/current:
+    delete:
+      tags: [Auth]
+      operationId: deleteCurrentSession
+      responses:
+        '204': {description: Session revoked and refresh cookie cleared}
+        default: {$ref: '#/components/responses/Error'}
+  /me:
+    get:
+      tags: [Me]
+      operationId: getMe
+      responses:
+        '200': {description: Current user routing state, content: {application/json: {schema: {$ref: '#/components/schemas/MeEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/preferences:
+    patch:
+      tags: [Me]
+      operationId: patchPreferences
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PatchPreferencesRequest'}}}}
+      responses:
+        '200': {description: Updated preferences, content: {application/json: {schema: {$ref: '#/components/schemas/PreferencesEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/consents:
+    post:
+      tags: [Me]
+      operationId: acceptConsents
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AcceptConsentsRequest'}}}}
+      responses:
+        '201': {description: Consent records created, content: {application/json: {schema: {$ref: '#/components/schemas/ConsentEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/home-overview:
+    get:
+      tags: [Me]
+      operationId: getHomeOverview
+      responses:
+        '200': {description: Stable R1.0 home projection, content: {application/json: {schema: {$ref: '#/components/schemas/HomeOverviewEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /locations:
+    get:
+      tags: [Foundation]
+      operationId: searchLocations
+      parameters:
+        - {name: query, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 80}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 20, default: 10}}
+      responses:
+        '200': {description: Standard locations, content: {application/json: {schema: {$ref: '#/components/schemas/LocationListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profile:
+    get:
+      tags: [Profile]
+      operationId: getSelfProfile
+      responses:
+        '200': {description: Current self profile, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profile/revisions:
+    get:
+      tags: [Profile]
+      operationId: listSelfProfileRevisions
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Revision history, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileRevisionListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profile/revisions/preview:
+    post:
+      tags: [Profile]
+      operationId: previewSelfProfileRevision
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ProfilePreviewRequest'}}}}
+      responses:
+        '201': {description: Calculated preview revision, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileRevisionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profile/revisions/{revisionId}:
+    get:
+      tags: [Profile]
+      operationId: getSelfProfileRevision
+      parameters: [{$ref: '#/components/parameters/RevisionId'}]
+      responses:
+        '200': {description: Profile revision, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileRevisionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profile/revisions/{revisionId}/confirm:
+    post:
+      tags: [Profile]
+      operationId: confirmSelfProfileRevision
+      parameters: [{$ref: '#/components/parameters/RevisionId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmProfileRevisionRequest'}}}}
+      responses:
+        '200': {description: Revision activated, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileConfirmationEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/registration-reward:
+    get:
+      tags: [WisdomSeed]
+      operationId: getRegistrationReward
+      responses:
+        '200': {description: Registration reward eligibility and status, content: {application/json: {schema: {$ref: '#/components/schemas/RegistrationRewardEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/registration-reward/claim:
+    post:
+      tags: [WisdomSeed]
+      operationId: claimRegistrationReward
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false}}}}
+      responses:
+        '200': {description: Reward claimed or original claim replayed, content: {application/json: {schema: {$ref: '#/components/schemas/RegistrationRewardClaimEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/wisdom-seed-account:
+    get:
+      tags: [WisdomSeed]
+      operationId: getWisdomSeedAccount
+      responses:
+        '200': {description: Wisdom seed account, content: {application/json: {schema: {$ref: '#/components/schemas/WisdomSeedAccountEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/wisdom-seed-transactions:
+    get:
+      tags: [WisdomSeed]
+      operationId: listWisdomSeedTransactions
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Wisdom seed ledger, content: {application/json: {schema: {$ref: '#/components/schemas/WisdomSeedTransactionListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /generation-tasks/{taskId}:
+    get:
+      tags: [Generation]
+      operationId: getGenerationTask
+      parameters: [{$ref: '#/components/parameters/TaskId'}]
+      responses:
+        '200': {description: Persistent task state, content: {application/json: {schema: {$ref: '#/components/schemas/GenerationTaskEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /generation-tasks/{taskId}/retry:
+    post:
+      tags: [Generation]
+      operationId: retryGenerationTask
+      parameters: [{$ref: '#/components/parameters/TaskId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false}}}}
+      responses:
+        '202': {description: Retry accepted, content: {application/json: {schema: {$ref: '#/components/schemas/GenerationTaskEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /generation-tasks/{taskId}/events:
+    get:
+      tags: [Generation]
+      operationId: streamGenerationTaskEvents
+      parameters:
+        - {$ref: '#/components/parameters/TaskId'}
+        - {name: Last-Event-ID, in: header, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: SSE snapshot, stage, retry, ready, failed and heartbeat events
+          content: {text/event-stream: {schema: {type: string}}}
+        default: {$ref: '#/components/responses/Error'}
+  /daily-insights/today:
+    post:
+      tags: [DailyInsight]
+      operationId: createOrGetTodayDailyInsight
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false}}}}
+      responses:
+        '200': {description: Existing ready insight, content: {application/json: {schema: {$ref: '#/components/schemas/DailyInsightCommandEnvelope'}}}}
+        '202': {description: Generation accepted, content: {application/json: {schema: {$ref: '#/components/schemas/DailyInsightCommandEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /daily-insights:
+    get:
+      tags: [DailyInsight]
+      operationId: listDailyInsights
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Daily insight history, content: {application/json: {schema: {$ref: '#/components/schemas/DailyInsightListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /daily-insights/{localDate}:
+    get:
+      tags: [DailyInsight]
+      operationId: getDailyInsightByLocalDate
+      parameters:
+        - {name: localDate, in: path, required: true, schema: {type: string, format: date}}
+      responses:
+        '200': {description: Insight for local date, content: {application/json: {schema: {$ref: '#/components/schemas/DailyInsightEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profiles:
+    get:
+      tags: [ProfileLibrary]
+      operationId: listLifeProfiles
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Profile library, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      tags: [ProfileLibrary]
+      operationId: createOtherLifeProfile
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateLifeProfileRequest'}}}}
+      responses:
+        '201': {description: OTHER profile created, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profiles/{profileId}:
+    get:
+      tags: [ProfileLibrary]
+      operationId: getLifeProfile
+      parameters: [{$ref: '#/components/parameters/ProfileId'}]
+      responses:
+        '200': {description: Profile detail, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [ProfileLibrary]
+      operationId: patchLifeProfile
+      parameters: [{$ref: '#/components/parameters/ProfileId'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PatchLifeProfileRequest'}}}}
+      responses:
+        '200': {description: Profile metadata updated, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [ProfileLibrary]
+      operationId: deleteLifeProfile
+      parameters: [{$ref: '#/components/parameters/ProfileId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '202': {description: Deletion accepted, content: {application/json: {schema: {$ref: '#/components/schemas/DeletionAcceptedEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profiles/{profileId}/revisions:
+    get:
+      tags: [ProfileLibrary]
+      operationId: listLifeProfileRevisions
+      parameters: [{$ref: '#/components/parameters/ProfileId'}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Profile revisions, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileRevisionListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profiles/{profileId}/revisions/preview:
+    post:
+      tags: [ProfileLibrary]
+      operationId: previewLifeProfileRevision
+      parameters: [{$ref: '#/components/parameters/ProfileId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ProfilePreviewRequest'}}}}
+      responses:
+        '201': {description: Calculated preview, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileRevisionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profiles/{profileId}/revisions/{revisionId}/confirm:
+    post:
+      tags: [ProfileLibrary]
+      operationId: confirmLifeProfileRevision
+      parameters: [{$ref: '#/components/parameters/ProfileId'}, {$ref: '#/components/parameters/RevisionId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmProfileRevisionRequest'}}}}
+      responses:
+        '200': {description: Revision activated, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileRevisionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profile-groups:
+    get:
+      tags: [ProfileLibrary]
+      operationId: listLifeProfileGroups
+      responses:
+        '200': {description: Ordered groups, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileGroupListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      tags: [ProfileLibrary]
+      operationId: createLifeProfileGroup
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UpsertProfileGroupRequest'}}}}
+      responses:
+        '201': {description: Group created, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileGroupEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/life-profile-groups/{groupId}:
+    patch:
+      tags: [ProfileLibrary]
+      operationId: patchLifeProfileGroup
+      parameters:
+        - {name: groupId, in: path, required: true, schema: {type: string}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UpsertProfileGroupRequest'}}}}
+      responses:
+        '200': {description: Group updated, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileGroupEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [ProfileLibrary]
+      operationId: deleteLifeProfileGroup
+      parameters:
+        - {name: groupId, in: path, required: true, schema: {type: string}}
+      responses:
+        '204': {description: Group deleted; profiles retained and ungrouped}
+        default: {$ref: '#/components/responses/Error'}
+  /feedback:
+    post:
+      tags: [Me]
+      operationId: createFeedback
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateFeedbackRequest'}}}}
+      responses:
+        '201': {description: Feedback created, content: {application/json: {schema: {$ref: '#/components/schemas/FeedbackEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/account-deletion-requests:
+    post:
+      tags: [Me]
+      operationId: createAccountDeletionRequest
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateAccountDeletionRequest'}}}}
+      responses:
+        '202': {description: Deletion accepted, content: {application/json: {schema: {$ref: '#/components/schemas/AccountDeletionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/account-deletion-request:
+    get:
+      tags: [Me]
+      operationId: getAccountDeletionRequest
+      responses:
+        '200': {description: Current deletion request, content: {application/json: {schema: {$ref: '#/components/schemas/AccountDeletionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Me]
+      operationId: cancelAccountDeletionRequest
+      responses:
+        '204': {description: Deletion request cancelled}
+        default: {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+    refreshCookie: {type: apiKey, in: cookie, name: satori_refresh}
+  parameters:
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+    Cursor: {name: cursor, in: query, required: false, schema: {type: string}}
+    Limit: {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+    ProfileId: {name: profileId, in: path, required: true, schema: {type: string}}
+    RevisionId: {name: revisionId, in: path, required: true, schema: {type: string}}
+    TaskId: {name: taskId, in: path, required: true, schema: {type: string}}
+  responses:
+    Error:
+      description: API v1 error
+      headers: {X-Request-Id: {schema: {type: string}}}
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties: {code: {type: string}, message: {type: string}, requestId: {type: string}, details: {type: [object, 'null'], additionalProperties: true}}
+    PageMeta: {type: object, required: [nextCursor, hasMore], properties: {nextCursor: {type: [string, 'null']}, hasMore: {type: boolean}}}
+    Preferences: {type: object, required: [timezone, locale], properties: {timezone: {type: string, examples: [Asia/Shanghai]}, timezoneSource: {type: string}, locale: {type: string, examples: [zh-CN]}, updatedAt: {type: string, format: date-time}}}
+    PatchPreferencesRequest: {type: object, additionalProperties: false, properties: {timezone: {type: string}, locale: {type: string}}, minProperties: 1}
+    PreferencesEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Preferences'}}}
+    LegalDocumentSummary: {type: object, required: [documentId, type, version, title, required], properties: {documentId: {type: string}, type: {type: string, enum: [PRIVACY_POLICY, TERMS_OF_SERVICE, AI_CONTENT_NOTICE]}, version: {type: string}, title: {type: string}, required: {type: boolean}, publishedAt: {type: string, format: date-time}}}
+    BootstrapEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [serverTime, apiVersion, configVersion, maintenance, clientPolicy, features, requiredLegalDocuments]
+          properties:
+            serverTime: {type: string, format: date-time}
+            apiVersion: {const: v1}
+            configVersion: {type: string}
+            maintenance: {type: object, required: [enabled, message], properties: {enabled: {type: boolean}, message: {type: [string, 'null']}}}
+            clientPolicy: {type: object, properties: {minimumSupportedVersion: {type: string}, latestVersion: {type: string}, forceRefresh: {type: boolean}}}
+            features: {type: object, additionalProperties: {type: boolean}}
+            requiredLegalDocuments: {type: array, items: {$ref: '#/components/schemas/LegalDocumentSummary'}}
+    LegalDocumentEnvelope: {type: object, required: [data], properties: {data: {allOf: [{$ref: '#/components/schemas/LegalDocumentSummary'}, {type: object, required: [contentFormat, content], properties: {contentFormat: {const: MARKDOWN}, content: {type: string}}}]}}}
+    CreateSmsChallengeRequest:
+      type: object
+      required: [phone, purpose, device]
+      properties:
+        phone: {type: object, required: [countryCode, nationalNumber], properties: {countryCode: {type: string}, nationalNumber: {type: string}}}
+        purpose: {type: string, enum: [LOGIN, ACCOUNT_DELETION, SECURITY_CONFIRMATION]}
+        device: {$ref: '#/components/schemas/Device'}
+    Device: {type: object, required: [deviceId, timezone], properties: {deviceId: {type: string}, timezone: {type: string}, appVersion: {type: string}}}
+    SmsChallengeEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [challengeId, expiresAt, resendAvailableAt, phoneMasked], properties: {challengeId: {type: string}, expiresAt: {type: string, format: date-time}, resendAvailableAt: {type: string, format: date-time}, phoneMasked: {type: string}}}}}
+    ConsentAcceptance: {type: object, required: [documentId, version], properties: {documentId: {type: string}, version: {type: string}}}
+    CreateSessionRequest: {type: object, required: [challengeId, verificationCode, consentAcceptances, device], properties: {challengeId: {type: string}, verificationCode: {type: string, pattern: '^[0-9]{6}$'}, consentAcceptances: {type: array, items: {$ref: '#/components/schemas/ConsentAcceptance'}}, device: {$ref: '#/components/schemas/Device'}}}
+    UserSummary: {type: object, required: [userId, status, phoneMasked, requiresConsent, createdAt], properties: {userId: {type: string}, status: {type: string, enum: [ACTIVE, DELETION_PENDING, DELETING, DISABLED]}, phoneMasked: {type: string}, requiresConsent: {type: boolean}, createdAt: {type: string, format: date-time}}}
+    NextAction: {type: string, enum: [ACCEPT_CONSENTS, CREATE_PROFILE, CONFIRM_PROFILE, CLAIM_REGISTRATION_REWARD, CREATE_TODAY_DAILY_INSIGHT, VIEW_HOME]}
+    SessionEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [accessToken, accessTokenExpiresAt, sessionId, isNewUser, user, nextAction], properties: {accessToken: {type: string}, accessTokenExpiresAt: {type: string, format: date-time}, sessionId: {type: string}, isNewUser: {type: boolean}, user: {$ref: '#/components/schemas/UserSummary'}, nextAction: {$ref: '#/components/schemas/NextAction'}}}}}
+    RefreshSessionEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [accessToken, accessTokenExpiresAt, sessionId], properties: {accessToken: {type: string}, accessTokenExpiresAt: {type: string, format: date-time}, sessionId: {type: string}}}}}
+    MeEnvelope: {type: object, required: [data], properties: {data: {allOf: [{$ref: '#/components/schemas/UserSummary'}, {type: object, required: [preferences, nextAction], properties: {preferences: {$ref: '#/components/schemas/Preferences'}, pendingConsents: {type: array, items: {$ref: '#/components/schemas/LegalDocumentSummary'}}, profileState: {type: string, enum: [NOT_CREATED, CALCULATED, ACTIVE]}, nextAction: {$ref: '#/components/schemas/NextAction'}}}]}}}
+    AcceptConsentsRequest: {type: object, required: [acceptances], properties: {acceptances: {type: array, minItems: 1, items: {$ref: '#/components/schemas/ConsentAcceptance'}}}}
+    ConsentEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [records, requiresConsent, nextAction], properties: {records: {type: array, items: {allOf: [{$ref: '#/components/schemas/ConsentAcceptance'}, {type: object, properties: {acceptedAt: {type: string, format: date-time}}}]}}, requiresConsent: {type: boolean}, nextAction: {$ref: '#/components/schemas/NextAction'}}}}}
+    HomeOverviewEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [user, profile, registrationReward, wisdomSeedAccount, dailyInsight, nextAction], properties: {user: {type: object, properties: {userId: {type: string}, timezone: {type: string}}}, profile: {$ref: '#/components/schemas/LifeProfile'}, cards: {type: array, items: {$ref: '#/components/schemas/RelationshipCard'}}, registrationReward: {$ref: '#/components/schemas/RegistrationReward'}, wisdomSeedAccount: {$ref: '#/components/schemas/WisdomSeedAccount'}, dailyInsight: {type: object, properties: {localDate: {type: string, format: date}, state: {type: string, enum: [NOT_CREATED, GENERATING, READY, FAILED]}, dailyInsightId: {type: [string, 'null']}, taskId: {type: [string, 'null']}}}, nextAction: {$ref: '#/components/schemas/NextAction'}}}}}
+    Location: {type: object, required: [locationId, displayName, countryCode, administrativePath, timezone, coordinates], properties: {locationId: {type: string}, displayName: {type: string}, countryCode: {type: string}, administrativePath: {type: array, items: {type: string}}, timezone: {type: string}, coordinates: {type: object, required: [latitude, longitude], properties: {latitude: {type: number}, longitude: {type: number}}}}}
+    LocationListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/Location'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    BirthInput:
+      type: object
+      required: [calendarType, date, timePrecision, time, locationId, calculationGender]
+      properties:
+        calendarType: {type: string, enum: [SOLAR, LUNAR]}
+        date: {type: object, required: [year, month, day, isLeapMonth], properties: {year: {type: integer}, month: {type: integer, minimum: 1, maximum: 12}, day: {type: integer, minimum: 1, maximum: 31}, isLeapMonth: {type: boolean}}}
+        timePrecision: {type: string, enum: [EXACT_MINUTE, APPROXIMATE, HOUR_RANGE, DATE_ONLY]}
+        time: {type: object, required: [localTime, hourBranchCode], properties: {localTime: {type: [string, 'null']}, hourBranchCode: {type: [string, 'null'], enum: [ZI, CHOU, YIN, MAO, CHEN, SI, WU, WEI, SHEN, YOU, XU, HAI, null]}}}
+        locationId: {type: string}
+        calculationGender: {type: string, enum: [MALE, FEMALE]}
+    ProfilePreviewRequest: {type: object, required: [birthInput], properties: {birthInput: {$ref: '#/components/schemas/BirthInput'}}}
+    ConfirmProfileRevisionRequest: {type: object, required: [fingerprint, enhancedConfirmationAccepted], properties: {fingerprint: {type: string}, enhancedConfirmationAccepted: {type: boolean}}}
+    ProfileConfirmation: {type: object, required: [profileId, revisionId, revisionNumber, status, astrologySnapshotId, confirmedAt, reportImpact], properties: {profileId: {type: string}, revisionId: {type: string}, revisionNumber: {type: integer}, status: {const: ACTIVE}, previousActiveRevisionId: {type: [string, 'null']}, astrologySnapshotId: {type: string}, confirmedAt: {type: string, format: date-time}, reportImpact: {type: object, required: [currentLifeReportStillAvailable, currentLifeReportBasedOnPreviousRevision, newLifeReportCanBeGenerated], properties: {currentLifeReportStillAvailable: {type: boolean}, currentLifeReportBasedOnPreviousRevision: {type: boolean}, newLifeReportCanBeGenerated: {type: boolean}}}}}
+    ProfileConfirmationEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileConfirmation'}}}
+    RelationshipCard: {type: object, required: [dimension, title, order, cardCode, summary], properties: {dimension: {type: string, enum: [SPACETIME, CAREER, FAMILY, SELF]}, title: {type: string}, order: {type: integer, minimum: 1, maximum: 4}, cardCode: {type: string}, summary: {type: string}, uncertainty: {type: [string, 'null']}, mappingVersion: {type: string}, knowledgeVersion: {type: string}}}
+    LifeProfile: {type: object, required: [profileId, subjectType, displayName, state], properties: {profileId: {type: string}, subjectId: {type: string}, subjectType: {type: string, enum: [SELF, OTHER]}, displayName: {type: string}, relationshipType: {type: string, enum: [SELF, FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}, currentRevisionId: {type: [string, 'null']}, pendingRevisionId: {type: [string, 'null']}, state: {type: string, enum: [NOT_CREATED, CALCULATED, ACTIVE, DELETED]}, updatedAt: {type: string, format: date-time}}}
+    LifeProfileEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifeProfile'}}}
+    ProfileRevision: {type: object, required: [revisionId, revisionNumber, status], properties: {revisionId: {type: string}, revisionNumber: {type: integer}, status: {type: string, enum: [DRAFT, CALCULATED, ACTIVE, SUPERSEDED, EXPIRED]}, inputFingerprint: {type: string}, originalInput: {$ref: '#/components/schemas/BirthInput'}, normalizedBirthData: {type: object, additionalProperties: true}, calculationPreview: {type: object, additionalProperties: true}, cards: {type: array, items: {$ref: '#/components/schemas/RelationshipCard'}, minItems: 4, maxItems: 4}, requiresEnhancedConfirmation: {type: boolean}, warnings: {type: array, items: {type: string}}, expiresAt: {type: [string, 'null'], format: date-time}, confirmedAt: {type: [string, 'null'], format: date-time}}}
+    ProfileRevisionEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileRevision'}}}
+    ProfileRevisionListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/ProfileRevision'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    CreateLifeProfileRequest: {type: object, required: [displayName, relationshipType], properties: {displayName: {type: string, minLength: 1, maxLength: 40}, relationshipType: {type: string, enum: [FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}}}
+    PatchLifeProfileRequest: {type: object, additionalProperties: false, properties: {displayName: {type: string, minLength: 1, maxLength: 40}, relationshipType: {type: string, enum: [FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}}, minProperties: 1}
+    LifeProfileListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/LifeProfile'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    ProfileGroup: {type: object, required: [groupId, name, sortOrder, profileCount], properties: {groupId: {type: string}, name: {type: string}, sortOrder: {type: integer}, profileCount: {type: integer}, updatedAt: {type: string, format: date-time}}}
+    UpsertProfileGroupRequest: {type: object, required: [name, sortOrder], properties: {name: {type: string, minLength: 1, maxLength: 30}, sortOrder: {type: integer, minimum: 0}}}
+    ProfileGroupEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileGroup'}}}
+    ProfileGroupListEnvelope: {type: object, required: [data], properties: {data: {type: array, items: {$ref: '#/components/schemas/ProfileGroup'}}}}
+    WisdomSeedAccount: {type: object, required: [accountId, available, reserved, totalEarned, totalSpent, updatedAt], properties: {accountId: {type: string}, available: {type: integer, minimum: 0}, reserved: {type: integer, minimum: 0}, totalEarned: {type: integer, minimum: 0}, totalSpent: {type: integer, minimum: 0}, updatedAt: {type: string, format: date-time}}}
+    WisdomSeedAccountEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/WisdomSeedAccount'}}}
+    WisdomSeedTransaction: {type: object, required: [transactionId, type, amount, balanceAfter, businessType, resourceId, createdAt], properties: {transactionId: {type: string}, type: {type: string, enum: [GRANT, RESERVE, CONSUME, RELEASE, REFUND, ADJUSTMENT]}, amount: {type: integer}, balanceAfter: {type: integer, minimum: 0}, businessType: {type: string, enum: [REGISTRATION_REWARD, DAILY_INSIGHT]}, resourceId: {type: string}, originalTransactionId: {type: [string, 'null']}, title: {type: string}, createdAt: {type: string, format: date-time}}}
+    WisdomSeedTransactionListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/WisdomSeedTransaction'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    RegistrationReward: {type: object, required: [rewardId, rewardType, status, wisdomSeedAmount], properties: {rewardId: {type: string}, rewardType: {const: NEW_USER_ONBOARDING}, status: {type: string, enum: [AVAILABLE, CLAIMED, EXPIRED, INELIGIBLE]}, wisdomSeedAmount: {const: 3}, claimedAt: {type: [string, 'null'], format: date-time}, expiresAt: {type: [string, 'null'], format: date-time}}}
+    RegistrationRewardEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/RegistrationReward'}}}
+    RegistrationRewardClaimEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [reward, account, transaction], properties: {reward: {$ref: '#/components/schemas/RegistrationReward'}, account: {$ref: '#/components/schemas/WisdomSeedAccount'}, transaction: {$ref: '#/components/schemas/WisdomSeedTransaction'}}}}}
+    SeedSettlement: {type: object, required: [currency, amount, status, transactionId], properties: {currency: {const: WISDOM_SEED}, amount: {const: 1}, status: {type: string, enum: [RESERVED, CONSUMED, RELEASED, REFUNDED]}, transactionId: {type: string}}}
+    GenerationTask: {type: object, required: [taskId, type, status, stage, stageLabel, canRetry, target, createdAt, updatedAt], properties: {taskId: {type: string}, type: {const: DAILY_INSIGHT_GENERATION}, status: {type: string, enum: [PENDING, GENERATING, READY, FAILED]}, stage: {type: string, enum: [QUEUED, PREPARING_PROFILE, PREPARING_CONTEXT, GENERATING_CONTENT, VALIDATING_CONTENT, FINALIZING, COMPLETED, RETRY_WAITING, FAILED]}, stageLabel: {type: string}, canRetry: {type: boolean}, target: {type: object, required: [type, id], properties: {type: {const: DAILY_INSIGHT}, id: {type: string}}}, failure: {type: [object, 'null'], properties: {code: {type: string}, message: {type: string}, retryable: {type: boolean}}}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}, completedAt: {type: [string, 'null'], format: date-time}}}
+    GenerationTaskEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/GenerationTask'}}}
+    DailyInsight: {type: object, required: [dailyInsightId, localDate, timezone, status, settlement, createdAt], properties: {dailyInsightId: {type: string}, localDate: {type: string, format: date}, timezone: {type: string}, status: {type: string, enum: [GENERATING, READY, FAILED]}, profileRevisionId: {type: [string, 'null']}, content: {type: [object, 'null'], properties: {theme: {type: string}, insight: {type: string}, action: {type: string}, reflectionQuestion: {type: string}, notice: {type: string}}}, fallback: {type: [object, 'null'], properties: {title: {type: string}, message: {type: string}}}, taskId: {type: [string, 'null']}, settlement: {$ref: '#/components/schemas/SeedSettlement'}, publishedAt: {type: [string, 'null'], format: date-time}, createdAt: {type: string, format: date-time}}}
+    DailyInsightEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/DailyInsight'}}}
+    DailyInsightCommandEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [dailyInsight, task], properties: {dailyInsight: {$ref: '#/components/schemas/DailyInsight'}, task: {oneOf: [{$ref: '#/components/schemas/GenerationTask'}, {type: 'null'}]}}}}}
+    DailyInsightListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/DailyInsight'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    CreateFeedbackRequest: {type: object, required: [target, rating, reasons], properties: {target: {type: object, required: [type, id], properties: {type: {type: string, enum: [LIFE_REPORT, DAILY_INSIGHT]}, id: {type: string}, sectionCode: {type: [string, 'null']}}}, rating: {type: string, enum: [HELPFUL, NOT_RESONANT, UNCOMFORTABLE]}, reasons: {type: array, items: {type: string, enum: [TOO_ABSOLUTE, NOT_ACCURATE, TOO_GENERIC, HARMFUL_OR_OFFENSIVE, OTHER]}}, comment: {type: [string, 'null'], maxLength: 1000}}}
+    FeedbackEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [feedbackId, target, rating, createdAt], properties: {feedbackId: {type: string}, target: {type: object, additionalProperties: true}, rating: {type: string}, createdAt: {type: string, format: date-time}}}}}
+    CreateAccountDeletionRequest: {type: object, required: [smsChallengeId, verificationCode, reason], properties: {smsChallengeId: {type: string}, verificationCode: {type: string}, reason: {type: string, enum: [NO_LONGER_NEEDED, PRIVACY_CONCERN, OTHER]}}}
+    AccountDeletion: {type: object, required: [requestId, status, requestedAt, canCancel], properties: {requestId: {type: string}, status: {type: string, enum: [PENDING, DELETING, COMPLETED, PARTIAL_FAILURE, CANCELLED]}, requestedAt: {type: string, format: date-time}, scheduledExecutionAt: {type: [string, 'null'], format: date-time}, canCancel: {type: boolean}}}
+    AccountDeletionEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/AccountDeletion'}}}
+    DeletionAcceptedEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [requestId, status], properties: {requestId: {type: string}, status: {const: PENDING}}}}}
+security:
+  - bearerAuth: []
