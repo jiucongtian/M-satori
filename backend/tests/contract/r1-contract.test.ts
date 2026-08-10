@@ -102,6 +102,22 @@ describe('R1 delivery contract', () => {
     });
   });
 
+  it('exposes test-only deterministic generator fault modes', async () => {
+    const previousMode = process.env.DAILY_INSIGHT_STUB_MODE;
+    const generator = new DeterministicDailyInsightGenerator();
+    const input = {
+      dailyInsightId: '00000000-0000-7000-8000-000000000003', localDate: '2026-08-10', timezone: 'Asia/Shanghai',
+      profileRevisionId: '00000000-0000-7000-8000-000000000004', astrologySnapshot: {}, cards: [],
+    };
+    try {
+      process.env.DAILY_INSIGHT_STUB_MODE = 'FAILURE';
+      await expect(generator.generate(input)).rejects.toMatchObject({ message: 'Test daily-insight generator failure', code: 'TEST_GENERATION_FAILURE' });
+    } finally {
+      if (previousMode === undefined) delete process.env.DAILY_INSIGHT_STUB_MODE;
+      else process.env.DAILY_INSIGHT_STUB_MODE = previousMode;
+    }
+  });
+
   it('does not log raw authentication or birth-data secrets', () => {
     const sensitiveFiles = [
       'packages/modules/src/identity/auth/session.service.ts',

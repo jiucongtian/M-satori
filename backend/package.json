@@ -23,6 +23,7 @@
     "test:contract": "vitest run --project contract",
     "test:e2e": "vitest run --project e2e",
     "test:coverage": "RUN_DATABASE_TESTS=true vitest run --coverage",
+    "test:load-smoke": "tsx scripts/load-smoke.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed-legal-documents.ts",

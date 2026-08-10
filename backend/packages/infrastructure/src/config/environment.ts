@@ -42,6 +42,12 @@ export const environmentSchema = z
     PROFILE_PREVIEW_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
     DAILY_INSIGHT_HISTORY_DAYS: z.coerce.number().int().positive().default(90),
     DAILY_INSIGHT_PRICE: z.coerce.number().int().positive().default(1),
+    DAILY_INSIGHT_STUB_MODE: z.enum(['SUCCESS', 'FAILURE', 'DELAY']).default('SUCCESS'),
+    DAILY_INSIGHT_STUB_DELAY_MS: z.coerce.number().int().min(0).default(0),
+    FEATURE_LIFE_PROFILE: booleanFromString.default(true),
+    FEATURE_PROFILE_LIBRARY: booleanFromString.default(true),
+    FEATURE_WISDOM_SEEDS: booleanFromString.default(true),
+    FEATURE_DAILY_INSIGHT: booleanFromString.default(true),
     REGISTRATION_REWARD_AMOUNT: z.coerce.number().int().positive().default(3),
     ACCOUNT_DELETION_CANCELLATION_HOURS: z.coerce.number().int().positive().default(168),
   })
