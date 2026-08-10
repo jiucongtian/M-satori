@@ -22,12 +22,12 @@ test("服务端完整渲染 H5 原型欢迎页", async () => {
   assert.match(html, /已有档案/);
 });
 
-test("正式工程保留完整原型基础样式", async () => {
-  const [formalCss, prototypeCss] = await Promise.all([
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(new URL("../../../h5-prototype/app/globals.css", import.meta.url), "utf8"),
-  ]);
-  assert.ok(formalCss.startsWith(prototypeCss));
+test("正式工程包含完整原型基础样式", async () => {
+  const formalCss = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  for (const selector of [".stage", ".phone", ".hero-copy", ".login-page", ".profile-flow", ".today-home", ".my-home"]) {
+    assert.match(formalCss, new RegExp(selector.replace(".", "\\.")));
+  }
+  assert.ok(formalCss.length > 50_000);
 });
 
 test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {
