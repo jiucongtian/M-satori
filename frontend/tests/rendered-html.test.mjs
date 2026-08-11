@@ -22,12 +22,13 @@ test("服务端完整渲染 H5 原型欢迎页", async () => {
   assert.match(html, /已有档案/);
 });
 
-test("正式工程保留完整原型基础样式", async () => {
+test("正式工程精确复用 HOME-01 最新原型样式", async () => {
   const [formalCss, prototypeCss] = await Promise.all([
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../../../h5-prototype/app/globals.css", import.meta.url), "utf8"),
   ]);
-  assert.ok(formalCss.startsWith(prototypeCss));
+  const energyCard = /\.home-energy-card\{[^\n]+/;
+  assert.equal(formalCss.match(energyCard)?.[0], prototypeCss.match(energyCard)?.[0]);
 });
 
 test("R1.1 主导航开放问事且成长、关系仍进入预告页", async () => {
@@ -61,6 +62,17 @@ test("R1.1 我的页面不展示后续版本入口", async () => {
   assert.match(myHome, /生命智慧档案库/);
   assert.match(myHome, /智慧种子/);
   assert.doesNotMatch(myHome, /商城|助学童子|生命之光|月运|年运|关系匹配/);
+});
+
+test("HOME-01 使用最新高中特低能量指引卡", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const home = page.match(/function TodayHome[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(home, /home-energy-card/);
+  assert.match(home, /今日能量为中/);
+  assert.match(home, /<span>高<\/span><span className="active">中<\/span><span>低<\/span>/);
+  assert.match(home, /适合做什么/);
+  assert.match(home, /注意什么/);
+  assert.match(home, /获取今日能量指引/);
 });
 
 test("三个预告页统一说明后续上线与未来能力", async () => {
