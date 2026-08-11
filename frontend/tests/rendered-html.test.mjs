@@ -107,6 +107,8 @@ test("R1 核心页面调用真实后端能力", async () => {
   for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
     assert.match(page, new RegExp(call.replace(".", "\\.")));
   }
+  assert.match(page, /await api\.createSession\(challengeId, code, consentAcceptances\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction\)/);
+  assert.match(page, /action === "CONFIRM_PROFILE" \|\| action === "CLAIM_REGISTRATION_REWARD"\) return 10/);
   assert.doesNotMatch(page, /验证码已发送，原型中/);
   assert.doesNotMatch(page, /原型中直接查看结果/);
 });

@@ -13,8 +13,9 @@ function apiMessage(error: unknown) {
 }
 
 function stepForAction(action: string) {
-  if (action === "CONFIRM_PROFILE") return 5;
-  if (action === "CLAIM_REGISTRATION_REWARD") return 9;
+  // Any existing profile enters the Today home. Profile confirmation remains an
+  // explicit action inside profile management, never a login-time detour.
+  if (action === "CONFIRM_PROFILE" || action === "CLAIM_REGISTRATION_REWARD") return 10;
   if (action === "CREATE_TODAY_DAILY_INSIGHT" || action === "VIEW_HOME") return 10;
   return 0;
 }
@@ -82,9 +83,12 @@ export default function WelcomePage() {
       const consentAcceptances = (bootstrap?.requiredLegalDocuments || [])
         .filter((document) => document.required)
         .map(({ documentId, version }) => ({ documentId, version }));
-      const session = await api.createSession(challengeId, code, consentAcceptances);
+      await api.createSession(challengeId, code, consentAcceptances);
       setMessage("登录成功");
-      setResumeStep(stepForAction(session.nextAction));
+      // The session establishes authentication; `/me` is the authoritative routing state
+      // for both first-time and returning users.
+      const me = await api.me();
+      setResumeStep(stepForAction(me.nextAction));
       setView("profile");
     } catch (error) {
       setMessage(apiMessage(error));
@@ -250,10 +254,6 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
   useEffect(() => {
     const overviewTimer = window.setTimeout(() => void loadOverview(), 0);
-    if (initialStep === 5) {
-      api.selfProfile().then((profile) => profile.pendingRevisionId ? api.profileRevision(profile.pendingRevisionId) : null)
-        .then((pending) => pending && setRevision(pending)).catch(() => undefined);
-    }
     return () => window.clearTimeout(overviewTimer);
   }, [initialStep]);
 

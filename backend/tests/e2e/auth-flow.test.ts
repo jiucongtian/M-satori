@@ -826,8 +826,11 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const challengeId = await createChallenge('returning-user-challenge', 'returning-user-device');
     const session = await createSession(challengeId, '123456', 'returning-user-session');
     expect(session.statusCode).toBe(201);
-    const data = session.json<{ data: { isNewUser: boolean; accessToken: string } }>().data;
+    const data = session.json<{
+      data: { isNewUser: boolean; accessToken: string; nextAction: string };
+    }>().data;
     expect(data.isNewUser).toBe(false);
+    expect(data.nextAction).toBe('VIEW_HOME');
     const home = await app.inject({
       method: 'GET',
       url: '/api/v1/me/home-overview',

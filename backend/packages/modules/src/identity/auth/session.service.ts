@@ -5,6 +5,7 @@ import {
   consentRecords,
   identities,
   legalDocuments,
+  lifeProfiles,
   newId,
   PostgresIdempotencyStore,
   preferences,
@@ -48,7 +49,13 @@ export interface SessionResponse {
     requiresConsent: boolean;
     createdAt: string;
   };
-  nextAction: 'ACCEPT_CONSENTS' | 'CREATE_PROFILE';
+  nextAction:
+    | 'ACCEPT_CONSENTS'
+    | 'CREATE_PROFILE'
+    | 'CONFIRM_PROFILE'
+    | 'CLAIM_REGISTRATION_REWARD'
+    | 'CREATE_TODAY_DAILY_INSIGHT'
+    | 'VIEW_HOME';
 }
 
 export interface SessionWithRefresh {
@@ -103,6 +110,10 @@ export class SessionService {
           userId: transactionResult.userId,
           sessionId: transactionResult.sessionId,
         });
+        const nextAction = await this.resolveNextAction(
+          transactionResult.userId,
+          transactionResult.requiresConsent,
+        );
         const body: SessionResponse = {
           accessToken: access.token,
           accessTokenExpiresAt: access.expiresAt.toISOString(),
@@ -115,7 +126,7 @@ export class SessionService {
             requiresConsent: transactionResult.requiresConsent,
             createdAt: transactionResult.userCreatedAt.toISOString(),
           },
-          nextAction: transactionResult.requiresConsent ? 'ACCEPT_CONSENTS' : 'CREATE_PROFILE',
+          nextAction,
         };
         return { status: 201, body };
       },
@@ -204,6 +215,34 @@ export class SessionService {
       .update(sessions)
       .set({ revokedAt: new Date() })
       .where(and(eq(sessions.id, sessionId), isNull(sessions.revokedAt)));
+  }
+
+  private async resolveNextAction(
+    userId: string,
+    requiresConsent: boolean,
+  ): Promise<SessionResponse['nextAction']> {
+    if (requiresConsent) return 'ACCEPT_CONSENTS';
+
+    const [profile] = await this.infrastructure.database
+      .select({ activeRevisionId: lifeProfiles.activeRevisionId })
+      .from(lifeProfiles)
+      .where(
+        and(
+          eq(lifeProfiles.ownerUserId, userId),
+          eq(lifeProfiles.relationshipType, 'SELF'),
+          isNull(lifeProfiles.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!profile) return 'CREATE_PROFILE';
+    if (!profile.activeRevisionId) return 'CONFIRM_PROFILE';
+
+    const [reward] = await this.infrastructure.database
+      .select({ status: registrationRewards.status })
+      .from(registrationRewards)
+      .where(eq(registrationRewards.userId, userId))
+      .limit(1);
+    return reward?.status === 'AVAILABLE' ? 'CLAIM_REGISTRATION_REWARD' : 'VIEW_HOME';
   }
 
   private async createInTransaction(command: CreateSessionCommand): Promise<LoginTransactionResult> {
