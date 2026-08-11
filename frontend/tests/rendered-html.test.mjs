@@ -62,6 +62,18 @@ test("R1.0 我的页面不展示后续版本入口", async () => {
   assert.doesNotMatch(myHome, /商城|助学童子|生命之光|月运|年运|关系匹配/);
 });
 
+test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const home = page.match(/function TodayHome[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(home, /home-energy-card/);
+  assert.match(home, /今日能量为中/);
+  assert.match(home, /<span>高<\/span><span className="active">中<\/span><span>低<\/span>/);
+  assert.match(home, /适合做什么/);
+  assert.match(home, /注意什么/);
+  assert.match(home, /home\?\.wisdomSeedAccount\.available/);
+  assert.match(home, /ready \? "查看今日能量指引" : "获取今日能量指引"/);
+});
+
 test("三个预告页统一说明后续上线与未来能力", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const preview = page.match(/function ComingSoonPage[\s\S]*?\n}\n/)?.[0] ?? "";
