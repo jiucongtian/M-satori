@@ -917,12 +917,14 @@ function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: 
 
 function MySupport({ onBack }: { onBack: () => void }) {
   const channels = [
-    ["官方视频号", "关注我们的视频动态", "/contact/official-video-channel.png"],
-    ["官方公众号", "获取最新内容与服务消息", "/contact/official-wechat-account.png"],
-    ["官方小红书", "发现更多成长灵感", "/contact/official-xiaohongshu.png"],
-    ["官方客服", "咨询账号、智慧种子与报告问题", "/contact/official-customer-service.png"],
+    { title:"官方视频号", short:"视频", description:"关注我们的视频动态", src:"/contact/official-video-channel.jpeg", width:792, height:960 },
+    { title:"官方公众号", short:"公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:1280, height:1280 },
+    { title:"官方小红书", short:"小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:194, height:196 },
+    { title:"官方客服", short:"客服", description:"咨询账号、智慧种子与报告问题", src:"/contact/official-customer-service.png", width:196, height:198 },
   ];
-  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><div className="contact-hero"><span>联</span><small>WE ARE HERE</small><h1>需要的时候<br/>我们会认真回应你</h1><p>长按识别二维码，找到适合你的官方渠道。</p></div><div className="contact-grid">{channels.map(([title,description,src])=><article key={title}><div className="contact-qr"><Image src={src} width={198} height={198} alt={`${title}二维码`} unoptimized/></div><strong>{title}</strong><small>{description}</small></article>)}</div><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。涉及账号与交易问题，请优先联系官方客服。</p></div></section>;
+  const [selected,setSelected]=useState(0);
+  const channel=channels[selected];
+  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><header className="contact-intro"><small>OFFICIAL CHANNELS</small><h1>在需要的时候，找到我们</h1><p>选择一个官方渠道，长按识别二维码。</p></header><nav className="contact-tabs" aria-label="官方联系渠道">{channels.map((item,index)=><button type="button" className={selected===index?"active":""} aria-pressed={selected===index} onClick={()=>setSelected(index)} key={item.title}><i>{item.short.slice(0,1)}</i><span>{item.short}</span></button>)}</nav><article className={`contact-focus ${channel.height>channel.width?"portrait":""}`}><div className="contact-focus-title"><span><small>当前选择</small><strong>{channel.title}</strong></span><b>官方</b></div><div className="contact-focus-qr"><Image src={channel.src} width={channel.width} height={channel.height} alt={`${channel.title}二维码`} unoptimized priority/></div><p>{channel.description}</p><small>长按二维码识别 · 或使用另一台设备扫码</small></article><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。涉及账号与交易问题，请优先联系官方客服。</p></div></section>;
 }
 
 function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:LifeProfile[];self:LifeProfile|null;onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:(profile:LifeProfile)=>void}){

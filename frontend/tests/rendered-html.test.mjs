@@ -160,5 +160,7 @@ test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维
   assert.match(settings, /继续留在这里/);
   assert.doesNotMatch(settings, /账号安全|隐私中心|数据管理|通知设置|通用设置/);
   for (const channel of ["官方视频号", "官方公众号", "官方小红书", "官方客服"]) assert.match(support, new RegExp(channel));
-  for (const asset of ["official-video-channel.png", "official-wechat-account.png", "official-xiaohongshu.png", "official-customer-service.png"]) assert.match(support, new RegExp(asset));
+  for (const asset of ["official-video-channel.jpeg", "official-wechat-account.jpeg", "official-xiaohongshu.png", "official-customer-service.png"]) assert.match(support, new RegExp(asset));
+  assert.match(support, /contact-tabs/);
+  assert.match(support, /contact-focus/);
 });
