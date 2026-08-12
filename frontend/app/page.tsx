@@ -323,6 +323,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     if (!revision?.inputFingerprint) return setApiError("档案预览缺少校验指纹，请重新生成");
     setApiBusy(true); setApiError("");
     try {
+      await api.updateSelfProfile(data.name.trim());
       await api.confirmProfile(revision.revisionId, revision.inputFingerprint, Boolean(revision.requiresEnhancedConfirmation));
       await loadOverview();
       setStep(8);

@@ -127,6 +127,13 @@ paths:
       responses:
         '200': {description: Current self profile, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [Profile]
+      operationId: patchSelfProfile
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PatchSelfLifeProfileRequest'}}}}
+      responses:
+        '200': {description: Updated self profile, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
   /me/life-profile/revisions:
     get:
       tags: [Profile]
@@ -465,6 +472,7 @@ components:
     ProfileRevisionEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileRevision'}}}
     ProfileRevisionListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/ProfileRevision'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
     CreateLifeProfileRequest: {type: object, required: [displayName, relationshipType], properties: {displayName: {type: string, minLength: 1, maxLength: 40}, relationshipType: {type: string, enum: [FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}}}
+    PatchSelfLifeProfileRequest: {type: object, additionalProperties: false, required: [displayName], properties: {displayName: {type: string, minLength: 1, maxLength: 16}}}
     PatchLifeProfileRequest: {type: object, additionalProperties: false, properties: {displayName: {type: string, minLength: 1, maxLength: 40}, relationshipType: {type: string, enum: [FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}}, minProperties: 1}
     LifeProfileListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/LifeProfile'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
     ProfileGroup: {type: object, required: [groupId, name, sortOrder, profileCount], properties: {groupId: {type: string}, name: {type: string}, sortOrder: {type: integer}, profileCount: {type: integer}, updatedAt: {type: string, format: date-time}}}

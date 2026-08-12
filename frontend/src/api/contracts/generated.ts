@@ -193,7 +193,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["patchSelfProfile"];
         trace?: never;
     };
     "/me/life-profile/revisions": {
@@ -885,6 +885,9 @@ export interface components {
             relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER";
             groupId?: string | null;
         };
+        PatchSelfLifeProfileRequest: {
+            displayName: string;
+        };
         PatchLifeProfileRequest: {
             displayName?: string;
             /** @enum {string} */
@@ -1390,6 +1393,31 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Current self profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifeProfileEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    patchSelfProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchSelfLifeProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated self profile */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -164,6 +164,11 @@ class SatoriApiClient {
   me() { return this.request<Schemas["MeEnvelope"]>("/me").then((x) => x.data); }
   home() { return this.request<Schemas["HomeOverviewEnvelope"]>("/me/home-overview").then((x) => x.data); }
   selfProfile() { return this.request<Schemas["LifeProfileEnvelope"]>("/me/life-profile").then((x) => x.data); }
+  updateSelfProfile(displayName: string) {
+    return this.request<Schemas["LifeProfileEnvelope"]>("/me/life-profile", {
+      method: "PATCH", body: JSON.stringify({ displayName }),
+    }).then((x) => x.data);
+  }
   profileRevision(revisionId: string) {
     return this.request<Schemas["ProfileRevisionEnvelope"]>(`/me/life-profile/revisions/${revisionId}`).then((x) => x.data);
   }

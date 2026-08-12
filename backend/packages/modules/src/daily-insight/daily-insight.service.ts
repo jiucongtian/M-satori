@@ -10,6 +10,7 @@ import {
   astrologySnapshots,
   cardBindings,
   dailyInsights,
+  FieldCipher,
   generationTasks,
   newId,
   preferences,
@@ -29,6 +30,7 @@ export class DailyInsightService implements OnModuleInit {
   private readonly cursors: CursorCodec;
   constructor(
     private readonly infrastructure: RuntimeInfrastructure,
+    private readonly cipher: FieldCipher,
     private readonly ledger: SeedLedgerService,
     private readonly tasks: GenerationTaskService,
     private readonly runner: GenerationTaskRunner,
@@ -222,7 +224,7 @@ export class DailyInsightService implements OnModuleInit {
           profileId: profileRow.profile.id,
           subjectId: profileRow.profile.subjectId,
           subjectType: 'SELF',
-          displayName: '我的生命智慧档案',
+          displayName: this.cipher.decrypt(profileRow.subject.displayNameCiphertext),
           relationshipType: 'SELF',
           groupId: profileRow.profile.groupId,
           currentRevisionId: profileRow.profile.activeRevisionId,

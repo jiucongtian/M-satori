@@ -85,6 +85,14 @@ export class SelfProfileService {
     if (!profile) {
       throw new NotFoundException({ code: 'LIFE_PROFILE_NOT_FOUND', message: 'Life profile not found' });
     }
+    const [subject] = await this.infrastructure.database
+      .select()
+      .from(subjects)
+      .where(and(eq(subjects.id, profile.subjectId), eq(subjects.ownerUserId, userId)))
+      .limit(1);
+    if (!subject) {
+      throw new NotFoundException({ code: 'LIFE_PROFILE_SUBJECT_NOT_FOUND', message: 'Profile subject not found' });
+    }
     const currentRevision = profile.activeRevisionId
       ? await this.getRevision(userId, profile.activeRevisionId)
       : null;
@@ -92,7 +100,7 @@ export class SelfProfileService {
       profileId: profile.id,
       subjectId: profile.subjectId,
       subjectType: 'SELF' as const,
-      displayName: '我的生命智慧档案',
+      displayName: this.cipher.decrypt(subject.displayNameCiphertext),
       relationshipType: 'SELF' as const,
       groupId: null,
       currentRevisionId: profile.activeRevisionId,
@@ -102,6 +110,39 @@ export class SelfProfileService {
       createdAt: profile.createdAt.toISOString(),
       updatedAt: profile.updatedAt.toISOString(),
     };
+  }
+
+  async updateDisplayName(userId: string, rawDisplayName: string) {
+    const displayName = rawDisplayName.trim();
+    if (!displayName || displayName.length > 16) {
+      throw new BadRequestException({
+        code: 'INVALID_DISPLAY_NAME',
+        message: 'Display name must contain 1-16 characters',
+      });
+    }
+    await this.infrastructure.database.transaction(async (tx) => {
+      const [profile] = await tx
+        .select()
+        .from(lifeProfiles)
+        .where(
+          and(
+            eq(lifeProfiles.ownerUserId, userId),
+            eq(lifeProfiles.relationshipType, 'SELF'),
+            isNull(lifeProfiles.deletedAt),
+          ),
+        )
+        .for('update')
+        .limit(1);
+      if (!profile) {
+        throw new NotFoundException({ code: 'LIFE_PROFILE_NOT_FOUND', message: 'Life profile not found' });
+      }
+      await tx
+        .update(subjects)
+        .set({ displayNameCiphertext: this.cipher.encrypt(displayName) })
+        .where(and(eq(subjects.id, profile.subjectId), eq(subjects.ownerUserId, userId)));
+      await tx.update(lifeProfiles).set({ updatedAt: new Date() }).where(eq(lifeProfiles.id, profile.id));
+    });
+    return this.getCurrent(userId);
   }
 
   async listRevisions(

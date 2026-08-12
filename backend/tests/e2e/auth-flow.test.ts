@@ -227,6 +227,23 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(current.json<{ data: { currentRevisionId: string } }>().data.currentRevisionId).toBe(
       previewBody.revisionId,
     );
+    const renamed = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/life-profile',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { displayName: 'Fred' },
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json<{ data: { displayName: string } }>().data.displayName).toBe('Fred');
+    const home = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me/home-overview',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(home.statusCode).toBe(200);
+    expect(home.json<{ data: { profile: { displayName: string } } }>().data.profile.displayName).toBe(
+      'Fred',
+    );
     const list = await app.inject({
       method: 'GET',
       url: '/api/v1/me/life-profile/revisions?limit=20',

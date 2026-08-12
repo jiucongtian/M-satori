@@ -6,6 +6,7 @@ import {
   Headers,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -19,6 +20,8 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
+  MinLength,
   Max,
   Min,
   ValidateNested,
@@ -92,6 +95,13 @@ export class ConfirmProfileDto {
   enhancedConfirmationAccepted!: boolean;
 }
 
+export class PatchSelfProfileDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(16)
+  displayName!: string;
+}
+
 export class RevisionListQuery {
   @IsOptional()
   @IsString()
@@ -112,6 +122,11 @@ export class SelfProfileController {
   @Get()
   getCurrent(@Req() request: AuthenticatedRequest) {
     return this.profiles.getCurrent(request.auth.userId);
+  }
+
+  @Patch()
+  patchCurrent(@Req() request: AuthenticatedRequest, @Body() body: PatchSelfProfileDto) {
+    return this.profiles.updateDisplayName(request.auth.userId, body.displayName);
   }
 
   @Get('revisions')
