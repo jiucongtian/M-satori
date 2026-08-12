@@ -1,0 +1,12 @@
+[
+  {"cardId":1,"cardCode":"JIA_ZI","ganzhi":"甲子","zodiac":"鼠","season":"春冬","talentMark":"领导力","abilityMark":"一","journeyMark":"生与仁","asset":"01-jiazi-concept-v1.png"},
+  {"cardId":2,"cardCode":"YI_CHOU","ganzhi":"乙丑","zodiac":"牛","season":"春冬","talentMark":"承载力","abilityMark":"四","journeyMark":"光与热","asset":"02-yichou-concept-v1.png"},
+  {"cardId":3,"cardCode":"BING_YIN","ganzhi":"丙寅","zodiac":"虎","season":"夏春","talentMark":"号召力","abilityMark":"六","journeyMark":"光与热","asset":"03-bingyin-concept-v1.png"},
+  {"cardId":4,"cardCode":"DING_MAO","ganzhi":"丁卯","zodiac":"兔","season":"夏春","talentMark":"演说力","abilityMark":"二","journeyMark":"精与义","asset":"04-dingmao-concept-v1.png"},
+  {"cardId":5,"cardCode":"WU_CHEN","ganzhi":"戊辰","zodiac":"龙","season":"长夏春","talentMark":"学习力","abilityMark":"二","journeyMark":"光与热","asset":"05-wuchen-concept-v1.png"},
+  {"cardId":6,"cardCode":"JI_SI","ganzhi":"己巳","zodiac":"蛇","season":"长夏夏","talentMark":"战斗力","abilityMark":"六","journeyMark":"精与义","asset":"06-jisi-concept-v1.png"},
+  {"cardId":7,"cardCode":"GENG_WU","ganzhi":"庚午","zodiac":"马","season":"秋夏","talentMark":"变通力","abilityMark":"四","journeyMark":"精与义","asset":"07-gengwu-concept-v1.png"},
+  {"cardId":8,"cardCode":"XIN_WEI","ganzhi":"辛未","zodiac":"羊","season":"秋夏","talentMark":"执行力","abilityMark":"四","journeyMark":"智与动","asset":"08-xinwei-concept-v1.png"},
+  {"cardId":9,"cardCode":"REN_SHEN","ganzhi":"壬申","zodiac":"猴","season":"冬秋","talentMark":"拼搏力","abilityMark":"五","journeyMark":"智与动","asset":"09-renshen-concept-v1.png"},
+  {"cardId":10,"cardCode":"GUI_YOU","ganzhi":"癸酉","zodiac":"鸡","season":"冬秋","talentMark":"总结力","abilityMark":"六","journeyMark":"生与仁","asset":"10-guiyou-concept-v1.png"}
+]
