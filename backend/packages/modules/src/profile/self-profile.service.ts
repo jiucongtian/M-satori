@@ -531,7 +531,7 @@ export class SelfProfileService {
           .limit(1)
       )[0]?.result as BirthChartResult | undefined);
     if (!chart) throw new Error('Astrology snapshot is missing');
-    const cards =
+    let cards =
       suppliedCards ??
       (
         await this.infrastructure.database
@@ -539,6 +539,9 @@ export class SelfProfileService {
           .from(cardBindings)
           .where(eq(cardBindings.revisionId, revision.id))
       ).map((row) => row.snapshot as Awaited<ReturnType<typeof createCards>>[number]);
+    if (cards.some((card) => !card.cardId || !card.assetUrl || card.cardCode.startsWith('PILLAR_'))) {
+      cards = await createCards(chart, this.cardCatalog);
+    }
     return {
       revisionId: revision.id,
       revisionNumber: revision.sequence,

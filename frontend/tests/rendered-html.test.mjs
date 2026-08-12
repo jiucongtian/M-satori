@@ -169,6 +169,7 @@ test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底",
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
   assert.match(page, /LifeWisdomCardRow/);
+  assert.equal((page.match(/<LifeWisdomCardRow/g) || []).length >= 4, true);
   assert.match(component, /data-card-code/);
   assert.match(component, /data-deck/);
   assert.match(component, /card\.assetUrl/);
