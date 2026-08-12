@@ -144,14 +144,13 @@ test("R1.0 我的页面收口账户、联系入口并使用通栏智慧种子卡
   assert.match(css, /\.my-assets\{grid-template-columns:1fr\}/);
 });
 
-test("R1.0 退出登录具有二次确认且联系我们不编造渠道", async () => {
+test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维码", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const settings = page.match(/function MySettings[\s\S]*?\n}\n/)?.[0] ?? "";
   const support = page.match(/function MySupport[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(settings, /确认退出当前账号/);
   assert.match(settings, /继续留在这里/);
   assert.doesNotMatch(settings, /账号安全|隐私中心|数据管理|通知设置|通用设置/);
-  assert.match(support, /人工客服/);
-  assert.match(support, /官方社交媒体/);
-  assert.match(support, /正式联系方式配置后开放/);
+  for (const channel of ["官方视频号", "官方公众号", "官方小红书", "官方客服"]) assert.match(support, new RegExp(channel));
+  for (const asset of ["official-video-channel.png", "official-wechat-account.png", "official-xiaohongshu.png", "official-customer-service.png"]) assert.match(support, new RegExp(asset));
 });

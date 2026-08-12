@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Image from "next/image";
 import { api, ApiError } from "@/src/api/client";
 import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, Location, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
@@ -914,7 +915,13 @@ function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: 
 }
 
 function MySupport({ onBack }: { onBack: () => void }) {
-  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><div className="contact-hero"><span>联</span><small>WE ARE HERE</small><h1>需要的时候<br/>我们会认真回应你</h1><p>关于账号、智慧种子或报告使用的问题，可以通过以下官方渠道联系我们。</p></div><div className="contact-list"><article><i>客</i><span><strong>人工客服</strong><small>正式联系方式配置后开放</small></span><b>待配置</b></article><article><i>媒</i><span><strong>官方社交媒体</strong><small>官方账号与二维码配置后展示</small></span><b>待配置</b></article></div><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会通过客服索要短信验证码、登录口令或要求提供私钥。正式联系方式由运营审核后统一配置。</p></div></section>;
+  const channels = [
+    ["官方视频号", "关注我们的视频动态", "/contact/official-video-channel.png"],
+    ["官方公众号", "获取最新内容与服务消息", "/contact/official-wechat-account.png"],
+    ["官方小红书", "发现更多成长灵感", "/contact/official-xiaohongshu.png"],
+    ["官方客服", "咨询账号、智慧种子与报告问题", "/contact/official-customer-service.png"],
+  ];
+  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><div className="contact-hero"><span>联</span><small>WE ARE HERE</small><h1>需要的时候<br/>我们会认真回应你</h1><p>长按识别二维码，找到适合你的官方渠道。</p></div><div className="contact-grid">{channels.map(([title,description,src])=><article key={title}><div className="contact-qr"><Image src={src} width={198} height={198} alt={`${title}二维码`} unoptimized/></div><strong>{title}</strong><small>{description}</small></article>)}</div><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。涉及账号与交易问题，请优先联系官方客服。</p></div></section>;
 }
 
 function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:LifeProfile[];self:LifeProfile|null;onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:(profile:LifeProfile)=>void}){
