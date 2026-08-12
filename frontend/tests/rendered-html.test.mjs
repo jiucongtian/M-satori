@@ -168,6 +168,7 @@ test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维
 test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(page, /LifeWisdomCardRow/);
   assert.equal((page.match(/<LifeWisdomCardRow/g) || []).length >= 4, true);
   assert.match(component, /data-card-code/);
@@ -175,4 +176,7 @@ test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底",
   assert.match(component, /card\.assetUrl/);
   assert.match(component, /onError=.*setFailed/);
   assert.match(component, /life-card-back/);
+  assert.match(component, /<footer>\{card\.title\}<\/footer>/);
+  assert.doesNotMatch(component, /card\.ganzhi/);
+  assert.match(css, /\.life-card-visual/);
 });

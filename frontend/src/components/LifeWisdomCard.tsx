@@ -10,8 +10,10 @@ export function LifeWisdomCard({card,size="medium"}:{card:Card;size?:"small"|"me
   const [failed,setFailed]=useState(false);
   const available=Boolean(card.assetUrl)&&!failed;
   return <article className={`life-wisdom-card ${size} ${available?"ready":"fallback"}`} data-card-code={card.cardCode} data-deck={`${card.deckCode}@${card.deckVersion}`}>
-    {available?<Image src={card.assetUrl!} width={768} height={1228} alt={card.altText} unoptimized onError={()=>setFailed(true)}/>:<div className="life-card-back"><i/><span>身心游</span><small>{card.uncertainty||"卡牌加载中"}</small></div>}
-    <footer><small>{card.title}</small><strong>{card.ganzhi||"待确定"}</strong></footer>
+    <div className="life-card-visual">
+      {available?<Image src={card.assetUrl!} width={768} height={1313} alt={card.altText} unoptimized onError={()=>setFailed(true)}/>:<div className="life-card-back"><i/><span>身心游</span><small>{card.uncertainty||"卡牌加载中"}</small></div>}
+    </div>
+    <footer>{card.title}</footer>
   </article>;
 }
 

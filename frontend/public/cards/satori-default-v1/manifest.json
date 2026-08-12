@@ -8,7 +8,7 @@
     "talentMark": "领导力",
     "abilityMark": "一",
     "journeyMark": "生与仁",
-    "asset": "01-jiazi.png"
+    "asset": "01-jiazi.jpg"
   },
   {
     "cardId": 2,
@@ -19,7 +19,7 @@
     "talentMark": "承载力",
     "abilityMark": "四",
     "journeyMark": "光与热",
-    "asset": "02-yichou.png"
+    "asset": "02-yichou.jpg"
   },
   {
     "cardId": 3,
@@ -30,7 +30,7 @@
     "talentMark": "号召力",
     "abilityMark": "六",
     "journeyMark": "光与热",
-    "asset": "03-bingyin.png"
+    "asset": "03-bingyin.jpg"
   },
   {
     "cardId": 4,
@@ -41,7 +41,7 @@
     "talentMark": "演说力",
     "abilityMark": "二",
     "journeyMark": "精与义",
-    "asset": "04-dingmao.png"
+    "asset": "04-dingmao.jpg"
   },
   {
     "cardId": 5,
@@ -52,7 +52,7 @@
     "talentMark": "学习力",
     "abilityMark": "二",
     "journeyMark": "光与热",
-    "asset": "05-wuchen.png"
+    "asset": "05-wuchen.jpg"
   },
   {
     "cardId": 6,
@@ -63,7 +63,7 @@
     "talentMark": "战斗力",
     "abilityMark": "六",
     "journeyMark": "精与义",
-    "asset": "06-jisi.png"
+    "asset": "06-jisi.jpg"
   },
   {
     "cardId": 7,
@@ -74,7 +74,7 @@
     "talentMark": "变通力",
     "abilityMark": "四",
     "journeyMark": "精与义",
-    "asset": "07-gengwu.png"
+    "asset": "07-gengwu.jpg"
   },
   {
     "cardId": 8,
@@ -85,7 +85,7 @@
     "talentMark": "执行力",
     "abilityMark": "四",
     "journeyMark": "智与动",
-    "asset": "08-xinwei.png"
+    "asset": "08-xinwei.jpg"
   },
   {
     "cardId": 9,
@@ -96,7 +96,7 @@
     "talentMark": "拼搏力",
     "abilityMark": "五",
     "journeyMark": "智与动",
-    "asset": "09-renshen.png"
+    "asset": "09-renshen.jpg"
   },
   {
     "cardId": 10,
@@ -107,7 +107,7 @@
     "talentMark": "总结力",
     "abilityMark": "六",
     "journeyMark": "生与仁",
-    "asset": "10-guiyou.png"
+    "asset": "10-guiyou.jpg"
   },
   {
     "cardId": 11,
@@ -118,7 +118,7 @@
     "talentMark": "领导力",
     "abilityMark": "六",
     "journeyMark": "生与仁",
-    "asset": "11-jiaxu.png"
+    "asset": "11-jiaxu.jpg"
   },
   {
     "cardId": 12,
@@ -129,7 +129,7 @@
     "talentMark": "承载力",
     "abilityMark": "五",
     "journeyMark": "光与热",
-    "asset": "12-yihai.png"
+    "asset": "12-yihai.jpg"
   },
   {
     "cardId": 13,
@@ -140,7 +140,7 @@
     "talentMark": "号召力",
     "abilityMark": "五",
     "journeyMark": "光与热",
-    "asset": "13-bingzi.png"
+    "asset": "13-bingzi.jpg"
   },
   {
     "cardId": 14,
@@ -151,7 +151,7 @@
     "talentMark": "演说力",
     "abilityMark": "三",
     "journeyMark": "精与义",
-    "asset": "14-dingchou.png"
+    "asset": "14-dingchou.jpg"
   },
   {
     "cardId": 15,
@@ -162,7 +162,7 @@
     "talentMark": "学习力",
     "abilityMark": "一",
     "journeyMark": "光与热",
-    "asset": "15-wuyin.png"
+    "asset": "15-wuyin.jpg"
   },
   {
     "cardId": 16,
@@ -173,7 +173,7 @@
     "talentMark": "战斗力",
     "abilityMark": "一",
     "journeyMark": "精与义",
-    "asset": "16-jimao.png"
+    "asset": "16-jimao.jpg"
   },
   {
     "cardId": 17,
@@ -184,7 +184,7 @@
     "talentMark": "变通力",
     "abilityMark": "三",
     "journeyMark": "精与义",
-    "asset": "17-gengchen.png"
+    "asset": "17-gengchen.jpg"
   },
   {
     "cardId": 18,
@@ -195,7 +195,7 @@
     "talentMark": "执行力",
     "abilityMark": "五",
     "journeyMark": "智与动",
-    "asset": "18-xinsi.png"
+    "asset": "18-xinsi.jpg"
   },
   {
     "cardId": 19,
@@ -206,7 +206,7 @@
     "talentMark": "拼搏力",
     "abilityMark": "四",
     "journeyMark": "智与动",
-    "asset": "19-renwu.png"
+    "asset": "19-renwu.jpg"
   },
   {
     "cardId": 20,
@@ -217,7 +217,7 @@
     "talentMark": "总结力",
     "abilityMark": "一",
     "journeyMark": "生与仁",
-    "asset": "20-guiwei.png"
+    "asset": "20-guiwei.jpg"
   },
   {
     "cardId": 21,
@@ -228,7 +228,7 @@
     "talentMark": "领导力",
     "abilityMark": "五",
     "journeyMark": "生与仁",
-    "asset": "21-jiashen.png"
+    "asset": "21-jiashen.jpg"
   },
   {
     "cardId": 22,
@@ -239,7 +239,7 @@
     "talentMark": "承载力",
     "abilityMark": "六",
     "journeyMark": "光与热",
-    "asset": "22-yiyou.png"
+    "asset": "22-yiyou.jpg"
   },
   {
     "cardId": 23,
@@ -250,7 +250,7 @@
     "talentMark": "号召力",
     "abilityMark": "四",
     "journeyMark": "光与热",
-    "asset": "23-bingxu.png"
+    "asset": "23-bingxu.jpg"
   },
   {
     "cardId": 24,
@@ -261,7 +261,7 @@
     "talentMark": "演说力",
     "abilityMark": "四",
     "journeyMark": "精与义",
-    "asset": "24-dinghai.png"
+    "asset": "24-dinghai.jpg"
   },
   {
     "cardId": 25,
@@ -272,7 +272,7 @@
     "talentMark": "学习力",
     "abilityMark": "六",
     "journeyMark": "光与热",
-    "asset": "25-wuzi.png"
+    "asset": "25-wuzi.jpg"
   },
   {
     "cardId": 26,
@@ -283,7 +283,7 @@
     "talentMark": "战斗力",
     "abilityMark": "二",
     "journeyMark": "精与义",
-    "asset": "26-jichou.png"
+    "asset": "26-jichou.jpg"
   },
   {
     "cardId": 27,
@@ -294,7 +294,7 @@
     "talentMark": "变通力",
     "abilityMark": "二",
     "journeyMark": "精与义",
-    "asset": "27-gengyin.png"
+    "asset": "27-gengyin.jpg"
   },
   {
     "cardId": 28,
@@ -305,7 +305,7 @@
     "talentMark": "执行力",
     "abilityMark": "六",
     "journeyMark": "智与动",
-    "asset": "28-xinmao.png"
+    "asset": "28-xinmao.jpg"
   },
   {
     "cardId": 29,
@@ -316,7 +316,7 @@
     "talentMark": "拼搏力",
     "abilityMark": "三",
     "journeyMark": "智与动",
-    "asset": "29-renchen.png"
+    "asset": "29-renchen.jpg"
   },
   {
     "cardId": 30,
@@ -327,7 +327,7 @@
     "talentMark": "总结力",
     "abilityMark": "二",
     "journeyMark": "生与仁",
-    "asset": "30-guisi.png"
+    "asset": "30-guisi.jpg"
   },
   {
     "cardId": 31,
@@ -338,7 +338,7 @@
     "talentMark": "领导力",
     "abilityMark": "四",
     "journeyMark": "生与仁",
-    "asset": "31-jiawu.png"
+    "asset": "31-jiawu.jpg"
   },
   {
     "cardId": 32,
@@ -349,7 +349,7 @@
     "talentMark": "承载力",
     "abilityMark": "一",
     "journeyMark": "光与热",
-    "asset": "32-yiwei.png"
+    "asset": "32-yiwei.jpg"
   },
   {
     "cardId": 33,
@@ -360,7 +360,7 @@
     "talentMark": "号召力",
     "abilityMark": "三",
     "journeyMark": "光与热",
-    "asset": "33-bingshen.png"
+    "asset": "33-bingshen.jpg"
   },
   {
     "cardId": 34,
@@ -371,7 +371,7 @@
     "talentMark": "演说力",
     "abilityMark": "五",
     "journeyMark": "精与义",
-    "asset": "34-dingyou.png"
+    "asset": "34-dingyou.jpg"
   },
   {
     "cardId": 35,
@@ -382,7 +382,7 @@
     "talentMark": "学习力",
     "abilityMark": "五",
     "journeyMark": "光与热",
-    "asset": "35-wuxu.png"
+    "asset": "35-wuxu.jpg"
   },
   {
     "cardId": 36,
@@ -393,7 +393,7 @@
     "talentMark": "战斗力",
     "abilityMark": "三",
     "journeyMark": "精与义",
-    "asset": "36-jihai.png"
+    "asset": "36-jihai.jpg"
   },
   {
     "cardId": 37,
@@ -404,7 +404,7 @@
     "talentMark": "变通力",
     "abilityMark": "一",
     "journeyMark": "精与义",
-    "asset": "37-gengzi.png"
+    "asset": "37-gengzi.jpg"
   },
   {
     "cardId": 38,
@@ -415,7 +415,7 @@
     "talentMark": "执行力",
     "abilityMark": "一",
     "journeyMark": "智与动",
-    "asset": "38-xinchou.png"
+    "asset": "38-xinchou.jpg"
   },
   {
     "cardId": 39,
@@ -426,7 +426,7 @@
     "talentMark": "拼搏力",
     "abilityMark": "二",
     "journeyMark": "智与动",
-    "asset": "39-renyin.png"
+    "asset": "39-renyin.jpg"
   },
   {
     "cardId": 40,
@@ -437,7 +437,7 @@
     "talentMark": "总结力",
     "abilityMark": "三",
     "journeyMark": "生与仁",
-    "asset": "40-guimao.png"
+    "asset": "40-guimao.jpg"
   },
   {
     "cardId": 41,
@@ -448,7 +448,7 @@
     "talentMark": "领导力",
     "abilityMark": "三",
     "journeyMark": "生与仁",
-    "asset": "41-jiachen.png"
+    "asset": "41-jiachen.jpg"
   },
   {
     "cardId": 42,
@@ -459,7 +459,7 @@
     "talentMark": "承载力",
     "abilityMark": "二",
     "journeyMark": "光与热",
-    "asset": "42-yisi.png"
+    "asset": "42-yisi.jpg"
   },
   {
     "cardId": 43,
@@ -470,7 +470,7 @@
     "talentMark": "号召力",
     "abilityMark": "二",
     "journeyMark": "光与热",
-    "asset": "43-bingwu.png"
+    "asset": "43-bingwu.jpg"
   },
   {
     "cardId": 44,
@@ -481,7 +481,7 @@
     "talentMark": "演说力",
     "abilityMark": "六",
     "journeyMark": "精与义",
-    "asset": "44-dingwei.png"
+    "asset": "44-dingwei.jpg"
   },
   {
     "cardId": 45,
@@ -492,7 +492,7 @@
     "talentMark": "学习力",
     "abilityMark": "四",
     "journeyMark": "光与热",
-    "asset": "45-wushen.png"
+    "asset": "45-wushen.jpg"
   },
   {
     "cardId": 46,
@@ -503,7 +503,7 @@
     "talentMark": "战斗力",
     "abilityMark": "四",
     "journeyMark": "精与义",
-    "asset": "46-jiyou.png"
+    "asset": "46-jiyou.jpg"
   },
   {
     "cardId": 47,
@@ -514,7 +514,7 @@
     "talentMark": "变通力",
     "abilityMark": "六",
     "journeyMark": "精与义",
-    "asset": "47-gengxu.png"
+    "asset": "47-gengxu.jpg"
   },
   {
     "cardId": 48,
@@ -525,7 +525,7 @@
     "talentMark": "执行力",
     "abilityMark": "二",
     "journeyMark": "智与动",
-    "asset": "48-xinhai.png"
+    "asset": "48-xinhai.jpg"
   },
   {
     "cardId": 49,
@@ -536,7 +536,7 @@
     "talentMark": "拼搏力",
     "abilityMark": "一",
     "journeyMark": "智与动",
-    "asset": "49-renzi.png"
+    "asset": "49-renzi.jpg"
   },
   {
     "cardId": 50,
@@ -547,7 +547,7 @@
     "talentMark": "总结力",
     "abilityMark": "四",
     "journeyMark": "生与仁",
-    "asset": "50-guichou.png"
+    "asset": "50-guichou.jpg"
   },
   {
     "cardId": 51,
@@ -558,7 +558,7 @@
     "talentMark": "领导力",
     "abilityMark": "二",
     "journeyMark": "生与仁",
-    "asset": "51-jiayin.png"
+    "asset": "51-jiayin.jpg"
   },
   {
     "cardId": 52,
@@ -569,7 +569,7 @@
     "talentMark": "承载力",
     "abilityMark": "三",
     "journeyMark": "光与热",
-    "asset": "52-yimao.png"
+    "asset": "52-yimao.jpg"
   },
   {
     "cardId": 53,
@@ -580,7 +580,7 @@
     "talentMark": "号召力",
     "abilityMark": "一",
     "journeyMark": "光与热",
-    "asset": "53-bingchen.png"
+    "asset": "53-bingchen.jpg"
   },
   {
     "cardId": 54,
@@ -591,7 +591,7 @@
     "talentMark": "演说力",
     "abilityMark": "一",
     "journeyMark": "精与义",
-    "asset": "54-dingsi.png"
+    "asset": "54-dingsi.jpg"
   },
   {
     "cardId": 55,
@@ -602,7 +602,7 @@
     "talentMark": "学习力",
     "abilityMark": "三",
     "journeyMark": "光与热",
-    "asset": "55-wuwu.png"
+    "asset": "55-wuwu.jpg"
   },
   {
     "cardId": 56,
@@ -613,7 +613,7 @@
     "talentMark": "战斗力",
     "abilityMark": "五",
     "journeyMark": "精与义",
-    "asset": "56-jiwei.png"
+    "asset": "56-jiwei.jpg"
   },
   {
     "cardId": 57,
@@ -624,7 +624,7 @@
     "talentMark": "变通力",
     "abilityMark": "五",
     "journeyMark": "精与义",
-    "asset": "57-gengshen.png"
+    "asset": "57-gengshen.jpg"
   },
   {
     "cardId": 58,
@@ -635,7 +635,7 @@
     "talentMark": "执行力",
     "abilityMark": "三",
     "journeyMark": "智与动",
-    "asset": "58-xinyou.png"
+    "asset": "58-xinyou.jpg"
   },
   {
     "cardId": 59,
@@ -646,7 +646,7 @@
     "talentMark": "拼搏力",
     "abilityMark": "六",
     "journeyMark": "智与动",
-    "asset": "59-renxu.png"
+    "asset": "59-renxu.jpg"
   },
   {
     "cardId": 60,
@@ -657,6 +657,6 @@
     "talentMark": "总结力",
     "abilityMark": "五",
     "journeyMark": "生与仁",
-    "asset": "60-guihai.png"
+    "asset": "60-guihai.jpg"
   }
 ]

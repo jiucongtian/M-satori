@@ -58,6 +58,15 @@ try {
       assetPath: card.asset,
       altText: `${card.cardId}号${card.ganzhi}生命智慧卡牌`,
     }))).onConflictDoNothing();
+    for (const card of cards) {
+      await tx.update(cardCatalog)
+        .set({
+          assetPath: card.asset,
+          altText: `${card.cardId}号${card.ganzhi}生命智慧卡牌`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(cardCatalog.deckId, deck.id), eq(cardCatalog.cardNumber, card.cardId)));
+    }
   });
 } finally {
   await pool.end();
