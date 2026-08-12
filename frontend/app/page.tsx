@@ -19,6 +19,10 @@ function stepForAction(action: string) {
   return 0;
 }
 
+function SessionRestoring() {
+  return <section className="session-restoring" aria-live="polite" aria-label="正在恢复登录状态"><Brand /><div className="restoring-seed" aria-hidden="true"><i /><span>芽</span></div><p>正在回到属于你的今日</p></section>;
+}
+
 export default function WelcomePage() {
   const [view, setView] = useState<View>("welcome");
   const [started, setStarted] = useState(false);
@@ -31,6 +35,7 @@ export default function WelcomePage() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [challengeId, setChallengeId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const normalizedPhone = phone.replace(/\D/g, "").slice(0, 11);
   const phoneReady = /^1\d{10}$/.test(normalizedPhone);
@@ -45,7 +50,7 @@ export default function WelcomePage() {
       if (!active) return;
       setResumeStep(stepForAction(me.nextAction));
       setView("profile");
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => active && setSessionReady(true));
     return () => { active = false; };
   }, []);
 
@@ -104,7 +109,7 @@ export default function WelcomePage() {
         <div className="ambient ambient-one" />
         <div className="ambient ambient-two" />
 
-        {view === "welcome" ? (
+        {!sessionReady ? <SessionRestoring /> : view === "welcome" ? (
           <>
             <span className="screen-id">R1.0 · AUTH-02</span>
             <header className="brand-row">
@@ -230,6 +235,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [relationshipType, setRelationshipType] = useState("情感伴侣");
   const [relationshipSource, setRelationshipSource] = useState<"archive" | "cards">("archive");
   const [returnAfterSeed, setReturnAfterSeed] = useState<number | null>(null);
+  const [dailyReturnStep, setDailyReturnStep] = useState(10);
   const id = profileSteps[step];
   const progress = Math.min(100, (step / 6) * 100);
 
@@ -471,11 +477,11 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "PROFILE-10" && <ProfileResult name={data.name} revision={revision} onNext={confirmProfile} onRestart={() => setStep(0)} busy={apiBusy} />}
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
-      {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
+      {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
       {id === "DAILY-01" && <DailyStart name={data.name} onBack={back} onNext={next} />}
       {id === "PAY-01" && <SeedPayment balance={account?.available || 0} busy={apiBusy} onBack={back} onNext={startDailyInsight} />}
       {id === "DAILY-02" && <DailyGenerating name={data.name} balance={account?.available || 0} onBack={back} />}
-      {id === "DAILY-03" && <DailyReport name={data.name} insight={dailyInsight} balance={account?.available || 0} onBack={back} onNext={() => setStep(10)} />}
+      {id === "DAILY-03" && <DailyReport name={data.name} insight={dailyInsight} balance={account?.available || 0} onBack={() => setStep(dailyReturnStep)} onNext={() => setStep(10)} />}
       {id === "DAILY-04" && <DailyAction onBack={back} onNext={next} />}
       {id === "DAILY-05" && <DailyShare name={data.name} onBack={back} onGenerate={next} onHome={() => setStep(10)} />}
       {id === "SHARE-01" && <ShareOptions onBack={back} onNext={next} />}
@@ -485,7 +491,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "MY-01" && <MyHome name={data.name} balance={account?.available || 0} open={navigateR1} />}
       {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} />}
       {id === "MY-03" && <MySeeds account={account} transactions={transactions} onBack={() => setStep(21)} />}
-      {id === "MY-04" && <MyReports home={home} insight={dailyInsight} onBack={() => setStep(21)} onDaily={() => home?.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : undefined} />}
+      {id === "MY-04" && <MyReports home={home} insight={dailyInsight} onBack={() => setStep(21)} onDaily={() => home?.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(21); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : undefined} />}
       {id === "MY-05" && <MyBenefits onBack={() => setStep(21)} openShop={() => setStep(133)} openOrders={() => setStep(156)} />}
       {id === "MY-06" && <MyStudyCompanion onBack={() => setStep(21)} />}
       {id === "MY-07" && <MySettings onBack={() => setStep(21)} onLogout={logout} busy={apiBusy} />}
@@ -868,8 +874,8 @@ function MyHeader({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 function MyHome({ name, balance, open }: { name: string; balance: number; open: (step: number) => void }) {
-  const items = [["每日指引记录", "查看已经生成的每日指引", 24, "册"], ["账号、隐私与设置", "安全、授权和数据管理", 27, "隐"], ["消息与帮助", "通知、客服和意见反馈", 28, "信"]] as const;
-  return <section className="my-page my-home"><header><Brand compact /><button className="my-message" type="button" onClick={() => open(28)}>信<i /></button></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子</small><strong>{balance}</strong></div><b>›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
+  const items = [["每日指引记录", "查看已经生成的每日指引", 24, "册"], ["账号与退出", "管理当前账号登录状态", 27, "隐"], ["联系我们", "官方社交媒体与客服渠道", 28, "联"]] as const;
+  return <section className="my-page my-home"><header><Brand compact /></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子账户</small><strong>{balance}<em> 颗可用</em></strong></div><b>查看明细 ›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
 }
 
 function MyProfile({ home, revision, onBack }: { home: HomeOverview | null; revision: ProfileRevision | null; onBack: () => void }) {
@@ -902,12 +908,12 @@ function MyStudyCompanion({ onBack }: { onBack: () => void }) {
 }
 
 function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: () => void; busy: boolean }) {
-  const groups = [["账号安全", "手机号、登录设备与异常提醒"], ["隐私中心", "数据用途、授权与分享管理"], ["数据管理", "导出、删除与账号注销"], ["通知设置", "日签提醒、消息与锁屏隐私"], ["通用设置", "语言、文字大小与动态效果"]];
-  return <section className="my-page my-detail"><MyHeader title="账号、隐私与设置" onBack={onBack} /><div className="safety-score"><span>安</span><div><small>当前状态</small><strong>账号与资料保护正常</strong><p>上次安全检查：今天</p></div></div><div className="settings-list">{groups.map(([title,note]) => <button type="button" key={title}><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><button className="danger-action" type="button" onClick={onLogout} disabled={busy}>{busy ? "正在退出…" : "退出当前账号"}</button><p className="settings-foot"><span className="lock" />退出后需要重新验证手机号才能进入档案</p></section>;
+  const [confirming,setConfirming]=useState(false);
+  return <section className="my-page my-detail account-exit"><MyHeader title="账号与退出" onBack={onBack} /><div className="safety-score"><span>安</span><div><small>当前状态</small><strong>账号已安全登录</strong><p>生命智慧档案默认仅自己可见</p></div></div><div className="exit-card"><strong>退出当前账号</strong><p>退出后需要重新验证手机号，才能继续查看你的生命智慧档案与每日指引。</p></div><button className="danger-action" type="button" onClick={() => setConfirming(true)} disabled={busy}>{busy ? "正在退出…" : "退出当前账号"}</button>{confirming&&<div className="confirm-backdrop" role="presentation" onClick={()=>setConfirming(false)}><section className="logout-confirm" role="dialog" aria-modal="true" aria-labelledby="logout-title" onClick={event=>event.stopPropagation()}><span>退</span><h2 id="logout-title">确认退出当前账号？</h2><p>退出不会删除你的档案和报告，再次验证手机号即可回来。</p><button className="danger-primary" type="button" disabled={busy} onClick={onLogout}>{busy?"正在退出…":"确认退出"}</button><button className="outline-button" type="button" onClick={()=>setConfirming(false)}>继续留在这里</button></section></div>}<p className="settings-foot"><span className="lock" />退出后无法通过返回键进入已登录页面</p></section>;
 }
 
 function MySupport({ onBack }: { onBack: () => void }) {
-  return <section className="my-page my-detail"><MyHeader title="消息与帮助" onBack={onBack} /><div className="message-overview"><div><span>信</span><i>2</i></div><p><small>待你查看</small><strong>2 条新消息</strong></p><button>查看全部</button></div><div className="recent-messages"><h2>最近消息</h2><article><i>芽</i><span><strong>今日行动提醒</strong><small>别忘了为自己留白十分钟</small></span><time>刚刚</time></article><article><i>礼</i><span><strong>智慧种子已到账</strong><small>新用户启程礼已放入你的账户</small></span><time>今天</time></article></div><div className="support-grid"><button><i>?</i><span>帮助中心</span></button><button><i>话</i><span>联系客服</span></button><button><i>正</i><span>内容纠错</span></button><button><i>!</i><span>安全反馈</span></button></div></section>;
+  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><div className="contact-hero"><span>联</span><small>WE ARE HERE</small><h1>需要的时候<br/>我们会认真回应你</h1><p>关于账号、智慧种子或报告使用的问题，可以通过以下官方渠道联系我们。</p></div><div className="contact-list"><article><i>客</i><span><strong>人工客服</strong><small>正式联系方式配置后开放</small></span><b>待配置</b></article><article><i>媒</i><span><strong>官方社交媒体</strong><small>官方账号与二维码配置后展示</small></span><b>待配置</b></article></div><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会通过客服索要短信验证码、登录口令或要求提供私钥。正式联系方式由运营审核后统一配置。</p></div></section>;
 }
 
 function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:LifeProfile[];self:LifeProfile|null;onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:(profile:LifeProfile)=>void}){

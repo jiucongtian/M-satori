@@ -11,15 +11,13 @@ async function render() {
   }, { waitUntil() {}, passThroughOnException() {} });
 }
 
-test("服务端完整渲染 H5 原型欢迎页", async () => {
+test("服务端首屏渲染中性 Session 恢复态，避免老用户闪现欢迎页", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /R1\.0 · AUTH-02/);
-  assert.match(html, /每一天，/);
-  assert.match(html, /更懂自己一点/);
-  assert.match(html, /开始认识自己/);
-  assert.match(html, /已有档案/);
+  assert.match(html, /正在恢复登录状态/);
+  assert.match(html, /正在回到属于你的今日/);
+  assert.doesNotMatch(html, /R1\.0 · AUTH-02/);
 });
 
 test("正式工程包含完整原型基础样式", async () => {
@@ -121,4 +119,39 @@ test("R1 核心页面调用真实后端能力", async () => {
   }
   assert.doesNotMatch(page, /验证码已发送，原型中/);
   assert.doesNotMatch(page, /原型中直接查看结果/);
+});
+
+test("老用户恢复 Session 前使用中性恢复态，不渲染 AUTH-02", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /const \[sessionReady, setSessionReady\] = useState\(false\)/);
+  assert.match(page, /!sessionReady \? <SessionRestoring \/> : view === "welcome"/);
+  assert.match(page, /finally\(\(\) => active && setSessionReady\(true\)\)/);
+});
+
+test("MY-04 打开的每日指引详情返回 MY-01", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /setDailyReturnStep\(21\); setStep\(14\)/);
+  assert.match(page, /onBack=\{\(\) => setStep\(dailyReturnStep\)\}/);
+});
+
+test("R1.0 我的页面收口账户、联系入口并使用通栏智慧种子卡片", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const myHome = page.match(/function MyHome[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(myHome, /账号与退出/);
+  assert.match(myHome, /联系我们/);
+  assert.doesNotMatch(myHome, /消息与帮助/);
+  assert.match(css, /\.my-assets\{grid-template-columns:1fr\}/);
+});
+
+test("R1.0 退出登录具有二次确认且联系我们不编造渠道", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const settings = page.match(/function MySettings[\s\S]*?\n}\n/)?.[0] ?? "";
+  const support = page.match(/function MySupport[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(settings, /确认退出当前账号/);
+  assert.match(settings, /继续留在这里/);
+  assert.doesNotMatch(settings, /账号安全|隐私中心|数据管理|通知设置|通用设置/);
+  assert.match(support, /人工客服/);
+  assert.match(support, /官方社交媒体/);
+  assert.match(support, /正式联系方式配置后开放/);
 });
