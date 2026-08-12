@@ -89,8 +89,9 @@ export default function WelcomePage() {
         .filter((document) => document.required)
         .map(({ documentId, version }) => ({ documentId, version }));
       const session = await api.createSession(challengeId, code, consentAcceptances);
+      const me = await api.me();
       setMessage("登录成功");
-      setResumeStep(stepForAction(session.nextAction));
+      setResumeStep(stepForAction(me.nextAction || session.nextAction));
       setView("profile");
     } catch (error) {
       setMessage(apiMessage(error));

@@ -15,6 +15,9 @@ import {
   smsChallenges,
   users,
   FieldCipher,
+  lifeProfiles,
+  revisions,
+  subjects,
 } from '@satori/infrastructure';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { timingSafeEqual } from 'node:crypto';
@@ -48,7 +51,7 @@ export interface SessionResponse {
     requiresConsent: boolean;
     createdAt: string;
   };
-  nextAction: 'ACCEPT_CONSENTS' | 'CREATE_PROFILE';
+  nextAction: 'ACCEPT_CONSENTS' | 'CREATE_PROFILE' | 'CONFIRM_PROFILE' | 'VIEW_HOME';
 }
 
 export interface SessionWithRefresh {
@@ -103,6 +106,10 @@ export class SessionService {
           userId: transactionResult.userId,
           sessionId: transactionResult.sessionId,
         });
+        const nextAction = await this.resolveNextAction(
+          transactionResult.userId,
+          transactionResult.requiresConsent,
+        );
         const body: SessionResponse = {
           accessToken: access.token,
           accessTokenExpiresAt: access.expiresAt.toISOString(),
@@ -115,12 +122,35 @@ export class SessionService {
             requiresConsent: transactionResult.requiresConsent,
             createdAt: transactionResult.userCreatedAt.toISOString(),
           },
-          nextAction: transactionResult.requiresConsent ? 'ACCEPT_CONSENTS' : 'CREATE_PROFILE',
+          nextAction,
         };
         return { status: 201, body };
       },
     );
     return { data: result.body, refreshToken: this.crypto.deriveRefreshToken(result.body.sessionId) };
+  }
+
+  private async resolveNextAction(
+    userId: string,
+    requiresConsent: boolean,
+  ): Promise<SessionResponse['nextAction']> {
+    if (requiresConsent) return 'ACCEPT_CONSENTS';
+    const [profile] = await this.infrastructure.database
+      .select({ activeRevisionId: lifeProfiles.activeRevisionId, calculatedRevisionId: revisions.id })
+      .from(lifeProfiles)
+      .innerJoin(subjects, eq(subjects.id, lifeProfiles.subjectId))
+      .leftJoin(revisions, and(eq(revisions.profileId, lifeProfiles.id), eq(revisions.status, 'CALCULATED')))
+      .where(
+        and(
+          eq(lifeProfiles.ownerUserId, userId),
+          eq(subjects.type, 'SELF'),
+          isNull(lifeProfiles.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!profile) return 'CREATE_PROFILE';
+    if (profile.activeRevisionId) return 'VIEW_HOME';
+    return profile.calculatedRevisionId ? 'CONFIRM_PROFILE' : 'CREATE_PROFILE';
   }
 
   async refresh(refreshToken: string): Promise<SessionWithRefresh> {

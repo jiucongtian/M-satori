@@ -112,6 +112,14 @@ test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access T
   assert.doesNotMatch(client, /localStorage\.setItem\([^\n]*(access|token)/i);
 });
 
+test("手机号登录后按后端真实档案状态分流，老用户直接进入 HOME-01", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /const session = await api\.createSession/);
+  assert.match(page, /const me = await api\.me\(\)/);
+  assert.match(page, /stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
+  assert.match(page, /if \(action === "CREATE_TODAY_DAILY_INSIGHT" \|\| action === "VIEW_HOME"\) return 10/);
+});
+
 test("R1 核心页面调用真实后端能力", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
