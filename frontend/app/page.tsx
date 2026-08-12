@@ -210,12 +210,13 @@ export default function WelcomePage() {
 
 type ProfileData = { name: string; date: string; time: string; accuracy: string; place: string; locationId: string; gender: "MALE" | "FEMALE"; relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER" };
 const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05", "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP"];
+profileSteps.push("MY-17");
 const standaloneSteps = profileSteps.slice(10);
 const r1StepIds = new Set([
   "PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11",
   "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03",
   "MY-01", "MY-02", "MY-03", "MY-04", "MY-07", "MY-08",
-  "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-16",
+  "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-16", "MY-17",
   "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP",
 ]);
 
@@ -239,6 +240,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [relationshipSource, setRelationshipSource] = useState<"archive" | "cards">("archive");
   const [returnAfterSeed, setReturnAfterSeed] = useState<number | null>(null);
   const [dailyReturnStep, setDailyReturnStep] = useState(10);
+  const [editingSelf, setEditingSelf] = useState(false);
   const id = profileSteps[step];
   const progress = Math.min(100, (step / 6) * 100);
 
@@ -267,13 +269,28 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   }, [initialStep]);
 
   useEffect(() => {
-    const query = step === 4 ? data.place : step === 112 ? otherData.place : "";
+    const query = step === 4 || id === "MY-17" ? data.place : step === 112 ? otherData.place : "";
     if (query.trim().length < 2) return;
     const timer = window.setTimeout(() => {
       api.searchLocations(query).then(setLocations).catch((error) => setApiError(apiMessage(error)));
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [step, data.place, otherData.place]);
+  }, [step, id, data.place, otherData.place]);
+
+  function openSelfEditor() {
+    const birth = revision?.originalInput;
+    if (birth) setData((current) => ({
+      ...current,
+      name: home?.profile.displayName || current.name,
+      date: `${birth.date.year}-${String(birth.date.month).padStart(2,"0")}-${String(birth.date.day).padStart(2,"0")}`,
+      time: birth.time.localTime || "08:30",
+      accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : "完全不知道",
+      locationId: birth.locationId,
+      gender: birth.calculationGender,
+    }));
+    setEditingSelf(true);
+    setStep(profileSteps.indexOf("MY-17"));
+  }
 
   useEffect(() => {
     if (step !== 111) return;
@@ -329,7 +346,10 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       await api.updateSelfProfile(data.name.trim());
       await api.confirmProfile(revision.revisionId, revision.inputFingerprint, Boolean(revision.requiresEnhancedConfirmation));
       await loadOverview();
-      setStep(8);
+      if (editingSelf) {
+        setEditingSelf(false);
+        setStep(22);
+      } else setStep(8);
     } catch (error) { setApiError(apiMessage(error)); }
     finally { setApiBusy(false); }
   }
@@ -493,7 +513,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "SHARE-03" && <ShareSuccess onBack={back} onHome={() => setStep(10)} />}
       {id === "SHARE-04" && <ShareFailure onBack={back} onRetry={() => setStep(18)} onHome={() => setStep(10)} />}
       {id === "MY-01" && <MyHome name={data.name} balance={account?.available || 0} open={navigateR1} />}
-      {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} />}
+      {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} onEdit={openSelfEditor} />}
       {id === "MY-03" && <MySeeds account={account} transactions={transactions} onBack={() => setStep(21)} />}
       {id === "MY-04" && <MyReports home={home} insight={dailyInsight} onBack={() => setStep(21)} onDaily={() => home?.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(21); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : undefined} />}
       {id === "MY-05" && <MyBenefits onBack={() => setStep(21)} openShop={() => setStep(133)} openOrders={() => setStep(156)} />}
@@ -508,6 +528,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "MY-14" && <PersonArchiveManage profile={selectedProfile} onBack={back} onDelete={() => setStep(118)} />}
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact name={selectedProfile?.displayName || "这份人物档案"} busy={apiBusy} onBack={() => setStep(116)} onDone={deleteOtherProfile} />}
+      {id === "MY-17" && <EditSelfProfile data={data} locations={locations} revision={revision} busy={apiBusy} onChange={setData} onBack={() => {setEditingSelf(false);setStep(22);}} onNext={previewProfile} />}
       {id === "PREVIEW-READ" && <ComingSoonPage kind="问事" navigate={navigateR1} />}
       {id === "PREVIEW-GROWTH" && <ComingSoonPage kind="成长" navigate={navigateR1} />}
       {id === "PREVIEW-RELATIONSHIP" && <ComingSoonPage kind="关系" navigate={navigateR1} />}
@@ -880,13 +901,14 @@ function MyHome({ name, balance, open }: { name: string; balance: number; open: 
   return <section className="my-page my-home"><header><Brand compact /></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子账户</small><strong>{balance}<em> 颗可用</em></strong></div><b>查看明细 ›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
 }
 
-function MyProfile({ home, revision, onBack }: { home: HomeOverview | null; revision: ProfileRevision | null; onBack: () => void }) {
-  const [editNotice,setEditNotice]=useState(false);
+function MyProfile({ home, revision, onBack,onEdit }: { home: HomeOverview | null; revision: ProfileRevision | null; onBack: () => void;onEdit:()=>void }) {
   const cards = revision?.cards || home?.cards || [];
   const birth = revision?.originalInput;
   const birthDate = birth ? `${birth.date.year}.${String(birth.date.month).padStart(2,"0")}.${String(birth.date.day).padStart(2,"0")}` : "—";
-  return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {birth?.timePrecision || "—"}</strong></p><p><span>出生地点 ID</span><strong>{birth?.locationId || "—"}</strong></p></section>{editNotice&&<p className="edit-profile-notice" role="status">编辑功能正在完善中，当前档案不会发生变化。</p>}<button className="outline-button" type="button" onClick={()=>setEditNotice(true)}>编辑生命智慧档案</button></section>;
+  return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {birth?.timePrecision || "—"}</strong></p><p><span>出生地点 ID</span><strong>{birth?.locationId || "—"}</strong></p></section><button className="outline-button" type="button" onClick={onEdit}>编辑生命智慧档案</button></section>;
 }
+
+function EditSelfProfile({data,locations,revision,busy,onChange,onBack,onNext}:{data:ProfileData;locations:Location[];revision:ProfileRevision|null;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page edit-self-profile"><MyHeader title="编辑生命智慧档案" onBack={onBack}/><p className="eyebrow">R1.0 · MY-17</p><h1>核对并更新<br/>你的生命智慧档案</h1><p className="edit-profile-lead">修改后会重新计算四张关系卡牌，并保存为新的档案版本；已经生成的历史内容仍保留原来的依据。</p><label className="archive-field"><span>希望我们怎么称呼你</span><input value={data.name} onChange={e=>onChange({...data,name:e.target.value})}/></label><div className="birth-fields"><label><span>出生日期</span><input type="date" value={data.date} onChange={e=>onChange({...data,date:e.target.value})}/></label><label><span>出生时间</span><input type="time" value={data.time} onChange={e=>onChange({...data,time:e.target.value})}/></label></div><div className="relation-picks"><small>计算性别</small><div>{([['FEMALE','女'],['MALE','男']] as const).map(([value,label])=><button type="button" key={value} className={data.gender===value?'active':''} onClick={()=>onChange({...data,gender:value})}>{label}</button>)}</div></div><label className="archive-field"><span>出生地点</span><input value={data.place} onChange={e=>onChange({...data,place:e.target.value,locationId:''})}/></label>{locations.map(location=><button className="place-result" type="button" key={location.locationId} onClick={()=>onChange({...data,place:location.displayName,locationId:location.locationId})}><span className="place-pin">{location.displayName.slice(0,1)}</span><span><strong>{location.displayName}</strong><small>{location.administrativePath.join(' · ')} · {location.timezone}</small></span><b>{data.locationId===location.locationId?'✓':'选择'}</b></button>)}<div className="edit-version-note"><i>V{(revision?.revisionNumber||1)+1}</i><span><strong>本次修改将创建新版本</strong><small>不会覆盖当前版本，也不会改变历史报告的计算依据</small></span></div><button className="primary" type="button" disabled={busy||!data.name.trim()||!data.locationId} onClick={onNext}>{busy?'正在重新计算…':'确认修改并重新计算'} <span>→</span></button><button className="text-action" type="button" onClick={onBack}>取消编辑</button></section>}
 
 function MySeeds({ account, transactions, onBack }: { account: WisdomSeedAccount | null; transactions: WisdomSeedTransaction[]; onBack: () => void }) {
   const [tab,setTab]=useState("最近记录");

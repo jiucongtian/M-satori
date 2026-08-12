@@ -60,11 +60,16 @@ test("R1.0 我的页面不展示后续版本入口", async () => {
   assert.doesNotMatch(myHome, /商城|助学童子|生命之光|月运|年运|关系匹配/);
 });
 
-test("MY-02 收口档案操作并为未完成编辑功能提供明确反馈", async () => {
+test("MY-02 进入 MY-17 完整编辑档案闭环", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const profile = page.match(/function MyProfile[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(profile, /编辑生命智慧档案/);
-  assert.match(profile, /编辑功能正在完善中/);
+  assert.match(page, /function EditSelfProfile/);
+  assert.match(page, /R1\.0 · MY-17/);
+  assert.match(page, /api\.previewProfile/);
+  assert.match(page, /api\.confirmProfile/);
+  assert.match(page, /本次修改将创建新版本/);
+  assert.doesNotMatch(profile, /编辑功能正在完善中/);
   assert.doesNotMatch(profile, /编辑出生资料|查看版本与历史影响/);
 });
 
