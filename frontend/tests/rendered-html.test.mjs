@@ -72,6 +72,14 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(home, /ready \? "查看今日能量指引" : "获取今日能量指引"/);
 });
 
+test("HOME-01 今日能量卡使用轻透疗愈层次而非厚重实色", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.daily-guide \{[^}]*rgba\(99,138,117,\.82\)/);
+  assert.match(css, /backdrop-filter:blur\(10px\)/);
+  assert.match(css, /\.daily-guide:before/);
+  assert.match(css, /\.daily-guide:after/);
+});
+
 test("三个预告页统一说明后续上线与未来能力", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const preview = page.match(/function ComingSoonPage[\s\S]*?\n}\n/)?.[0] ?? "";
