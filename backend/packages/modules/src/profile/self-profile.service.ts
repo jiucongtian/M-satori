@@ -32,12 +32,24 @@ import {
   subjects,
 } from '@satori/infrastructure';
 import { and, desc, eq, isNull, lt, max, or, sql } from 'drizzle-orm';
+import { CardCatalogService, type ResolvedCard } from './card-catalog.service.js';
 
 export interface RelationshipCardDto {
   dimension: 'SPACETIME' | 'CAREER' | 'FAMILY' | 'SELF';
   title: string;
   order: number;
   cardCode: string;
+  cardId: number | null;
+  ganzhi: string | null;
+  zodiac: string | null;
+  season: string | null;
+  talentMark: string | null;
+  abilityMark: string | null;
+  journeyMark: string | null;
+  deckCode: string;
+  deckVersion: string;
+  assetUrl: string | null;
+  altText: string;
   summary: string;
   uncertainty: string | null;
   mappingVersion: string;
@@ -70,6 +82,7 @@ export class SelfProfileService {
   constructor(
     private readonly infrastructure: RuntimeInfrastructure,
     private readonly cipher: FieldCipher,
+    private readonly cardCatalog: CardCatalogService,
     @Inject(LOCATION_PROVIDER) private readonly locations: LocationProvider,
     @Inject(BIRTH_CHART_CALCULATOR) private readonly calculator: BirthChartCalculator,
   ) {
@@ -326,7 +339,7 @@ export class SelfProfileService {
             })
             .returning();
           if (!revision) throw new Error('Revision creation failed');
-          const cards = createCards(chart);
+          const cards = await createCards(chart, this.cardCatalog);
           await tx.insert(cardBindings).values(
             cards.map((card) => ({
               id: newId(),
@@ -334,7 +347,7 @@ export class SelfProfileService {
               position: card.dimension,
               pillar: card.snapshotPillar,
               cardId: card.cardCode,
-              cardVersion: 'relationship-card/1.0',
+              cardVersion: `${card.deckCode}/${card.deckVersion}`,
               knowledgeVersion: card.knowledgeVersion,
               rulesVersion: card.mappingVersion,
               snapshot: card,
@@ -506,7 +519,7 @@ export class SelfProfileService {
   private async toRevisionDto(
     revision: RevisionRow,
     suppliedChart?: BirthChartResult,
-    suppliedCards?: ReturnType<typeof createCards>,
+    suppliedCards?: Awaited<ReturnType<typeof createCards>>,
   ): Promise<ProfileRevisionDto> {
     const chart =
       suppliedChart ??
@@ -525,7 +538,7 @@ export class SelfProfileService {
           .select({ snapshot: cardBindings.snapshot })
           .from(cardBindings)
           .where(eq(cardBindings.revisionId, revision.id))
-      ).map((row) => row.snapshot as ReturnType<typeof createCards>[number]);
+      ).map((row) => row.snapshot as Awaited<ReturnType<typeof createCards>>[number]);
     return {
       revisionId: revision.id,
       revisionNumber: revision.sequence,
@@ -541,6 +554,17 @@ export class SelfProfileService {
           title: card.title,
           order: card.order,
           cardCode: card.cardCode,
+          cardId: card.cardId,
+          ganzhi: card.ganzhi,
+          zodiac: card.zodiac,
+          season: card.season,
+          talentMark: card.talentMark,
+          abilityMark: card.abilityMark,
+          journeyMark: card.journeyMark,
+          deckCode: card.deckCode,
+          deckVersion: card.deckVersion,
+          assetUrl: card.assetUrl,
+          altText: card.altText,
           summary: card.summary,
           uncertainty: card.uncertainty,
           mappingVersion: card.mappingVersion,
@@ -555,7 +579,7 @@ export class SelfProfileService {
   }
 }
 
-function createCards(chart: BirthChartResult) {
+async function createCards(chart: BirthChartResult, catalog: CardCatalogService) {
   const definitions = [
     {
       dimension: 'SPACETIME' as const,
@@ -582,18 +606,34 @@ function createCards(chart: BirthChartResult) {
       pillar: chart.calculationPreview.pillars.hour,
     },
   ];
-  return definitions.map((definition) => ({
-    dimension: definition.dimension,
-    title: definition.title,
-    order: definition.order,
-    cardCode: definition.pillar
-      ? `PILLAR_${Buffer.from(definition.pillar).toString('base64url')}`
-      : 'PILLAR_UNKNOWN',
-    summary: `${definition.title}采用 R1.0 固定柱位映射生成`,
-    uncertainty: definition.pillar ? null : '出生时间未知，无法确定时柱',
-    mappingVersion: 'pillar-card-map/1.0',
-    knowledgeVersion: 'relationship-card-knowledge/1.0',
-    snapshotPillar: definition.pillar ?? 'UNKNOWN',
+  return Promise.all(definitions.map(async (definition) => {
+    const card: ResolvedCard | null = definition.pillar
+      ? await catalog.resolveGanzhi(definition.pillar)
+      : null;
+    return {
+      dimension: definition.dimension,
+      title: `${definition.title}卡牌`,
+      order: definition.order,
+      cardId: card?.cardId ?? null,
+      cardCode: card?.cardCode ?? 'UNKNOWN',
+      ganzhi: card?.ganzhi ?? null,
+      zodiac: card?.zodiac ?? null,
+      season: card?.season ?? null,
+      talentMark: card?.talentMark ?? null,
+      abilityMark: card?.abilityMark ?? null,
+      journeyMark: card?.journeyMark ?? null,
+      deckCode: card?.deckCode ?? 'satori-default-v1',
+      deckVersion: card?.deckVersion ?? '1.0.0',
+      assetUrl: card?.assetUrl ?? null,
+      altText: card?.altText ?? '暂未确定的自我关系卡牌',
+      summary: card
+        ? `${card.ganzhi} · ${card.talentMark} · ${card.journeyMark}`
+        : '出生时间未知，暂不能确定自我关系卡牌',
+      uncertainty: definition.pillar ? null : '出生时间未知，无法确定时柱',
+      mappingVersion: 'pillar-card-map/2.0',
+      knowledgeVersion: 'relationship-card-knowledge/1.0',
+      snapshotPillar: definition.pillar ?? 'UNKNOWN',
+    };
   }));
 }
 

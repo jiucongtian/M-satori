@@ -323,6 +323,50 @@ export const cardBindings = pgTable(
   (table) => [uniqueIndex('card_bindings_revision_position_uq').on(table.revisionId, table.position)],
 );
 
+export const cardDecks = pgTable(
+  'card_decks',
+  {
+    id: id(),
+    code: varchar('code', { length: 64 }).notNull(),
+    version: varchar('version', { length: 32 }).notNull(),
+    name: varchar('name', { length: 80 }).notNull(),
+    assetBaseUrl: varchar('asset_base_url', { length: 255 }).notNull(),
+    status: varchar('status', { length: 16 }).notNull().default('DRAFT'),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex('card_decks_code_version_uq').on(table.code, table.version),
+    uniqueIndex('card_decks_one_active_uq').on(table.status).where(sql`${table.status} = 'ACTIVE'`),
+  ],
+);
+
+export const cardCatalog = pgTable(
+  'card_catalog',
+  {
+    id: id(),
+    deckId: uuid('deck_id').notNull().references(() => cardDecks.id),
+    cardNumber: integer('card_number').notNull(),
+    cardCode: varchar('card_code', { length: 32 }).notNull(),
+    ganzhi: varchar('ganzhi', { length: 8 }).notNull(),
+    zodiac: varchar('zodiac', { length: 8 }).notNull(),
+    season: varchar('season', { length: 16 }).notNull(),
+    talentMark: varchar('talent_mark', { length: 32 }).notNull(),
+    abilityMark: varchar('ability_mark', { length: 16 }).notNull(),
+    journeyMark: varchar('journey_mark', { length: 32 }).notNull(),
+    assetPath: varchar('asset_path', { length: 128 }).notNull(),
+    altText: varchar('alt_text', { length: 160 }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex('card_catalog_deck_number_uq').on(table.deckId, table.cardNumber),
+    uniqueIndex('card_catalog_deck_code_uq').on(table.deckId, table.cardCode),
+    uniqueIndex('card_catalog_deck_ganzhi_uq').on(table.deckId, table.ganzhi),
+  ],
+);
+
 export const seedAccounts = pgTable(
   'seed_accounts',
   {

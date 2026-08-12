@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
+import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
 import { api, ApiError } from "@/src/api/client";
 import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, Location, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
@@ -653,9 +654,7 @@ function Calculating({ name, onDone }: { name: string; onDone: () => void }) {
 }
 
 function ProfileResult({ name, revision, onNext, onRestart, busy }: { name: string; revision: ProfileRevision | null; onNext: () => void; onRestart: () => void; busy: boolean }) {
-  const tones = ["sunset", "forest", "water", "earth"];
-  const cards = (revision?.cards || []).map((card, index) => ({ title: card.title, mark: card.cardCode, tone: tones[index % tones.length] }));
-  return <div className="profile-result"><span className="result-spark">✦</span><p className="eyebrow">PROFILE PREVIEW</p><h1>{name}，你的生命智慧档案<br /><em>已经算好</em></h1><p>四张关系卡牌，是你理解自己、关系与成长节律的共同起点。</p><div className="wisdom-card-panel"><small>生命智慧档案 · V{revision?.revisionNumber || 1}</small><div className="wisdom-card-grid">{cards.map((card) => <article className={`wisdom-card ${card.tone}`} key={card.title}><i aria-hidden="true" /><span>{card.title}</span><strong>{card.mark}</strong><small>关系 · 智慧</small></article>)}</div>{revision?.warnings?.map((warning) => <p key={warning}>{warning}</p>)}</div><button className="primary" type="button" onClick={onNext} disabled={busy}>{busy ? "正在确认…" : "确认档案并读懂四张卡牌"} <span>→</span></button><button className="text-action" type="button" onClick={onRestart}>重新填写出生资料</button></div>;
+  return <div className="profile-result"><span className="result-spark">✦</span><p className="eyebrow">PROFILE PREVIEW</p><h1>{name}，你的生命智慧档案<br /><em>已经算好</em></h1><p>四张关系卡牌，是你理解自己、关系与成长节律的共同起点。</p><div className="wisdom-card-panel"><small>生命智慧档案 · V{revision?.revisionNumber || 1}</small><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/>{revision?.warnings?.map((warning) => <p key={warning}>{warning}</p>)}</div><button className="primary" type="button" onClick={onNext} disabled={busy}>{busy ? "正在确认…" : "确认档案并读懂四张卡牌"} <span>→</span></button><button className="text-action" type="button" onClick={onRestart}>重新填写出生资料</button></div>;
 }
 
 function RelationshipFirstLook({ name, revision, onNext }: { name: string; revision: ProfileRevision | null; onNext: () => void }) {
@@ -882,11 +881,10 @@ function MyHome({ name, balance, open }: { name: string; balance: number; open: 
 }
 
 function MyProfile({ home, revision, onBack }: { home: HomeOverview | null; revision: ProfileRevision | null; onBack: () => void }) {
-  const tones = ["sunset", "forest", "water", "earth"];
-  const cards = (revision?.cards || home?.cards || []).map((card, index) => [card.title, card.cardCode, tones[index % tones.length]]);
+  const cards = revision?.cards || home?.cards || [];
   const birth = revision?.originalInput;
   const birthDate = birth ? `${birth.date.year}.${String(birth.date.month).padStart(2,"0")}.${String(birth.date.day).padStart(2,"0")}` : "—";
-  return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><div className="my-card-grid">{cards.map(([name,mark,tone]) => <article className={tone} key={name}><small>{name}</small><strong>{mark}</strong><i /></article>)}</div><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {birth?.timePrecision || "—"}</strong></p><p><span>出生地点 ID</span><strong>{birth?.locationId || "—"}</strong></p></section><button className="outline-button" type="button">编辑出生资料</button><button className="text-action" type="button">查看版本与历史影响</button></section>;
+  return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {birth?.timePrecision || "—"}</strong></p><p><span>出生地点 ID</span><strong>{birth?.locationId || "—"}</strong></p></section><button className="outline-button" type="button">编辑出生资料</button><button className="text-action" type="button">查看版本与历史影响</button></section>;
 }
 
 function MySeeds({ account, transactions, onBack }: { account: WisdomSeedAccount | null; transactions: WisdomSeedTransaction[]; onBack: () => void }) {

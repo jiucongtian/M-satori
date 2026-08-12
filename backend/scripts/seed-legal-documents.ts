@@ -1,6 +1,7 @@
 import { validateEnvironment } from '../packages/infrastructure/src/config/environment.js';
 import { createDatabase } from '../packages/infrastructure/src/database/client.js';
 import { legalDocuments } from '../packages/infrastructure/src/database/schema.js';
+import './seed-card-catalog.js';
 
 const publishedAt = new Date('2026-08-09T00:00:00.000Z');
 const documents: (typeof legalDocuments.$inferInsert)[] = [

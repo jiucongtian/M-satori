@@ -826,7 +826,18 @@ export interface components {
             dimension: "SPACETIME" | "CAREER" | "FAMILY" | "SELF";
             title: string;
             order: number;
+            cardId: number | null;
             cardCode: string;
+            ganzhi: string | null;
+            zodiac: string | null;
+            season: string | null;
+            talentMark: string | null;
+            abilityMark: string | null;
+            journeyMark: string | null;
+            deckCode: string;
+            deckVersion: string;
+            assetUrl: string | null;
+            altText: string;
             summary: string;
             uncertainty?: string | null;
             mappingVersion?: string;
