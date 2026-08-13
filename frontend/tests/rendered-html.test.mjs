@@ -73,6 +73,16 @@ test("MY-02 进入 MY-17 完整编辑档案闭环", async () => {
   assert.doesNotMatch(profile, /编辑出生资料|查看版本与历史影响/);
 });
 
+test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /MY-18/);
+  assert.match(page, /生命智慧初识/);
+  assert.match(page, /function FirstLookArchive/);
+  assert.match(page, /first-look-entry/);
+  assert.match(page, /这是一份基础认识，不是对你人生的定论/);
+  assert.match(page, /内容正在准备中/);
+});
+
 test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const home = page.match(/function TodayHome[\s\S]*?\n}\n/)?.[0] ?? "";
