@@ -1,5 +1,8 @@
 import { Global, Module } from '@nestjs/common';
+import { AquaAIClient } from '@aqua-ai/sdk';
 import { DAILY_INSIGHT_GENERATOR, LOCATION_PROVIDER } from '@satori/application';
+import { RuntimeInfrastructure } from '@satori/infrastructure';
+import { AquaDailyInsightGenerator } from './daily-insight/aqua-daily-insight.generator.js';
 import { DeterministicDailyInsightGenerator } from './daily-insight/deterministic-daily-insight.generator.js';
 import { LocationController } from './locations/location.controller.js';
 import { LocalLocationProvider } from './locations/location.provider.js';
@@ -9,7 +12,26 @@ import { LocalLocationProvider } from './locations/location.provider.js';
   controllers: [LocationController],
   providers: [
     { provide: LOCATION_PROVIDER, useClass: LocalLocationProvider },
-    { provide: DAILY_INSIGHT_GENERATOR, useClass: DeterministicDailyInsightGenerator },
+    {
+      provide: DAILY_INSIGHT_GENERATOR,
+      inject: [RuntimeInfrastructure],
+      useFactory: (infrastructure: RuntimeInfrastructure) => {
+        const environment = infrastructure.environment;
+        if (environment.DAILY_INSIGHT_GENERATOR === 'STUB') {
+          return new DeterministicDailyInsightGenerator();
+        }
+        const client = new AquaAIClient({
+          baseUrl: environment.AQUA_AI_BASE_URL!,
+          auth: { type: 'serviceKey', serviceKey: environment.AQUA_AI_SERVICE_KEY! },
+        });
+        return new AquaDailyInsightGenerator(client, {
+          workflowId: environment.AQUA_AI_WORKFLOW_ID,
+          ...(environment.AQUA_AI_WORKFLOW_VERSION === undefined
+            ? {}
+            : { workflowVersion: environment.AQUA_AI_WORKFLOW_VERSION }),
+        });
+      },
+    },
   ],
   exports: [LOCATION_PROVIDER, DAILY_INSIGHT_GENERATOR],
 })

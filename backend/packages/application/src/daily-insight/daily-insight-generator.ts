@@ -27,6 +27,10 @@ export interface DailyInsightGenerationResult {
     schemaVersion: string;
     contentPolicyVersion: string;
     generatedAt: string;
+    providerRequestId?: string;
+    workflowId?: string;
+    workflowVersion?: string;
+    skillVersion?: string;
   };
 }
 export interface DailyInsightGenerator {

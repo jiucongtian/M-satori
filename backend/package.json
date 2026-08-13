@@ -33,6 +33,7 @@
     "infra:down": "docker compose down"
   },
   "dependencies": {
+    "@aqua-ai/sdk": "file:vendor/aqua-ai-sdk-0.1.1.tgz",
     "@fastify/cookie": "^11.1.2",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.4",

@@ -15,7 +15,7 @@ export const environmentSchema = z
     REDIS_URL: z.string().url().default('redis://localhost:6379'),
     QUEUE_PREFIX: z.string().min(1).default('satori'),
     QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
-    QUEUE_JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+    QUEUE_JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(360_000),
     QUEUE_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(5),
     QUEUE_BACKOFF_MS: z.coerce.number().int().positive().default(2_000),
     CORS_ORIGINS: z.string().default('http://localhost:3001'),
@@ -42,8 +42,13 @@ export const environmentSchema = z
     PROFILE_PREVIEW_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
     DAILY_INSIGHT_HISTORY_DAYS: z.coerce.number().int().positive().default(90),
     DAILY_INSIGHT_PRICE: z.coerce.number().int().positive().default(1),
+    DAILY_INSIGHT_GENERATOR: z.enum(['STUB', 'AQUA']).default('STUB'),
     DAILY_INSIGHT_STUB_MODE: z.enum(['SUCCESS', 'FAILURE', 'DELAY']).default('SUCCESS'),
     DAILY_INSIGHT_STUB_DELAY_MS: z.coerce.number().int().min(0).default(0),
+    AQUA_AI_BASE_URL: z.string().url().optional(),
+    AQUA_AI_SERVICE_KEY: z.string().min(20).optional(),
+    AQUA_AI_WORKFLOW_ID: z.string().min(1).default('daily-insight'),
+    AQUA_AI_WORKFLOW_VERSION: z.string().min(1).optional(),
     FEATURE_LIFE_PROFILE: booleanFromString.default(true),
     FEATURE_PROFILE_LIBRARY: booleanFromString.default(true),
     FEATURE_WISDOM_SEEDS: booleanFromString.default(true),
@@ -77,6 +82,23 @@ export const environmentSchema = z
         code: 'custom',
         path: ['DAILY_INSIGHT_STUB_MODE'],
         message: 'Failure and delay generator modes are test-only',
+      });
+    }
+    if (environment.NODE_ENV === 'production' && environment.DAILY_INSIGHT_GENERATOR !== 'AQUA') {
+      context.addIssue({
+        code: 'custom',
+        path: ['DAILY_INSIGHT_GENERATOR'],
+        message: 'Production daily insight generation must use Aqua AI',
+      });
+    }
+    if (
+      environment.DAILY_INSIGHT_GENERATOR === 'AQUA' &&
+      (!environment.AQUA_AI_BASE_URL || !environment.AQUA_AI_SERVICE_KEY)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AQUA_AI_BASE_URL'],
+        message: 'Aqua AI base URL and service key are required when Aqua generation is enabled',
       });
     }
   });

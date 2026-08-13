@@ -2,6 +2,7 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY vendor ./vendor
 RUN npm ci
 
 COPY . .
@@ -11,6 +12,7 @@ FROM node:22-alpine AS runtime-dependencies
 
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY vendor ./vendor
 RUN npm ci --omit=dev && npm cache clean --force
 
 FROM node:22-alpine AS runtime
