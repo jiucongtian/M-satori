@@ -9,7 +9,6 @@ import {
   newId,
   PostgresIdempotencyStore,
   preferences,
-  registrationRewards,
   revisions,
   RuntimeInfrastructure,
   subjects,
@@ -75,20 +74,13 @@ export class MeService {
     if (!row) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
     const consent = await this.consentState(userId);
     const profileState = await this.profileState(userId);
-    const [reward] = await this.infrastructure.database
-      .select({ status: registrationRewards.status })
-      .from(registrationRewards)
-      .where(eq(registrationRewards.userId, userId))
-      .limit(1);
     const nextAction: NextAction = consent.requiresConsent
       ? 'ACCEPT_CONSENTS'
       : profileState === 'NOT_CREATED'
         ? 'CREATE_PROFILE'
         : profileState === 'CALCULATED'
           ? 'CONFIRM_PROFILE'
-          : reward?.status === 'AVAILABLE'
-            ? 'CLAIM_REGISTRATION_REWARD'
-            : 'CREATE_TODAY_DAILY_INSIGHT';
+          : 'VIEW_HOME';
     return {
       userId: row.user.id,
       status: row.user.status,

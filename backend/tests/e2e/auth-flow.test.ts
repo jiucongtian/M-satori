@@ -125,7 +125,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       data: {
         revisionId: string;
         inputFingerprint: string;
-        cards: { dimension: string; title: string; order: number }[];
+        cards: { dimension: string; title: string; order: number; cardId: number; cardCode: string; ganzhi: string; assetUrl: string; deckCode: string }[];
       };
     }>().data;
     expect(previewBody.cards.map((card) => card.dimension)).toEqual([
@@ -135,11 +135,15 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       'SELF',
     ]);
     expect(previewBody.cards.map((card) => card.title)).toEqual([
-      '时空关系',
-      '事业关系',
-      '家庭关系',
-      '自我关系',
+      '时空关系卡牌',
+      '事业关系卡牌',
+      '家庭关系卡牌',
+      '自我关系卡牌',
     ]);
+    expect(previewBody.cards.map((card) => card.ganzhi)).toEqual(['庚午', '辛巳', '乙酉', '壬午']);
+    expect(previewBody.cards.every((card) => card.cardId >= 1 && card.cardId <= 60)).toBe(true);
+    expect(previewBody.cards.every((card) => card.deckCode === 'satori-default-v1')).toBe(true);
+    expect(previewBody.cards.every((card) => card.assetUrl.startsWith('/cards/satori-default-v1/'))).toBe(true);
 
     const replay = await app.inject({
       method: 'POST',
@@ -226,6 +230,23 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(current.statusCode).toBe(200);
     expect(current.json<{ data: { currentRevisionId: string } }>().data.currentRevisionId).toBe(
       previewBody.revisionId,
+    );
+    const renamed = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/life-profile',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { displayName: 'Fred' },
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json<{ data: { displayName: string } }>().data.displayName).toBe('Fred');
+    const home = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me/home-overview',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(home.statusCode).toBe(200);
+    expect(home.json<{ data: { profile: { displayName: string } } }>().data.profile.displayName).toBe(
+      'Fred',
     );
     const list = await app.inject({
       method: 'GET',

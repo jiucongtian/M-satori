@@ -193,7 +193,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["patchSelfProfile"];
         trace?: never;
     };
     "/me/life-profile/revisions": {
@@ -826,7 +826,18 @@ export interface components {
             dimension: "SPACETIME" | "CAREER" | "FAMILY" | "SELF";
             title: string;
             order: number;
+            cardId: number | null;
             cardCode: string;
+            ganzhi: string | null;
+            zodiac: string | null;
+            season: string | null;
+            talentMark: string | null;
+            abilityMark: string | null;
+            journeyMark: string | null;
+            deckCode: string;
+            deckVersion: string;
+            assetUrl: string | null;
+            altText: string;
             summary: string;
             uncertainty?: string | null;
             mappingVersion?: string;
@@ -884,6 +895,9 @@ export interface components {
             /** @enum {string} */
             relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER";
             groupId?: string | null;
+        };
+        PatchSelfLifeProfileRequest: {
+            displayName: string;
         };
         PatchLifeProfileRequest: {
             displayName?: string;
@@ -1390,6 +1404,31 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Current self profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifeProfileEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    patchSelfProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchSelfLifeProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated self profile */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -127,6 +127,13 @@ paths:
       responses:
         '200': {description: Current self profile, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [Profile]
+      operationId: patchSelfProfile
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PatchSelfLifeProfileRequest'}}}}
+      responses:
+        '200': {description: Updated self profile, content: {application/json: {schema: {$ref: '#/components/schemas/LifeProfileEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
   /me/life-profile/revisions:
     get:
       tags: [Profile]
@@ -458,13 +465,36 @@ components:
     ConfirmProfileRevisionRequest: {type: object, required: [fingerprint, enhancedConfirmationAccepted], properties: {fingerprint: {type: string}, enhancedConfirmationAccepted: {type: boolean}}}
     ProfileConfirmation: {type: object, required: [profileId, revisionId, revisionNumber, status, astrologySnapshotId, confirmedAt, reportImpact], properties: {profileId: {type: string}, revisionId: {type: string}, revisionNumber: {type: integer}, status: {const: ACTIVE}, previousActiveRevisionId: {type: [string, 'null']}, astrologySnapshotId: {type: string}, confirmedAt: {type: string, format: date-time}, reportImpact: {type: object, required: [currentLifeReportStillAvailable, currentLifeReportBasedOnPreviousRevision, newLifeReportCanBeGenerated], properties: {currentLifeReportStillAvailable: {type: boolean}, currentLifeReportBasedOnPreviousRevision: {type: boolean}, newLifeReportCanBeGenerated: {type: boolean}}}}}
     ProfileConfirmationEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileConfirmation'}}}
-    RelationshipCard: {type: object, required: [dimension, title, order, cardCode, summary], properties: {dimension: {type: string, enum: [SPACETIME, CAREER, FAMILY, SELF]}, title: {type: string}, order: {type: integer, minimum: 1, maximum: 4}, cardCode: {type: string}, summary: {type: string}, uncertainty: {type: [string, 'null']}, mappingVersion: {type: string}, knowledgeVersion: {type: string}}}
+    RelationshipCard:
+      type: object
+      required: [dimension, title, order, cardId, cardCode, ganzhi, zodiac, season, talentMark, abilityMark, journeyMark, deckCode, deckVersion, assetUrl, altText, summary]
+      properties:
+        dimension: {type: string, enum: [SPACETIME, CAREER, FAMILY, SELF]}
+        title: {type: string}
+        order: {type: integer, minimum: 1, maximum: 4}
+        cardId: {type: [integer, 'null'], minimum: 1, maximum: 60}
+        cardCode: {type: string}
+        ganzhi: {type: [string, 'null']}
+        zodiac: {type: [string, 'null']}
+        season: {type: [string, 'null']}
+        talentMark: {type: [string, 'null']}
+        abilityMark: {type: [string, 'null']}
+        journeyMark: {type: [string, 'null']}
+        deckCode: {type: string}
+        deckVersion: {type: string}
+        assetUrl: {type: [string, 'null']}
+        altText: {type: string}
+        summary: {type: string}
+        uncertainty: {type: [string, 'null']}
+        mappingVersion: {type: string}
+        knowledgeVersion: {type: string}
     LifeProfile: {type: object, required: [profileId, subjectType, displayName, state], properties: {profileId: {type: string}, subjectId: {type: string}, subjectType: {type: string, enum: [SELF, OTHER]}, displayName: {type: string}, relationshipType: {type: string, enum: [SELF, FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}, currentRevisionId: {type: [string, 'null']}, pendingRevisionId: {type: [string, 'null']}, state: {type: string, enum: [NOT_CREATED, CALCULATED, ACTIVE, DELETED]}, updatedAt: {type: string, format: date-time}}}
     LifeProfileEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifeProfile'}}}
     ProfileRevision: {type: object, required: [revisionId, revisionNumber, status], properties: {revisionId: {type: string}, revisionNumber: {type: integer}, status: {type: string, enum: [DRAFT, CALCULATED, ACTIVE, SUPERSEDED, EXPIRED]}, inputFingerprint: {type: string}, originalInput: {$ref: '#/components/schemas/BirthInput'}, normalizedBirthData: {type: object, additionalProperties: true}, calculationPreview: {type: object, additionalProperties: true}, cards: {type: array, items: {$ref: '#/components/schemas/RelationshipCard'}, minItems: 4, maxItems: 4}, requiresEnhancedConfirmation: {type: boolean}, warnings: {type: array, items: {type: string}}, expiresAt: {type: [string, 'null'], format: date-time}, confirmedAt: {type: [string, 'null'], format: date-time}}}
     ProfileRevisionEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileRevision'}}}
     ProfileRevisionListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/ProfileRevision'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
     CreateLifeProfileRequest: {type: object, required: [displayName, relationshipType], properties: {displayName: {type: string, minLength: 1, maxLength: 40}, relationshipType: {type: string, enum: [FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}}}
+    PatchSelfLifeProfileRequest: {type: object, additionalProperties: false, required: [displayName], properties: {displayName: {type: string, minLength: 1, maxLength: 16}}}
     PatchLifeProfileRequest: {type: object, additionalProperties: false, properties: {displayName: {type: string, minLength: 1, maxLength: 40}, relationshipType: {type: string, enum: [FAMILY, FRIEND, COLLEAGUE, OTHER]}, groupId: {type: [string, 'null']}}, minProperties: 1}
     LifeProfileListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/LifeProfile'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
     ProfileGroup: {type: object, required: [groupId, name, sortOrder, profileCount], properties: {groupId: {type: string}, name: {type: string}, sortOrder: {type: integer}, profileCount: {type: integer}, updatedAt: {type: string, format: date-time}}}

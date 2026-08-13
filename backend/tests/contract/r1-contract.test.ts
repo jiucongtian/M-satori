@@ -14,7 +14,11 @@ const deliveryRoutes: Record<string, readonly string[]> = {
   '/auth/sessions*': ['post /auth/sessions', 'post /auth/sessions/refresh', 'delete /auth/sessions/current'],
   '/me core': ['get /me', 'patch /me/preferences', 'post /me/consents'],
   'GET /locations': ['get'],
-  '/me/life-profile*': ['get /me/life-profile', 'post /me/life-profile/revisions/preview'],
+  '/me/life-profile*': [
+    'get /me/life-profile',
+    'patch /me/life-profile',
+    'post /me/life-profile/revisions/preview',
+  ],
   '/me/registration-reward*': ['get /me/registration-reward', 'post /me/registration-reward/claim'],
   'GET /me/wisdom-seed-account': ['get'],
   'GET /me/wisdom-seed-transactions': ['get'],

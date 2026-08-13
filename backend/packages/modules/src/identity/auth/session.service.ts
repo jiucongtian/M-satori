@@ -16,6 +16,8 @@ import {
   smsChallenges,
   users,
   FieldCipher,
+  revisions,
+  subjects,
 } from '@satori/infrastructure';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { timingSafeEqual } from 'node:crypto';
@@ -224,18 +226,22 @@ export class SessionService {
     if (requiresConsent) return 'ACCEPT_CONSENTS';
 
     const [profile] = await this.infrastructure.database
-      .select({ activeRevisionId: lifeProfiles.activeRevisionId })
+      .select({ activeRevisionId: lifeProfiles.activeRevisionId, calculatedRevisionId: revisions.id })
       .from(lifeProfiles)
+      .innerJoin(subjects, eq(subjects.id, lifeProfiles.subjectId))
+      .leftJoin(revisions, and(eq(revisions.profileId, lifeProfiles.id), eq(revisions.status, 'CALCULATED')))
       .where(
         and(
           eq(lifeProfiles.ownerUserId, userId),
-          eq(lifeProfiles.relationshipType, 'SELF'),
+          eq(subjects.type, 'SELF'),
           isNull(lifeProfiles.deletedAt),
         ),
       )
       .limit(1);
     if (!profile) return 'CREATE_PROFILE';
-    if (!profile.activeRevisionId) return 'CONFIRM_PROFILE';
+    if (!profile.activeRevisionId) {
+      return profile.calculatedRevisionId ? 'CONFIRM_PROFILE' : 'CREATE_PROFILE';
+    }
 
     const [reward] = await this.infrastructure.database
       .select({ status: registrationRewards.status })
