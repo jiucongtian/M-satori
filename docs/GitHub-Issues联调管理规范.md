@@ -74,6 +74,8 @@ GitHub 已关闭状态代表 `已关闭`，无需额外创建 `status:closed`。
 
 每轮开始前使用 `docs/templates/联调批次记录.md` 冻结前端 commit、后端 commit、接口文档版本和测试环境。问题必须关联 Release 和批次。
 
+当一个或多个 Issue 准备合并提交、部署和验收时，使用 `docs/Satori-Release-SOP.md` 与 `docs/templates/发布批次记录.md` 建立 Release 批次。一个批次可以包含多个 Issue，但不得把 Issue 正文复制成第二份问题台账。
+
 ## 6. Codex 实时看板口令
 
 可在 Codex 中直接提出：
