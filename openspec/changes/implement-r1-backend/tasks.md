@@ -47,7 +47,7 @@
 
 - [x] 5.1 实现 `GET /api/v1/me/life-profile`、revision 游标列表和 revision 详情的所有者查询
 - [x] 5.2 实现公历/农历、时间精度、传统时辰、locationId 和字段组合校验
-- [x] 5.3 定义 `BirthChartCalculator`，实现地点/时区/真太阳时/算法版本和黄金案例 reference adapter
+- [x] 5.3 定义 `BirthChartCalculator`，保留地点/时区快照和算法版本，将四柱内核升级为 `localCalculateBazi_v1_3`（按输入民用时间计算，不使用城市真太阳时；含分钟级节气、整时辰边界规则和黄金案例）
 - [x] 5.4 实现 `POST /api/v1/me/life-profile/revisions/preview` 的同步预计算、有期限 CALCULATED revision、fingerprint 和幂等重放
 - [x] 5.5 实现年/月/日/时到时空/事业/家庭/自我四张卡的固定映射及卡牌/知识/规则版本快照
 - [x] 5.6 实现 `POST /api/v1/me/life-profile/revisions/{revisionId}/confirm` 的 fingerprint、期限、状态校验和原子 Active/Superseded 切换

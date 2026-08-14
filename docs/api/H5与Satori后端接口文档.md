@@ -888,9 +888,9 @@ Idempotency-Key: ...
         "latitude": 30.2741,
         "longitude": 120.1551
       },
-      "trueSolarDateTime": "1990-05-20T13:18:00+08:00",
-      "trueSolarOffsetMinutes": -7,
-      "adoptedDateTime": "1990-05-20T13:18:00+08:00",
+      "trueSolarDateTime": null,
+      "trueSolarOffsetMinutes": null,
+      "adoptedDateTime": "1990-05-20T13:25:00+08:00",
       "crossesCalendarDate": false,
       "crossesHourBranch": false
     },
@@ -924,7 +924,8 @@ Idempotency-Key: ...
 - Preview 不改变当前有效档案；
 - `calculationPreview` 只用于用户确认，最终事实以确认后固化的 AstrologySnapshot 为准；
 - 示例四柱内容仅表示字段形态，不代表实际算法结果；
-- 真太阳时导致日期或时辰变化时，`requiresEnhancedConfirmation=true`；
+- 当前四柱算法固定使用 `localCalculateBazi_v1_3`，按输入民用时间计算；地点只作为档案元数据保存，不参与四柱计算，同一出生日期时间在不同城市返回相同四柱；
+- 当前不计算真太阳时，`trueSolarDateTime`、`trueSolarOffsetMinutes` 返回 `null`，`crossesCalendarDate`、`crossesHourBranch` 和 `requiresEnhancedConfirmation` 不会因城市发生变化；
 - 出生时间不确定时，后端返回可计算范围、缺失字段和不确定性警告，不猜测时辰。
 
 主要错误：

@@ -30,10 +30,11 @@ describe('reference birth chart calculator', () => {
       year: '庚午',
       month: '辛巳',
       day: '乙酉',
-      hour: '壬午',
+      hour: '癸未',
     });
-    expect(result.normalizedBirthData.trueSolarOffsetMinutes).toBe(-56);
-    expect(result.algorithmVersion).toContain('lunar-typescript/1.7.8');
+    expect(result.normalizedBirthData.trueSolarDateTime).toBeNull();
+    expect(result.normalizedBirthData.trueSolarOffsetMinutes).toBeNull();
+    expect(result.algorithmVersion).toContain('localCalculateBazi/v1.3');
   });
 
   it('does not expose a guessed hour pillar for DATE_ONLY', () => {
@@ -59,17 +60,19 @@ describe('reference birth chart calculator', () => {
     expect(result.calculationPreview.pillars.day).toBe('乙酉');
   });
 
-  it('requires enhanced confirmation when true solar time crosses a date boundary', () => {
-    const result = calculator.calculate(
-      { ...input, time: { localTime: '00:10', hourBranchCode: null } },
-      {
-        ...location,
-        locationId: 'loc_cn_510100',
-        displayName: '中国 四川省 成都市',
-        coordinates: { latitude: 30.5728, longitude: 104.0668 },
-      },
-    );
-    expect(result.normalizedBirthData.crossesCalendarDate).toBe(true);
-    expect(result.requiresEnhancedConfirmation).toBe(true);
+  it('returns the same pillars for the same civil time in every city', () => {
+    const hangzhou = calculator.calculate(input, location);
+    const chengdu = calculator.calculate(input, {
+      ...location,
+      locationId: 'loc_cn_510100',
+      displayName: '中国 四川省 成都市',
+      coordinates: { latitude: 30.5728, longitude: 104.0668 },
+    });
+    expect(chengdu.calculationPreview.pillars).toEqual(hangzhou.calculationPreview.pillars);
+    expect(chengdu.normalizedBirthData.trueSolarDateTime).toBeNull();
+    expect(chengdu.normalizedBirthData.trueSolarOffsetMinutes).toBeNull();
+    expect(chengdu.normalizedBirthData.crossesCalendarDate).toBe(false);
+    expect(chengdu.normalizedBirthData.crossesHourBranch).toBe(false);
+    expect(chengdu.requiresEnhancedConfirmation).toBe(false);
   });
 });

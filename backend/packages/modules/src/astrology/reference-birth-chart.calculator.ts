@@ -7,6 +7,7 @@ import type {
   StandardLocation,
 } from '@satori/application';
 import { Lunar, Solar } from 'lunar-typescript';
+import { calculateLocalBaziV13 } from './local-bazi-v1-3.js';
 
 const branchHours: Record<HourBranch, number> = {
   ZI: 0,
@@ -46,9 +47,9 @@ export class ReferenceBirthChartCalculator implements BirthChartCalculator {
         hour: source.getHour(),
         minute: source.getMinute(),
       };
-      const offsetMinutes =
-        input.timePrecision === 'DATE_ONLY' ? null : trueSolarOffset(solarFields, location);
-      const adopted = addMinutes(solarFields, offsetMinutes ?? 0);
+      // localCalculateBazi_v1_3 uses the supplied civil time directly. Location
+      // remains part of the profile snapshot but must not alter the pillars.
+      const adopted = solarFields;
       const adoptedSolar = Solar.fromYmdHms(
         adopted.year,
         adopted.month,
@@ -58,7 +59,7 @@ export class ReferenceBirthChartCalculator implements BirthChartCalculator {
         0,
       );
       const lunar = adoptedSolar.getLunar();
-      const eightChar = lunar.getEightChar();
+      const pillars = calculateLocalBaziV13(adopted);
       const crossesCalendarDate =
         adopted.year !== solarFields.year ||
         adopted.month !== solarFields.month ||
@@ -67,14 +68,14 @@ export class ReferenceBirthChartCalculator implements BirthChartCalculator {
       const unknownTime = input.timePrecision === 'DATE_ONLY';
       const approximate = input.timePrecision === 'APPROXIMATE' || input.timePrecision === 'HOUR_RANGE';
       return {
-        algorithmVersion: 'lunar-typescript/1.7.8+true-solar/r1.0',
+        algorithmVersion: 'localCalculateBazi/v1.3+civil-time/r1.0',
         normalizedBirthData: {
           solarDate: ymd(solarFields),
           civilDateTime: unknownTime ? null : localDateTime(solarFields, location.timezone),
           timezone: location.timezone,
           coordinates: location.coordinates,
-          trueSolarDateTime: unknownTime ? null : localDateTime(adopted, location.timezone),
-          trueSolarOffsetMinutes: offsetMinutes === null ? null : Math.round(offsetMinutes),
+          trueSolarDateTime: null,
+          trueSolarOffsetMinutes: null,
           adoptedDateTime: localDateTime(adopted, location.timezone),
           crossesCalendarDate,
           crossesHourBranch,
@@ -85,19 +86,17 @@ export class ReferenceBirthChartCalculator implements BirthChartCalculator {
             lunarDisplay: lunar.toString(),
           },
           pillars: {
-            year: eightChar.getYear(),
-            month: eightChar.getMonth(),
-            day: eightChar.getDay(),
-            hour: unknownTime ? null : eightChar.getTime(),
+            year: pillars.year,
+            month: pillars.month,
+            day: pillars.day,
+            hour: unknownTime ? null : pillars.hour,
           },
           certainty: unknownTime ? 'LOW' : approximate ? 'MEDIUM' : 'HIGH',
         },
-        requiresEnhancedConfirmation: crossesCalendarDate || crossesHourBranch,
+        requiresEnhancedConfirmation: false,
         warnings: [
           ...(unknownTime ? ['出生时间未知，时柱与自我关系卡存在不确定性'] : []),
           ...(approximate ? ['出生时间精度有限，结果按所填时间范围计算'] : []),
-          ...(crossesCalendarDate ? ['真太阳时校正跨越自然日'] : []),
-          ...(crossesHourBranch ? ['真太阳时校正跨越传统时辰边界'] : []),
         ],
       };
     } catch (error) {
@@ -133,19 +132,6 @@ function invalidTimeFields(): never {
   });
 }
 
-function trueSolarOffset(
-  value: { year: number; month: number; day: number },
-  location: StandardLocation,
-): number {
-  const date = new Date(Date.UTC(value.year, value.month - 1, value.day));
-  const start = new Date(Date.UTC(value.year, 0, 0));
-  const dayOfYear = Math.floor((date.getTime() - start.getTime()) / 86_400_000);
-  const b = ((360 / 365) * (dayOfYear - 81) * Math.PI) / 180;
-  const equationOfTime = 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b);
-  const centralMeridian = timezoneOffsetHours(date, location.timezone) * 15;
-  return 4 * (location.coordinates.longitude - centralMeridian) + equationOfTime;
-}
-
 function timezoneOffsetHours(date: Date, timezone: string): number {
   const value = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -157,22 +143,6 @@ function timezoneOffsetHours(date: Date, timezone: string): number {
   if (!match) throw new Error(`Timezone offset unavailable: ${timezone}`);
   const direction = match[1] === '-' ? -1 : 1;
   return direction * (Number(match[2]) + Number(match[3]) / 60);
-}
-
-function addMinutes(
-  value: { year: number; month: number; day: number; hour: number; minute: number },
-  minutes: number,
-) {
-  const date = new Date(
-    Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute + Math.round(minutes)),
-  );
-  return {
-    year: date.getUTCFullYear(),
-    month: date.getUTCMonth() + 1,
-    day: date.getUTCDate(),
-    hour: date.getUTCHours(),
-    minute: date.getUTCMinutes(),
-  };
 }
 
 function hourBranch(hour: number): number {
