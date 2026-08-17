@@ -43,6 +43,7 @@ describe('runtime baseline', () => {
     expect(environment.HOME_ENERGY_SUMMARY_MAX_ATTEMPTS).toBe(2);
     expect(environment.HOME_ENERGY_PREWARM_DAYS).toBe(3);
     expect(environment.HOME_ENERGY_PREWARM_CONCURRENCY).toBe(3);
+    expect(environment.HOME_ENERGY_PREWARM_SPACING_MS).toBe(3_000);
     expect(() => validateEnvironment({ HOME_ENERGY_PREWARM_ENABLED: 'true' })).toThrow();
   });
 

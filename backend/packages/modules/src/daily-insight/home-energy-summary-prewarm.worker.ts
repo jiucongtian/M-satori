@@ -38,6 +38,7 @@ export class HomeEnergySummaryPrewarmWorker implements OnModuleInit, OnApplicati
       const report = await this.summaries.prewarm(
         dates,
         this.infrastructure.environment.HOME_ENERGY_PREWARM_CONCURRENCY,
+        this.infrastructure.environment.HOME_ENERGY_PREWARM_SPACING_MS,
       );
       console.info('home_energy_summary_prewarm_completed', { dates, ...report });
     } catch (error) {

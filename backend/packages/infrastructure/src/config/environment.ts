@@ -56,6 +56,7 @@ export const environmentSchema = z
     HOME_ENERGY_PREWARM_ENABLED: booleanFromString,
     HOME_ENERGY_PREWARM_DAYS: z.coerce.number().int().min(1).max(7).default(3),
     HOME_ENERGY_PREWARM_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(3),
+    HOME_ENERGY_PREWARM_SPACING_MS: z.coerce.number().int().min(0).max(60_000).default(3_000),
     HOME_ENERGY_PREWARM_INTERVAL_MS: z.coerce.number().int().min(60_000).default(3_600_000),
     AQUA_BASE_URL: z.string().url().optional(),
     AQUA_TENANT_SERVICE_KEY: z.string().min(20).optional(),

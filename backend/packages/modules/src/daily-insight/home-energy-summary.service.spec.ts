@@ -40,7 +40,7 @@ describe('shared home energy summaries', () => {
     );
     const infrastructure = {
       environment: { HOME_ENERGY_SUMMARY_ENABLED: true },
-      redis: { set: vi.fn().mockResolvedValue('OK'), eval: vi.fn().mockResolvedValue(1) },
+      redis: { set: vi.fn().mockResolvedValue('OK'), eval: vi.fn().mockResolvedValue(0) },
       database: {
         select: vi.fn(() => ({
           from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
@@ -54,7 +54,7 @@ describe('shared home energy summaries', () => {
     };
     const service = new HomeEnergySummaryService(infrastructure as never, { generate });
 
-    await expect(service.prewarm(['2026-08-18'], 4)).resolves.toEqual({
+    await expect(service.prewarm(['2026-08-18'], 4, 3_000)).resolves.toEqual({
       requested: 60,
       generated: 60,
       cached: 0,
@@ -62,6 +62,13 @@ describe('shared home energy summaries', () => {
       failed: 0,
     });
     expect(generate).toHaveBeenCalledTimes(60);
+    expect(infrastructure.redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('slot+spacing'),
+      1,
+      expect.stringContaining('home-energy-prewarm-rate:'),
+      expect.any(Number),
+      3_000,
+    );
     const generatedInputs = generate.mock.calls.map(([input]) => input);
     expect(generatedInputs).toEqual(
       expect.arrayContaining([

@@ -67,7 +67,7 @@ export class HomeEnergySummaryService {
     return this.generateLegacy(context as HomeEnergySummaryContext & { localDate: string; profileRevisionId: string }, dayCard);
   }
 
-  async prewarm(dates: string[], concurrency: number): Promise<HomeEnergyPrewarmReport> {
+  async prewarm(dates: string[], concurrency: number, spacingMs = 0): Promise<HomeEnergyPrewarmReport> {
     const uniqueDates = [...new Set(dates)];
     const work = uniqueDates.flatMap((date) =>
       SEXAGENARY_CYCLE.map((dayCard, index) => ({ date, dayCard, index })),
@@ -84,7 +84,7 @@ export class HomeEnergySummaryService {
       while (cursor < work.length) {
         const item = work[cursor++];
         if (!item) return;
-        const outcome = await this.prewarmOne(item.date, item.dayCard, item.index);
+        const outcome = await this.prewarmOne(item.date, item.dayCard, item.index, spacingMs);
         report[outcome] += 1;
       }
     });
@@ -96,6 +96,7 @@ export class HomeEnergySummaryService {
     localDate: string,
     dayCard: string,
     cycleIndex: number,
+    spacingMs: number,
   ): Promise<'generated' | 'cached' | 'locked' | 'failed'> {
     if (await this.findSharedCached(localDate, dayCard)) return 'cached';
     if (!this.generator || !this.infrastructure.environment.HOME_ENERGY_SUMMARY_ENABLED) return 'failed';
@@ -108,6 +109,7 @@ export class HomeEnergySummaryService {
     try {
       if (await this.findSharedCached(localDate, dayCard)) return 'cached';
       const heavenCard = heavenCardFor(localDate);
+      await this.waitForProviderSlot(spacingMs);
       const generated = await this.generator.generate({
         runReference: `shared-${String(cycleIndex).padStart(2, '0')}`,
         dayCard,
@@ -143,6 +145,20 @@ export class HomeEnergySummaryService {
         lockToken,
       );
     }
+  }
+
+  private async waitForProviderSlot(spacingMs: number): Promise<void> {
+    if (spacingMs <= 0) return;
+    const waitMs = Number(
+      await this.infrastructure.redis.eval(
+        "local now=tonumber(ARGV[1]); local spacing=tonumber(ARGV[2]); local next=tonumber(redis.call('get',KEYS[1]) or '0'); local slot=now; if next>slot then slot=next end; redis.call('set',KEYS[1],tostring(slot+spacing),'PX',math.max(spacing*100,60000)); return slot-now",
+        1,
+        `home-energy-prewarm-rate:${HOME_ENERGY_WORKFLOW_VERSION}`,
+        Date.now(),
+        spacingMs,
+      ),
+    );
+    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
 
   private async generateLegacy(
