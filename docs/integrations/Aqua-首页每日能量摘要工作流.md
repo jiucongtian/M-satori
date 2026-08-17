@@ -4,7 +4,7 @@
 
 **事实核验日期：** 2026-08-17
 
-**当前状态：** 测试环境真实工作流、完整结果字段和同日缓存复用已验收通过；供应方故障场景仍待专项验收
+**当前状态：** 共享组合预热已完成代码与本地测试，待部署测试环境生成未来三天缓存并验收首页无等待读取；供应方故障场景仍待专项验收
 
 ## 1. 范围与边界
 
@@ -21,10 +21,9 @@
 ```ts
 await aqua.workflows.run("daily-energy-home-summary", {
   workflowVersion: "daily-energy-home-summary/1.0.3",
-  idempotencyKey: `daily-energy-${date}-${userId}`,
-  runReference: userId,
+  idempotencyKey: `daily-energy-${date}-shared-${cycleIndex}`,
+  runReference: `shared-${cycleIndex}`,
   input: {
-    name: userName,
     day_card: dayCard,
     heaven_card: heavenCard,
     date,
@@ -34,7 +33,7 @@ await aqua.workflows.run("daily-energy-home-summary", {
 
 输入来源：
 
-- `name`：本人档案称呼，服务端裁剪空白，最大 64 字符；
+- `name`：共享预热时不发送，避免把某位用户姓名写入所有用户共用的缓存；读取缓存后由 Satori 在内存中补上当前用户称呼；
 - `day_card`：当前本人档案 `FAMILY` 维度卡牌的 `snapshotPillar`；该字段来自档案创建时 `localCalculateBazi/v1.3` 计算出的出生八字日柱；
 - `heaven_card`：Satori 将用户时区当天公历日期传入 `localCalculateBazi/v1.3`，取其日柱；业务层不得另行调用第三方日干支算法；
 - `date`：用户时区的当天日期，格式 `YYYY-MM-DD`。
@@ -47,7 +46,9 @@ Satori 从 Aqua `result` 严格读取并映射：
 
 `greeting`、`guidance`、`energy_level`、`suitable_actions`、`cautions`、`date`、`day_card`、`heaven_card`、`score`、`signals`、`rule_version`、`copy_version`。
 
-校验成功后写入 `daily_energy_home_summaries`，唯一键为用户、日期和工作流版本。同一天重复打开首页优先读取缓存，不重复发起供应方调用。`home-overview` 对外返回 `dailyEnergySummary.state` 与 `data`；未配置、输入缺失或 Aqua 失败时返回不可用状态，前端不展示写死的能量等级或建议。
+同一天的 `heaven_card` 固定，用户 `day_card` 只有六十甲子 60 种，因此 Worker 为每个目标日期预生成 60 个组合。校验成功后写入共享表 `daily_energy_home_summary_cache`，唯一键为日期、日卡和工作流版本。默认覆盖各活跃用户时区的今天及未来两天；时区落在不同自然日时自动取日期并集。
+
+`home-overview` 只按用户当天日期和日卡读取共享缓存，不在请求链路调用 Aqua；命中后在内存中补上当前用户称呼并返回 `dailyEnergySummary.state=READY`。预热尚未完成或 Aqua 失败时立即返回 `UNAVAILABLE`，前端不等待 LLM，也不展示写死建议。旧的 `daily_energy_home_summaries` 仅用于平滑兼容已经生成的用户级缓存；关闭预热开关时保留原按用户即时生成模式。
 
 ## 4. 配置与安全
 
@@ -59,6 +60,10 @@ Satori 从 Aqua `result` 严格读取并映射：
 | `HOME_ENERGY_SUMMARY_TIMEOUT_MS` | 默认 15 秒 |
 | `HOME_ENERGY_SUMMARY_MAX_ATTEMPTS` | 默认 2，最大 3 |
 | `HOME_ENERGY_SUMMARY_RETRY_BACKOFF_MS` | 默认 250 毫秒 |
+| `HOME_ENERGY_PREWARM_ENABLED` | 默认 `false`；启用后首页只读共享缓存，Aqua 调用由 Worker 执行 |
+| `HOME_ENERGY_PREWARM_DAYS` | 默认 3，表示今天起连续三天，范围 1—7 |
+| `HOME_ENERGY_PREWARM_CONCURRENCY` | 默认 3，范围 1—10 |
+| `HOME_ENERGY_PREWARM_INTERVAL_MS` | 默认每小时补齐一次，最小 60 秒 |
 
 service key 不进入前端构建、OpenAPI、数据库业务内容或普通日志。
 
@@ -79,6 +84,9 @@ service key 不进入前端构建、OpenAPI、数据库业务内容或普通日�
 - [x] 测试环境部署、真实账号输入构造、安全降级和脱敏错误日志；
 - [x] 测试环境真实 Aqua 成功响应；
 - [x] 同日重复打开只命中同一幂等运行/缓存；
+- [x] 60 种日卡共享组合、匿名请求、时区日期并集和并发预热单元测试；
+- [ ] 测试环境未来三天共 180 个组合预热完成且失败数为 0；
+- [ ] 新账号首次打开首页只读共享缓存，不产生同步 Aqua 调用；
 - [ ] 401、429、5xx、超时和非法响应的测试环境验证；
 - [ ] 首页公网 UI 与服务端日志脱敏验收。
 
