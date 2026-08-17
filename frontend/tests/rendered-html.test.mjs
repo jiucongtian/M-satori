@@ -60,6 +60,42 @@ test("R1.0 我的页面不展示后续版本入口", async () => {
   assert.doesNotMatch(myHome, /商城|助学童子|生命之光|月运|年运|关系匹配/);
 });
 
+test("R1.0 智慧种子统一为不可交易的 AI 体验额度", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const gift = page.match(/function SeedGift[\s\S]*?\n}\n/)?.[0] ?? "";
+  const daily = page.match(/function SeedPayment[\s\S]*?\n}\n/)?.[0] ?? "";
+  const seeds = page.match(/function MySeeds[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(gift, /AI 体验额度/);
+  assert.match(gift, /不可购买、充值、提现、转赠或交易/);
+  assert.match(daily, /确认后将预留体验额度/);
+  assert.match(daily, /未形成有效内容会自动恢复/);
+  assert.match(daily, /AI 体验额度不足/);
+  assert.match(seeds, /可用 AI 体验额度/);
+  assert.match(seeds, /仅用于 AI 体验/);
+  for (const component of [gift, daily, seeds]) {
+    assert.doesNotMatch(component, /统一的价值凭证|购买智慧种子|确认支付|现金兑换/);
+  }
+});
+
+test("R1.0 正式 AI 内容入口展示统一边界声明", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const notice = page.match(/function AiContentNotice[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(notice, /AI 生成内容/);
+  assert.match(notice, /不构成医疗、投资、法律建议或对未来结果的保证/);
+  for (const name of ["RelationshipFirstLook", "DailyReport", "FirstLookArchive"]) {
+    const component = page.match(new RegExp(`function ${name}[\\s\\S]*?\\n}\\n`))?.[0] ?? "";
+    assert.match(component, /<AiContentNotice \/>/);
+  }
+});
+
+test("R1.0 Release 白名单阻断购种、商城与种子兑换页面", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const scope = page.match(/const r1StepIds = new Set\(\[[\s\S]*?\]\);/)?.[0] ?? "";
+  for (const id of ["SHOP-01", "SEED-01", "SEED-02", "SEED-03", "GOODS-01", "GOODS-05", "ORDER-01"]) {
+    assert.doesNotMatch(scope, new RegExp(`"${id}"`));
+  }
+});
+
 test("MY-02 进入 MY-17 完整编辑档案闭环", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const profile = page.match(/function MyProfile[\s\S]*?\n}\n/)?.[0] ?? "";
