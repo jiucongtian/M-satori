@@ -63,7 +63,7 @@ Satori 从 Aqua `result` 严格读取并映射：
 | `HOME_ENERGY_PREWARM_ENABLED` | 默认 `false`；启用后首页只读共享缓存，Aqua 调用由 Worker 执行 |
 | `HOME_ENERGY_PREWARM_DAYS` | 默认 3，表示今天起连续三天，范围 1—7 |
 | `HOME_ENERGY_PREWARM_CONCURRENCY` | 默认 3，范围 1—10 |
-| `HOME_ENERGY_PREWARM_SPACING_MS` | 默认 3000 毫秒；通过 Redis 在多 Worker 间统一限制 Aqua 请求启动速率 |
+| `HOME_ENERGY_PREWARM_SPACING_MS` | 默认 5000 毫秒；通过 Redis 在多 Worker 间统一限制 Aqua 请求启动速率。按最多一次重试计算，最坏约 24 次/分钟，低于工作流 30 次/分钟限制 |
 | `HOME_ENERGY_PREWARM_INTERVAL_MS` | 默认每小时补齐一次，最小 60 秒 |
 
 service key 不进入前端构建、OpenAPI、数据库业务内容或普通日志。
