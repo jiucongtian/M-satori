@@ -4,7 +4,7 @@
 
 **事实核验日期：** 2026-08-17
 
-**当前状态：** 已部署测试环境并发起真实请求；Aqua 租户返回 `WORKFLOW_SCOPE_DENIED`，待为 service key 授予 `daily-energy-home-summary` 访问权限后完成成功响应与缓存验收
+**当前状态：** 测试环境真实工作流、完整结果字段和同日缓存复用已验收通过；供应方故障场景仍待专项验收
 
 ## 1. 范围与边界
 
@@ -77,9 +77,9 @@ service key 不进入前端构建、OpenAPI、数据库业务内容或普通日�
 - [x] OpenAPI、前端类型和动态渲染接入；
 - [x] 按日持久缓存与数据库迁移；
 - [x] 测试环境部署、真实账号输入构造、安全降级和脱敏错误日志；
-- [ ] 测试环境真实 Aqua 成功响应；
-- [ ] 同日重复打开只命中同一幂等运行/缓存；
+- [x] 测试环境真实 Aqua 成功响应；
+- [x] 同日重复打开只命中同一幂等运行/缓存；
 - [ ] 401、429、5xx、超时和非法响应的测试环境验证；
 - [ ] 首页公网 UI 与服务端日志脱敏验收。
 
-2026-08-17 测试环境验收记录：`release/r1.0@a2e8102` 已部署至 `test-satori.shenxinyou.com`，迁移、API 健康检查、静态前端和真实账号首页请求均已执行。请求到达 Aqua 后返回非重试错误 `WORKFLOW_SCOPE_DENIED`（`Workflow access denied`），Satori 按契约记录 `errorCode`、`message`、`requestId`、`retryable=false` 和尝试次数，并向首页降级返回 `UNAVAILABLE`。当前阻塞属于 Aqua 租户授权，不应通过扩大重试或回退写死内容规避。
+2026-08-17 测试环境验收记录：`release/r1.0@a2e8102` 已部署至 `test-satori.shenxinyou.com`，迁移、API 健康检查、静态前端和真实账号首页请求均已执行。首次请求曾因 Aqua 租户授权返回非重试错误 `WORKFLOW_SCOPE_DENIED`，Satori 正确降级为 `UNAVAILABLE`；授权完成后复验返回 `READY`，问候、指引、能量等级、适合事项、注意事项及规则/文案版本均完整。隔离账号连续请求两次的响应完全一致，最近五分钟数据库仅新增一条 `daily_energy_home_summaries` 记录，证明同日第二次请求复用了缓存。公网首页和 bootstrap 均返回 HTTP 200。
