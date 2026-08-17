@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateLocalBaziV13 } from './local-bazi-v1-3.js';
+import { calculateLocalBaziDayV13, calculateLocalBaziV13 } from './local-bazi-v1-3.js';
 
 describe('localCalculateBazi v1.3 port', () => {
   it('matches the source calculator golden case', () => {
@@ -9,6 +9,11 @@ describe('localCalculateBazi v1.3 port', () => {
       day: '乙酉',
       hour: '癸未',
     });
+  });
+
+  it('uses the full v1.3 converter as the business date-to-day-pillar entry point', () => {
+    expect(calculateLocalBaziDayV13(1990, 5, 20)).toBe('乙酉');
+    expect(calculateLocalBaziDayV13(2026, 8, 13)).toBe('己未');
   });
 
   it('treats a solar term inside the birth shichen as after the term', () => {

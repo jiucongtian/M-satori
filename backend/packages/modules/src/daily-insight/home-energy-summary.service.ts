@@ -7,7 +7,7 @@ import {
 } from '@satori/application';
 import { dailyEnergyHomeSummaries, newId, RuntimeInfrastructure } from '@satori/infrastructure';
 import { and, eq } from 'drizzle-orm';
-import { Solar } from 'lunar-typescript';
+import { calculateLocalBaziDayV13 } from '../astrology/local-bazi-v1-3.js';
 
 export interface HomeEnergySummaryContext {
   userId: string;
@@ -42,7 +42,7 @@ export class HomeEnergySummaryService {
       .find((card) => card.dimension === 'FAMILY')?.snapshotPillar;
     if (typeof dayCard !== 'string') return { state: 'NOT_AVAILABLE', data: null };
     const [year, month, day] = context.localDate.split('-').map(Number);
-    const heavenCard = Solar.fromYmd(year!, month!, day!).getLunar().getDayInGanZhi();
+    const heavenCard = calculateLocalBaziDayV13(year!, month!, day!);
     try {
       const generated = await this.generator.generate({
         userId: context.userId,

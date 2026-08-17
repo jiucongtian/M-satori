@@ -35,8 +35,8 @@ await aqua.workflows.run("daily-energy-home-summary", {
 输入来源：
 
 - `name`：本人档案称呼，服务端裁剪空白，最大 64 字符；
-- `day_card`：当前本人档案 `FAMILY` 维度卡牌的 `snapshotPillar`；
-- `heaven_card`：Satori 根据用户时区当天公历日期计算的日柱；
+- `day_card`：当前本人档案 `FAMILY` 维度卡牌的 `snapshotPillar`；该字段来自档案创建时 `localCalculateBazi/v1.3` 计算出的出生八字日柱；
+- `heaven_card`：Satori 将用户时区当天公历日期传入 `localCalculateBazi/v1.3`，取其日柱；业务层不得另行调用第三方日干支算法；
 - `date`：用户时区的当天日期，格式 `YYYY-MM-DD`。
 
 调用前会校验日期、六十甲子、幂等键和运行引用格式。Aqua 返回的 `day_card`、`heaven_card` 必须与请求一致，否则拒绝缓存和展示。

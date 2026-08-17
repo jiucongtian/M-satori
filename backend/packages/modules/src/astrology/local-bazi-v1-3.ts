@@ -64,6 +64,16 @@ export function calculateLocalBaziV13(input: LocalBaziV13Input): LocalBaziV13Res
   };
 }
 
+/**
+ * The single business entry point for converting a calendar date to its day
+ * pillar. Noon is intentional: the v1.3 day pillar is date-based, while using
+ * the full converter prevents business callers from introducing another
+ * Ganzhi implementation.
+ */
+export function calculateLocalBaziDayV13(year: number, month: number, day: number): string {
+  return calculateLocalBaziV13({ year, month, day, hour: 12, minute: 0 }).day;
+}
+
 function computeYearPillar(input: LocalBaziV13Input, shichenHour: number) {
   const lichun = getSolarTerm(input.year, 2);
   const effectiveYear = isBirthBeforeTerm(input, shichenHour, lichun) ? input.year - 1 : input.year;

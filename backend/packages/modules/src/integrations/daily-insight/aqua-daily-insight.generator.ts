@@ -6,6 +6,7 @@ import type {
 } from '@satori/application';
 import { Solar } from 'lunar-typescript';
 import { z } from 'zod';
+import { calculateLocalBaziDayV13 } from '../../astrology/local-bazi-v1-3.js';
 
 const AQUA_NOTICE = '本内容仅供自我觉察与日常参考，不构成医疗、心理、法律或投资建议。';
 const SATORI_NOTICE = '内容用于自我观察与成长参考。';
@@ -116,7 +117,7 @@ export function toAquaInput(input: DailyInsightGenerationInput): AquaDailyInsigh
     reportDate: input.localDate,
     timezone: input.timezone,
     locale: 'zh-CN',
-    heavenDayGanzhi: lunar.getDayInGanZhi(),
+    heavenDayGanzhi: calculateLocalBaziDayV13(year, month, day),
     season: seasonFor(lunarMonth),
     lunarMonth,
     monthCard: { ganzhi: monthCard.snapshotPillar },
