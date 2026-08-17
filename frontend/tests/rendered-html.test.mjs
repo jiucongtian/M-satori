@@ -123,8 +123,12 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const home = page.match(/function TodayHome[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(home, /home-energy-card/);
-  assert.match(home, /今日能量为中/);
-  assert.match(home, /<span>高<\/span><span className="active">中<\/span><span>低<\/span>/);
+  assert.match(home, /home\?\.dailyEnergySummary\.data/);
+  assert.match(home, /summary\?\.energyLevel === level/);
+  assert.match(home, /summary\?\.guidance/);
+  assert.match(home, /summary\.suitableActions/);
+  assert.match(home, /summary\.cautions/);
+  assert.doesNotMatch(home, /先稳住自己的节奏，再清醒回应外界的变化/);
   assert.match(home, /适合做什么/);
   assert.match(home, /注意什么/);
   assert.match(home, /home\?\.wisdomSeedAccount\.available/);

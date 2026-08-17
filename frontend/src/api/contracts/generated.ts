@@ -739,6 +739,21 @@ export interface components {
                 nextAction: components["schemas"]["NextAction"];
             };
         };
+        DailyEnergySummary: {
+            greeting: string;
+            guidance: string;
+            /** @enum {string} */
+            energyLevel: "高" | "中" | "低";
+            suitableActions: string[];
+            cautions: string[];
+            date: string;
+            dayCard: string;
+            heavenCard: string;
+            score: number;
+            signals: string[];
+            ruleVersion: string;
+            copyVersion: string;
+        };
         HomeOverviewEnvelope: {
             data: {
                 user: {
@@ -756,6 +771,11 @@ export interface components {
                     state?: "NOT_CREATED" | "GENERATING" | "READY" | "FAILED";
                     dailyInsightId?: string | null;
                     taskId?: string | null;
+                };
+                dailyEnergySummary: {
+                    /** @enum {string} */
+                    state: "READY" | "UNAVAILABLE" | "NOT_AVAILABLE";
+                    data: components["schemas"]["DailyEnergySummary"] | null;
                 };
                 nextAction: components["schemas"]["NextAction"];
             };

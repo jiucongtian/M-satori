@@ -30,6 +30,17 @@ describe('runtime baseline', () => {
     expect(environment).not.toHaveProperty('AQUA_JWT_SECRET');
   });
 
+  it('requires server-only Aqua credentials when home energy summaries are enabled', () => {
+    expect(() => validateEnvironment({ HOME_ENERGY_SUMMARY_ENABLED: 'true' })).toThrow();
+    const environment = validateEnvironment({
+      HOME_ENERGY_SUMMARY_ENABLED: 'true',
+      AQUA_BASE_URL: 'https://aqua.example.com',
+      AQUA_TENANT_SERVICE_KEY: 'test-tenant-service-key-safe-length',
+    });
+    expect(environment.HOME_ENERGY_SUMMARY_ENABLED).toBe(true);
+    expect(environment.HOME_ENERGY_SUMMARY_MAX_ATTEMPTS).toBe(2);
+  });
+
   it('generates UUIDv7 identifiers', () => {
     const generated = newId();
     expect(validateUuid(generated)).toBe(true);

@@ -1,9 +1,14 @@
 import { Global, Module } from '@nestjs/common';
 import { AquaAIClient } from '@aqua-ai/sdk';
-import { DAILY_INSIGHT_GENERATOR, LOCATION_PROVIDER } from '@satori/application';
+import {
+  DAILY_INSIGHT_GENERATOR,
+  HOME_ENERGY_SUMMARY_GENERATOR,
+  LOCATION_PROVIDER,
+} from '@satori/application';
 import { RuntimeInfrastructure } from '@satori/infrastructure';
 import { AquaDailyInsightGenerator } from './daily-insight/aqua-daily-insight.generator.js';
 import { DeterministicDailyInsightGenerator } from './daily-insight/deterministic-daily-insight.generator.js';
+import { AquaHomeEnergySummaryGenerator } from './daily-energy/aqua-home-energy-summary.generator.js';
 import { LocationController } from './locations/location.controller.js';
 import { LocalLocationProvider } from './locations/location.provider.js';
 
@@ -12,6 +17,23 @@ import { LocalLocationProvider } from './locations/location.provider.js';
   controllers: [LocationController],
   providers: [
     { provide: LOCATION_PROVIDER, useClass: LocalLocationProvider },
+    {
+      provide: HOME_ENERGY_SUMMARY_GENERATOR,
+      inject: [RuntimeInfrastructure],
+      useFactory: (infrastructure: RuntimeInfrastructure) => {
+        const environment = infrastructure.environment;
+        if (!environment.HOME_ENERGY_SUMMARY_ENABLED) return null;
+        const client = new AquaAIClient({
+          baseUrl: environment.AQUA_BASE_URL!,
+          auth: { type: 'serviceKey', serviceKey: environment.AQUA_TENANT_SERVICE_KEY! },
+          timeoutMs: environment.HOME_ENERGY_SUMMARY_TIMEOUT_MS,
+        });
+        return new AquaHomeEnergySummaryGenerator(client, {
+          maxAttempts: environment.HOME_ENERGY_SUMMARY_MAX_ATTEMPTS,
+          retryBackoffMs: environment.HOME_ENERGY_SUMMARY_RETRY_BACKOFF_MS,
+        });
+      },
+    },
     {
       provide: DAILY_INSIGHT_GENERATOR,
       inject: [RuntimeInfrastructure],
@@ -33,6 +55,6 @@ import { LocalLocationProvider } from './locations/location.provider.js';
       },
     },
   ],
-  exports: [LOCATION_PROVIDER, DAILY_INSIGHT_GENERATOR],
+  exports: [LOCATION_PROVIDER, DAILY_INSIGHT_GENERATOR, HOME_ENERGY_SUMMARY_GENERATOR],
 })
 export class IntegrationsModule {}

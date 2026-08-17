@@ -582,3 +582,29 @@ export const deletionRequests = pgTable(
       .where(sql`${table.status} in ('PENDING', 'PROCESSING')`),
   ],
 );
+
+export const dailyEnergyHomeSummaries = pgTable(
+  'daily_energy_home_summaries',
+  {
+    id: id(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    profileRevisionId: uuid('profile_revision_id')
+      .notNull()
+      .references(() => revisions.id),
+    localDate: date('local_date').notNull(),
+    workflowVersion: varchar('workflow_version', { length: 128 }).notNull(),
+    content: jsonb('content').notNull(),
+    providerRequestId: varchar('provider_request_id', { length: 128 }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('daily_energy_home_summaries_identity_uq').on(
+      table.ownerUserId,
+      table.localDate,
+      table.workflowVersion,
+    ),
+    index('daily_energy_home_summaries_owner_date_idx').on(table.ownerUserId, table.localDate),
+  ],
+);
