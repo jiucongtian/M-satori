@@ -608,3 +608,25 @@ export const dailyEnergyHomeSummaries = pgTable(
     index('daily_energy_home_summaries_owner_date_idx').on(table.ownerUserId, table.localDate),
   ],
 );
+
+export const dailyEnergyHomeSummaryCache = pgTable(
+  'daily_energy_home_summary_cache',
+  {
+    id: id(),
+    localDate: date('local_date').notNull(),
+    dayCard: varchar('day_card', { length: 2 }).notNull(),
+    heavenCard: varchar('heaven_card', { length: 2 }).notNull(),
+    workflowVersion: varchar('workflow_version', { length: 128 }).notNull(),
+    content: jsonb('content').notNull(),
+    providerRequestId: varchar('provider_request_id', { length: 128 }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('daily_energy_home_summary_cache_identity_uq').on(
+      table.localDate,
+      table.dayCard,
+      table.workflowVersion,
+    ),
+    index('daily_energy_home_summary_cache_date_idx').on(table.localDate),
+  ],
+);

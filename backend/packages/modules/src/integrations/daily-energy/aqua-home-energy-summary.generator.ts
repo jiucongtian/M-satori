@@ -1,6 +1,7 @@
 import { AquaAIError, type AquaAIClient, type WorkflowRunResponse } from '@aqua-ai/sdk';
 import {
   HOME_ENERGY_WORKFLOW_VERSION,
+  SEXAGENARY_CYCLE,
   type HomeEnergySummary,
   type HomeEnergySummaryGenerator,
   type HomeEnergySummaryInput,
@@ -11,12 +12,7 @@ const WORKFLOW_ID = 'daily-energy-home-summary';
 const IDEMPOTENCY_VALUE = /^[A-Za-z0-9:._/-]{1,128}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-const jiazi = Array.from({ length: 60 }, (_, index) => {
-  const stems = '甲乙丙丁戊己庚辛壬癸';
-  const branches = '子丑寅卯辰巳午未申酉戌亥';
-  return `${stems[index % stems.length]}${branches[index % branches.length]}`;
-});
-const jiaziSchema = z.enum(jiazi as [string, ...string[]]);
+const jiaziSchema = z.enum(SEXAGENARY_CYCLE as [string, ...string[]]);
 
 const aquaResultSchema = z
   .object({
@@ -88,14 +84,14 @@ function toRequest(input: HomeEnergySummaryInput) {
   if (!jiaziSchema.safeParse(input.dayCard).success || !jiaziSchema.safeParse(input.heavenCard).success) {
     throw inputError('dayCard and heavenCard must be valid sexagenary-cycle values');
   }
-  const idempotencyKey = `daily-energy-${input.date}-${input.userId}`;
-  if (!IDEMPOTENCY_VALUE.test(idempotencyKey) || !IDEMPOTENCY_VALUE.test(input.userId)) {
+  const idempotencyKey = `daily-energy-${input.date}-${input.runReference}`;
+  if (!IDEMPOTENCY_VALUE.test(idempotencyKey) || !IDEMPOTENCY_VALUE.test(input.runReference)) {
     throw inputError('idempotencyKey or runReference is invalid');
   }
   return {
     workflowVersion: HOME_ENERGY_WORKFLOW_VERSION,
     idempotencyKey,
-    runReference: input.userId,
+    runReference: input.runReference,
     input: {
       ...(name ? { name } : {}),
       day_card: input.dayCard,

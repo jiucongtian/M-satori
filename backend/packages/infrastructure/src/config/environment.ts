@@ -53,6 +53,10 @@ export const environmentSchema = z
     HOME_ENERGY_SUMMARY_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
     HOME_ENERGY_SUMMARY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(2),
     HOME_ENERGY_SUMMARY_RETRY_BACKOFF_MS: z.coerce.number().int().min(0).default(250),
+    HOME_ENERGY_PREWARM_ENABLED: booleanFromString,
+    HOME_ENERGY_PREWARM_DAYS: z.coerce.number().int().min(1).max(7).default(3),
+    HOME_ENERGY_PREWARM_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(3),
+    HOME_ENERGY_PREWARM_INTERVAL_MS: z.coerce.number().int().min(60_000).default(3_600_000),
     AQUA_BASE_URL: z.string().url().optional(),
     AQUA_TENANT_SERVICE_KEY: z.string().min(20).optional(),
     FEATURE_LIFE_PROFILE: booleanFromString.default(true),
@@ -115,6 +119,13 @@ export const environmentSchema = z
         code: 'custom',
         path: ['AQUA_BASE_URL'],
         message: 'Aqua base URL and tenant service key are required for home energy summaries',
+      });
+    }
+    if (environment.HOME_ENERGY_PREWARM_ENABLED && !environment.HOME_ENERGY_SUMMARY_ENABLED) {
+      context.addIssue({
+        code: 'custom',
+        path: ['HOME_ENERGY_PREWARM_ENABLED'],
+        message: 'Home energy summary prewarming requires home energy summaries to be enabled',
       });
     }
   });

@@ -34,11 +34,16 @@ describe('runtime baseline', () => {
     expect(() => validateEnvironment({ HOME_ENERGY_SUMMARY_ENABLED: 'true' })).toThrow();
     const environment = validateEnvironment({
       HOME_ENERGY_SUMMARY_ENABLED: 'true',
+      HOME_ENERGY_PREWARM_ENABLED: 'true',
       AQUA_BASE_URL: 'https://aqua.example.com',
       AQUA_TENANT_SERVICE_KEY: 'test-tenant-service-key-safe-length',
     });
     expect(environment.HOME_ENERGY_SUMMARY_ENABLED).toBe(true);
+    expect(environment.HOME_ENERGY_PREWARM_ENABLED).toBe(true);
     expect(environment.HOME_ENERGY_SUMMARY_MAX_ATTEMPTS).toBe(2);
+    expect(environment.HOME_ENERGY_PREWARM_DAYS).toBe(3);
+    expect(environment.HOME_ENERGY_PREWARM_CONCURRENCY).toBe(3);
+    expect(() => validateEnvironment({ HOME_ENERGY_PREWARM_ENABLED: 'true' })).toThrow();
   });
 
   it('generates UUIDv7 identifiers', () => {

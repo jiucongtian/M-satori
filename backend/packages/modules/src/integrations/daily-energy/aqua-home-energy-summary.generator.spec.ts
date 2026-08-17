@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AquaHomeEnergySummaryGenerator } from './aqua-home-energy-summary.generator.js';
 
 const input: HomeEnergySummaryInput = {
-  userId: '00000000-0000-7000-8000-000000000001',
+  runReference: '00000000-0000-7000-8000-000000000001',
   userName: '小满',
   dayCard: '癸丑',
   heavenCard: '丙辰',
@@ -56,8 +56,8 @@ describe('AquaHomeEnergySummaryGenerator', () => {
     });
     expect(run).toHaveBeenCalledWith('daily-energy-home-summary', {
       workflowVersion: HOME_ENERGY_WORKFLOW_VERSION,
-      idempotencyKey: `daily-energy-${input.date}-${input.userId}`,
-      runReference: input.userId,
+      idempotencyKey: `daily-energy-${input.date}-${input.runReference}`,
+      runReference: input.runReference,
       input: {
         name: input.userName,
         day_card: input.dayCard,
@@ -65,6 +65,34 @@ describe('AquaHomeEnergySummaryGenerator', () => {
         date: input.date,
       },
     });
+  });
+
+  it('supports a shared prewarm request without sending a user name', async () => {
+    const run = vi.fn().mockResolvedValue({ requestId: 'aqua-shared-request', result, manifest: {} });
+    const generator = new AquaHomeEnergySummaryGenerator(
+      { workflows: { run } },
+      { maxAttempts: 2, retryBackoffMs: 0 },
+    );
+
+    await generator.generate({
+      runReference: 'shared-00',
+      dayCard: input.dayCard,
+      heavenCard: input.heavenCard,
+      date: input.date,
+    });
+
+    expect(run).toHaveBeenCalledWith(
+      'daily-energy-home-summary',
+      expect.objectContaining({
+        idempotencyKey: `daily-energy-${input.date}-shared-00`,
+        runReference: 'shared-00',
+        input: {
+          day_card: input.dayCard,
+          heaven_card: input.heavenCard,
+          date: input.date,
+        },
+      }),
+    );
   });
 
   it('retries only retryable Aqua failures', async () => {

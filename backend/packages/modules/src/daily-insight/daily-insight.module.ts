@@ -6,6 +6,6 @@ import { HomeEnergySummaryService } from './home-energy-summary.service.js';
 @Module({
   controllers: [DailyInsightController, HomeOverviewController],
   providers: [DailyInsightService, HomeEnergySummaryService],
-  exports: [DailyInsightService],
+  exports: [DailyInsightService, HomeEnergySummaryService],
 })
 export class DailyInsightModule {}

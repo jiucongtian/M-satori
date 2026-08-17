@@ -43,6 +43,13 @@
       "when": 1786972980559,
       "tag": "0005_unknown_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786976210748,
+      "tag": "0006_known_ultimates",
+      "breakpoints": true
     }
   ]
 }
