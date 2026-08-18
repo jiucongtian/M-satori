@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
 import { api, ApiError } from "@/src/api/client";
@@ -246,6 +246,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [returnAfterSeed, setReturnAfterSeed] = useState<number | null>(null);
   const [dailyReturnStep, setDailyReturnStep] = useState(10);
   const [editingSelf, setEditingSelf] = useState(false);
+  const confirmingRevisionRef = useRef<string | null>(null);
   const id = profileSteps[step];
   const progress = Math.min(100, (step / 6) * 100);
 
@@ -386,10 +387,21 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
   async function confirmProfile() {
     if (!revision?.inputFingerprint) return setApiError("档案预览缺少校验指纹，请重新生成");
+    if (confirmingRevisionRef.current === revision.revisionId) return;
+    const revisionToConfirm = revision;
+    const fingerprint = revision.inputFingerprint;
+    confirmingRevisionRef.current = revisionToConfirm.revisionId;
     setApiBusy(true); setApiError("");
     try {
       await api.updateSelfProfile(data.name.trim());
-      await api.confirmProfile(revision.revisionId, revision.inputFingerprint, Boolean(revision.requiresEnhancedConfirmation));
+      try {
+        await api.confirmProfile(revisionToConfirm.revisionId, fingerprint, Boolean(revisionToConfirm.requiresEnhancedConfirmation));
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.code !== "PROFILE_REVISION_ALREADY_CONFIRMED") throw error;
+        const persistedRevision = await api.profileRevision(revisionToConfirm.revisionId);
+        if (persistedRevision.status !== "ACTIVE") throw error;
+        setRevision(persistedRevision);
+      }
       await loadOverview();
       if (editingSelf) {
         setEditingSelf(false);
@@ -400,7 +412,10 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
         await generateFirstLook(revision.revisionId);
       }
     } catch (error) { setApiError(apiMessage(error)); }
-    finally { setApiBusy(false); }
+    finally {
+      if (confirmingRevisionRef.current === revisionToConfirm.revisionId) confirmingRevisionRef.current = null;
+      setApiBusy(false);
+    }
   }
 
   async function claimReward() {

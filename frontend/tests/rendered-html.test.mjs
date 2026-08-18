@@ -124,6 +124,18 @@ test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
   assert.doesNotMatch(page, /card\.summary\|\|/);
 });
 
+test("PROFILE-10 防止并发重复确认并恢复已激活的档案版本", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const confirmation = page.match(/async function confirmProfile\(\) \{[\s\S]*?\n  \}\n\n  async function claimReward/)?.[0] ?? "";
+  assert.match(page, /const confirmingRevisionRef = useRef<string \| null>\(null\)/);
+  assert.match(confirmation, /confirmingRevisionRef\.current === revision\.revisionId/);
+  assert.match(confirmation, /PROFILE_REVISION_ALREADY_CONFIRMED/);
+  assert.match(confirmation, /await api\.profileRevision\(revisionToConfirm\.revisionId\)/);
+  assert.match(confirmation, /persistedRevision\.status !== "ACTIVE"/);
+  assert.match(confirmation, /setRevision\(persistedRevision\)/);
+  assert.match(confirmation, /confirmingRevisionRef\.current = null/);
+});
+
 test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
