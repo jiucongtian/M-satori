@@ -124,6 +124,32 @@ test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
   assert.doesNotMatch(page, /card\.summary\|\|/);
 });
 
+test("PROFILE-08 进入后自动请求后端并依次点亮生成阶段", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const flow = page.match(/function ProfileFlow[\s\S]*?\n}\n\nfunction FlowStep/)?.[0] ?? "";
+  const calculating = page.match(/function Calculating[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(flow, /id !== "PROFILE-08"/);
+  assert.match(flow, /api\.previewProfile/);
+  assert.match(flow, /setTimeout\(\(\) => active && setCalculationStage\(1\), 500\)/);
+  assert.match(flow, /setTimeout\(\(\) => active && setCalculationStage\(2\), 1100\)/);
+  assert.match(flow, /setTimeout\(\(\) => active && setCalculationStage\(3\), 1700\)/);
+  assert.match(flow, /setCalculationStage\(4\)/);
+  assert.match(flow, /setStep\(7\)/);
+  assert.match(calculating, /index < stage/);
+  assert.match(calculating, /done \? "✓" : active \? "●" : "○"/);
+  assert.match(calculating, /完成后会自动打开/);
+  assert.match(calculating, /重新生成/);
+  assert.doesNotMatch(calculating, /className="done">✓ 校验/);
+});
+
+test("PROFILE-11 请求失败后回读后端持久化失败状态", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const generation = page.match(/async function generateFirstLook[\s\S]*?\n  }\n\n  async function openFirstLookArchive/)?.[0] ?? "";
+  assert.match(generation, /await api\.generateProfileFirstLook\(revisionId\)/);
+  assert.match(generation, /setFirstLook\(await api\.profileFirstLook\(revisionId\)\)/);
+  assert.match(generation, /setApiError\(apiMessage\(error\)\)/);
+});
+
 test("PROFILE-10 防止并发重复确认并恢复已激活的档案版本", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const confirmation = page.match(/async function confirmProfile\(\) \{[\s\S]*?\n  \}\n\n  async function claimReward/)?.[0] ?? "";

@@ -246,6 +246,10 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [returnAfterSeed, setReturnAfterSeed] = useState<number | null>(null);
   const [dailyReturnStep, setDailyReturnStep] = useState(10);
   const [editingSelf, setEditingSelf] = useState(false);
+  const [calculationAttempt, setCalculationAttempt] = useState(0);
+  const [calculationStage, setCalculationStage] = useState(0);
+  const [calculationState, setCalculationState] = useState<"idle" | "running" | "complete" | "failed">("idle");
+  const calculationRunRef = useRef<number | null>(null);
   const confirmingRevisionRef = useRef<string | null>(null);
   const id = profileSteps[step];
   const progress = Math.min(100, (step / 6) * 100);
@@ -278,6 +282,56 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     }, 250);
     return () => window.clearTimeout(timer);
   }, [step, id, data.place, otherData.place]);
+
+  useEffect(() => {
+    if (id !== "PROFILE-08" || calculationRunRef.current === calculationAttempt) return;
+    calculationRunRef.current = calculationAttempt;
+    let active = true;
+    const progressTimers = [
+      window.setTimeout(() => active && setCalculationStage(1), 500),
+      window.setTimeout(() => active && setCalculationStage(2), 1100),
+      window.setTimeout(() => active && setCalculationStage(3), 1700),
+    ];
+    const minimumVisibleTime = new Promise<void>((resolve) => {
+      progressTimers.push(window.setTimeout(resolve, 2300));
+    });
+
+    setCalculationStage(0);
+    setCalculationState("running");
+    setApiBusy(true);
+    setApiError("");
+
+    const [year, month, day] = data.date.split("-").map(Number);
+    const exact = data.accuracy === "准确到分钟" || data.accuracy === "大致时间";
+    const request = api.previewProfile({
+      calendarType: "SOLAR",
+      date: { year, month, day, isLeapMonth: false },
+      timePrecision: data.accuracy === "准确到分钟" ? "EXACT_MINUTE" : data.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
+      time: { localTime: exact ? data.time : null, hourBranchCode: null },
+      locationId: data.locationId,
+      calculationGender: data.gender,
+    });
+
+    Promise.all([request, minimumVisibleTime]).then(([value]) => {
+      if (!active) return;
+      setRevision(value);
+      setCalculationStage(4);
+      setCalculationState("complete");
+      progressTimers.push(window.setTimeout(() => active && setStep(7), 700));
+    }).catch((error) => {
+      if (!active) return;
+      progressTimers.forEach((timer) => window.clearTimeout(timer));
+      setCalculationState("failed");
+      setApiError(apiMessage(error));
+    }).finally(() => {
+      if (active) setApiBusy(false);
+    });
+
+    return () => {
+      active = false;
+      progressTimers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [calculationAttempt, data.accuracy, data.date, data.gender, data.locationId, data.time, id]);
 
   function openSelfEditor() {
     const birth = revision?.originalInput;
@@ -339,7 +393,11 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       setFirstLook(value);
       if (value.status === "FAILED") setApiError(value.failure?.message || "生命智慧初识生成失败，请手动重试");
     } catch (error) {
-      setFirstLook(null);
+      try {
+        setFirstLook(await api.profileFirstLook(revisionId));
+      } catch {
+        setFirstLook(null);
+      }
       setApiError(apiMessage(error));
     } finally {
       setFirstLookLoading(false);
@@ -365,24 +423,12 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     }
   }
 
-  async function previewProfile() {
+  function previewProfile() {
     if (!data.locationId) return setApiError("请从搜索结果中选择出生地点");
-    setApiBusy(true); setApiError("");
-    try {
-      const [year, month, day] = data.date.split("-").map(Number);
-      const exact = data.accuracy === "准确到分钟" || data.accuracy === "大致时间";
-      const value = await api.previewProfile({
-        calendarType: "SOLAR",
-        date: { year, month, day, isLeapMonth: false },
-        timePrecision: data.accuracy === "准确到分钟" ? "EXACT_MINUTE" : data.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
-        time: { localTime: exact ? data.time : null, hourBranchCode: null },
-        locationId: data.locationId,
-        calculationGender: data.gender,
-      });
-      setRevision(value);
-      setStep(6);
-    } catch (error) { setApiError(apiMessage(error)); }
-    finally { setApiBusy(false); }
+    setCalculationState("idle");
+    setCalculationStage(0);
+    setCalculationAttempt((value) => value + 1);
+    setStep(6);
   }
 
   async function confirmProfile() {
@@ -558,10 +604,10 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
             <SummaryRow label="时间规则" value="将根据地点、时区与已确认规则处理" />
           </div>
           <div className="privacy-inline"><span className="lock" /><p>仅用于生成你的个人内容，默认仅你自己可见。<a href="#">查看数据用途</a></p></div>
-          <FlowNext onClick={previewProfile} disabled={apiBusy}>{apiBusy ? "正在计算…" : "确认并生成生命智慧档案"}</FlowNext>
+          <FlowNext onClick={previewProfile}>确认并生成生命智慧档案</FlowNext>
         </FlowStep>
       )}
-      {id === "PROFILE-08" && <Calculating name={data.name} onDone={next} />}
+      {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => setStep(7)} />}
       {id === "PROFILE-10" && <ProfileResult name={data.name} revision={revision} onNext={confirmProfile} onRestart={() => setStep(0)} busy={apiBusy} />}
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
@@ -735,8 +781,9 @@ function SummaryRow({ label, value, edit }: { label: string; value: string; edit
   return <div className="summary-row"><span>{label}</span><strong>{value}</strong>{edit ? <button type="button" onClick={edit}>修改</button> : <i />}</div>;
 }
 
-function Calculating({ name, onDone }: { name: string; onDone: () => void }) {
-  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>四柱</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages"><span className="done">✓ 校验出生地点与时间</span><span className="done">✓ 应用时间规则</span><span className="done">✓ 计算四柱与基础结构</span><span className="active">· 准备你的档案摘要</span></div><p>计算已经完成，请确认预览结果。</p><button className="text-action" type="button" onClick={onDone}>查看计算结果 →</button></div>;
+function Calculating({ name, stage, state, onRetry, onDone }: { name: string; stage: number; state: "idle" | "running" | "complete" | "failed"; onRetry: () => void; onDone: () => void }) {
+  const stages = ["校验出生地点与时间", "应用时间规则", "计算四柱与基础结构", "准备你的档案摘要"];
+  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>四柱</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages" aria-live="polite">{stages.map((label, index) => { const done = index < stage; const active = state === "running" && index === stage; return <span key={label} className={done ? "done" : active ? "active" : ""}>{done ? "✓" : active ? "●" : "○"} {label}</span>; })}</div>{state === "failed" ? <><p>档案生成暂时中断，已填写的资料仍然保留。</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></> : state === "complete" ? <><p>计算已经完成，即将自动打开结果。</p><button className="text-action" type="button" onClick={onDone}>立即查看计算结果 →</button></> : <p>正在连接后端生成基础档案，完成后会自动打开。</p>}</div>;
 }
 
 function ProfileResult({ name, revision, onNext, onRestart, busy }: { name: string; revision: ProfileRevision | null; onNext: () => void; onRestart: () => void; busy: boolean }) {
