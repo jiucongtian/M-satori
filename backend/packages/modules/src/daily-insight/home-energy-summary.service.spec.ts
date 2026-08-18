@@ -26,9 +26,8 @@ describe('shared home energy summaries', () => {
   it('personalizes only the response copy without mutating shared cache content', () => {
     expect(personalizeGreeting(sharedSummary, ' 小满 ')).toMatchObject({ greeting: '小满，你好' });
     expect(sharedSummary.greeting).toBe('你好');
-    expect(personalizeGreeting({ ...sharedSummary, greeting: '好'.repeat(128) }, '名'.repeat(64)).greeting).toHaveLength(
-      128,
-    );
+    expect(personalizeGreeting({ ...sharedSummary, greeting: '朋友，你好' }, 'Fred').greeting).toBe('Fred，你好');
+    expect(personalizeGreeting({ ...sharedSummary, greeting: '早上好' }, '  ').greeting).toBe('你好');
   });
 
   it('prewarms exactly 60 anonymous shared combinations for one date', async () => {
