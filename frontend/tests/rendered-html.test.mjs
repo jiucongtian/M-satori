@@ -290,6 +290,22 @@ test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维
   assert.match(support, /contact-focus/);
 });
 
+test("PROFILE-08/10 使用生命智慧语言且 PAY-01 提供客服帮助闭环", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const calculating = page.match(/function Calculating[\s\S]*?\n}\n/)?.[0] ?? "";
+  const result = page.match(/function ProfileResult[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(calculating, /<span>成档<\/span>/);
+  assert.match(calculating, /对齐你的生命节律/);
+  assert.match(calculating, /生成四张关系卡牌/);
+  assert.match(calculating, /你的档案初见已准备好/);
+  assert.match(result, /确认这份档案，开启生命初见/);
+  assert.doesNotMatch(`${calculating}\n${result}`, /生命智慧档案 · V\{|已经算好|计算已经完成|查看计算结果/);
+  assert.match(page, /id !== "PROFILE-10"/);
+  assert.match(page, /AI 体验额度不足，获取帮助/);
+  assert.match(page, /本次体验额度暂时不足/);
+  assert.match(page, /profileSteps\.indexOf\("MY-08"\)/);
+});
+
 test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
