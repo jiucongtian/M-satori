@@ -44,5 +44,5 @@
 - 顺序：`hour → day → month → year`；维度：“思想 → 行为 → 事业 → 梦想目标”
 - notice：“这是一份基础认识，不是对你人生的定论。”
 - manifest：`profile-four-card-first-look/1.0.5`、`1.0.0-aqua.2`、`deepseek-v4-flash`
+- 浏览器呈现：指定账号从“我的 → 生命智慧档案 → 生命智慧初识”进入 MY-18，实际显示总画像、四个维度短画像和 notice，未再次触发生成。
 - 限流分支：隔离账号曾收到 429 / `EXECUTION_LIMIT_EXCEEDED`，retryable=false、无 `Retry-After`，服务端未自动重试，失败记录已持久化。
-
