@@ -38,8 +38,8 @@ export interface ProfileFirstLookContent {
 }
 
 export interface ProfileFirstLookManifest {
-  workflowVersion: 'profile-four-card-first-look/1.0.5';
-  skillVersion: '1.0.0-aqua.2';
+  workflowVersion: 'profile-four-card-first-look/1.0.7';
+  skillVersion: '1.0.0-aqua.3';
   model: string;
   promptVersion: string;
   outputSchemaVersion: string;

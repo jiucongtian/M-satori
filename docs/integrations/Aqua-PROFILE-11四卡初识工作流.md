@@ -3,8 +3,8 @@
 ## 接入基线
 
 - Workflow ID：`profile-four-card-first-look`
-- 固定版本：`profile-four-card-first-look/1.0.5`
-- Skill 版本：`1.0.0-aqua.2`
+- 固定版本：`profile-four-card-first-look/1.0.7`
+- Skill 版本：`1.0.0-aqua.3`
 - SDK：`@aqua-ai/sdk`
 - 认证：仅后端使用 `AQUA_AI_SERVICE_KEY`，不得进入代码、日志或前端包
 - 超时：300 秒
@@ -43,6 +43,6 @@
 - 结果：`READY / complete`，`schemaVersion=1.0.0`，四卡 4 张
 - 顺序：`hour → day → month → year`；维度：“思想 → 行为 → 事业 → 梦想目标”
 - notice：“这是一份基础认识，不是对你人生的定论。”
-- manifest：`profile-four-card-first-look/1.0.5`、`1.0.0-aqua.2`、`deepseek-v4-flash`
+- manifest：历史验收使用旧基线；当前固定基线升级后须以 `profile-four-card-first-look/1.0.7`、`1.0.0-aqua.3` 重新验收并记录实际模型。
 - 浏览器呈现：指定账号从“我的 → 生命智慧档案 → 生命智慧初识”进入 MY-18，实际显示总画像、四个维度短画像和 notice，未再次触发生成。
 - 限流分支：隔离账号曾收到 429 / `EXECUTION_LIMIT_EXCEEDED`，retryable=false、无 `Retry-After`，服务端未自动重试，失败记录已持久化。

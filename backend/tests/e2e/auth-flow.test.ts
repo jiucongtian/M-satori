@@ -52,8 +52,8 @@ const generateProfileFirstLook = vi.fn((input: {
     notice: '这是一份基础认识，不是对你人生的定论。' as const,
   },
   manifest: {
-    workflowVersion: 'profile-four-card-first-look/1.0.5' as const,
-    skillVersion: '1.0.0-aqua.2' as const,
+    workflowVersion: 'profile-four-card-first-look/1.0.7' as const,
+    skillVersion: '1.0.0-aqua.3' as const,
     model: 'e2e-generator',
     promptVersion: 'e2e-prompt',
     outputSchemaVersion: 'e2e-schema',
@@ -242,8 +242,8 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     ]);
     expect(firstLookBody.content.notice).toBe('这是一份基础认识，不是对你人生的定论。');
     expect(firstLookBody.manifest).toMatchObject({
-      workflowVersion: 'profile-four-card-first-look/1.0.5',
-      skillVersion: '1.0.0-aqua.2',
+      workflowVersion: 'profile-four-card-first-look/1.0.7',
+      skillVersion: '1.0.0-aqua.3',
     });
     expect(generateProfileFirstLook).toHaveBeenCalledOnce();
     expect(generateProfileFirstLook).toHaveBeenCalledWith(

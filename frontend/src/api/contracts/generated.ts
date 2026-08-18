@@ -894,9 +894,9 @@ export interface components {
         };
         ProfileFirstLookManifest: {
             /** @constant */
-            workflowVersion: "profile-four-card-first-look/1.0.5";
+            workflowVersion: "profile-four-card-first-look/1.0.7";
             /** @constant */
-            skillVersion: "1.0.0-aqua.2";
+            skillVersion: "1.0.0-aqua.3";
             model: string;
             promptVersion: string;
             outputSchemaVersion: string;

@@ -9,8 +9,8 @@ import {
 import { z } from 'zod';
 
 export const PROFILE_FIRST_LOOK_WORKFLOW_ID = 'profile-four-card-first-look';
-export const PROFILE_FIRST_LOOK_WORKFLOW_VERSION = 'profile-four-card-first-look/1.0.5';
-export const PROFILE_FIRST_LOOK_SKILL_VERSION = '1.0.0-aqua.2';
+export const PROFILE_FIRST_LOOK_WORKFLOW_VERSION = 'profile-four-card-first-look/1.0.7';
+export const PROFILE_FIRST_LOOK_SKILL_VERSION = '1.0.0-aqua.3';
 export const PROFILE_FIRST_LOOK_SCHEMA_VERSION = '1.0.0';
 export const PROFILE_FIRST_LOOK_NOTICE = '这是一份基础认识，不是对你人生的定论。';
 

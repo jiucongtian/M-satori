@@ -125,7 +125,7 @@ describe('AquaProfileFirstLookGenerator', () => {
       .mockResolvedValueOnce({
         requestId: 'aqua-skill-drift',
         result,
-        manifest: { ...manifest, skillVersion: '1.0.0-aqua.3' },
+        manifest: { ...manifest, skillVersion: '1.0.0-aqua.4' },
       });
     const generator = new AquaProfileFirstLookGenerator({ workflows: { run } }, 300_000);
 

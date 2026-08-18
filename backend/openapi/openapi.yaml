@@ -522,8 +522,8 @@ components:
       additionalProperties: false
       required: [workflowVersion, skillVersion, model, promptVersion, outputSchemaVersion, contentPolicyVersion]
       properties:
-        workflowVersion: {const: profile-four-card-first-look/1.0.5}
-        skillVersion: {const: 1.0.0-aqua.2}
+        workflowVersion: {const: profile-four-card-first-look/1.0.7}
+        skillVersion: {const: 1.0.0-aqua.3}
         model: {type: string}
         promptVersion: {type: string}
         outputSchemaVersion: {type: string}

@@ -91,8 +91,8 @@ describe('R1 delivery contract', () => {
     expect(openapi).toContain("schemaVersion: {const: '1.0.0'}");
     expect(openapi).toContain('position: {type: string, enum: [hour, day, month, year]}');
     expect(openapi).toContain('dimension: {type: string, enum: [思想, 行为, 事业, 梦想目标]}');
-    expect(openapi).toContain('workflowVersion: {const: profile-four-card-first-look/1.0.5}');
-    expect(openapi).toContain('skillVersion: {const: 1.0.0-aqua.2}');
+    expect(openapi).toContain('workflowVersion: {const: profile-four-card-first-look/1.0.7}');
+    expect(openapi).toContain('skillVersion: {const: 1.0.0-aqua.3}');
     expect(openapi).toContain('notice: {const: 这是一份基础认识，不是对你人生的定论。}');
   });
 
