@@ -8,6 +8,7 @@ type HomeOverview = Schemas["HomeOverviewEnvelope"]["data"];
 type Location = Schemas["Location"];
 type ProfileRevision = Schemas["ProfileRevision"];
 type ProfileConfirmation = Schemas["ProfileConfirmation"];
+type ProfileFirstLook = Schemas["ProfileFirstLook"];
 type RegistrationReward = Schemas["RegistrationReward"];
 type WisdomSeedAccount = Schemas["WisdomSeedAccount"];
 type WisdomSeedTransaction = Schemas["WisdomSeedTransaction"];
@@ -25,6 +26,7 @@ export type {
   Location,
   Me,
   ProfileConfirmation,
+  ProfileFirstLook,
   ProfileGroup,
   ProfileRevision,
   RegistrationReward,
@@ -183,6 +185,14 @@ class SatoriApiClient {
   confirmProfile(revisionId: string, fingerprint: string, enhancedConfirmationAccepted: boolean) {
     return this.command<Schemas["ProfileConfirmationEnvelope"]>(`/me/life-profile/revisions/${revisionId}/confirm`, {
       method: "POST", body: JSON.stringify({ fingerprint, enhancedConfirmationAccepted }),
+    }).then((x) => x.data);
+  }
+  profileFirstLook(revisionId: string) {
+    return this.request<Schemas["ProfileFirstLookEnvelope"]>(`/me/life-profile/revisions/${revisionId}/first-look`).then((x) => x.data);
+  }
+  generateProfileFirstLook(revisionId: string) {
+    return this.command<Schemas["ProfileFirstLookEnvelope"]>(`/me/life-profile/revisions/${revisionId}/first-look`, {
+      method: "POST",
     }).then((x) => x.data);
   }
   registrationReward() { return this.request<Schemas["RegistrationRewardEnvelope"]>("/me/registration-reward").then((x) => x.data); }

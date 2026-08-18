@@ -115,8 +115,13 @@ test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
   assert.match(page, /生命智慧初识/);
   assert.match(page, /function FirstLookArchive/);
   assert.match(page, /first-look-entry/);
-  assert.match(page, /这是一份基础认识，不是对你人生的定论/);
-  assert.match(page, /内容正在准备中/);
+  assert.match(page, /api\.generateProfileFirstLook/);
+  assert.match(page, /api\.profileFirstLook/);
+  assert.match(page, /content\.profileSummary\.description/);
+  assert.match(page, /content\.cards\.map/);
+  assert.match(page, /content\.notice/);
+  assert.doesNotMatch(page, /生于盛夏，火意明亮/);
+  assert.doesNotMatch(page, /card\.summary\|\|/);
 });
 
 test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口", async () => {
@@ -193,7 +198,7 @@ test("手机号登录后按后端真实档案状态分流，老用户直接进�
 
 test("R1 核心页面调用真实后端能力", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
+  for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.generateProfileFirstLook", "api.profileFirstLook", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
     assert.match(page, new RegExp(call.replace(".", "\\.")));
   }
   assert.match(page, /await api\.createSession\(challengeId, code, consentAcceptances\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
 import { api, ApiError } from "@/src/api/client";
-import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, Location, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
+import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, Location, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
 type View = "welcome" | "login" | "recovery" | "profile";
 type LoginIntent = "new" | "existing";
@@ -228,6 +228,8 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [data, setData] = useState<ProfileData>({ name: "", date: "1990-05-18", time: "08:30", accuracy: "准确到分钟", place: "杭州", locationId: "", gender: "FEMALE", relationshipType: "OTHER" });
   const [locations, setLocations] = useState<Location[]>([]);
   const [revision, setRevision] = useState<ProfileRevision | null>(null);
+  const [firstLook, setFirstLook] = useState<ProfileFirstLook | null>(null);
+  const [firstLookLoading, setFirstLookLoading] = useState(false);
   const [home, setHome] = useState<HomeOverview | null>(null);
   const [account, setAccount] = useState<WisdomSeedAccount | null>(null);
   const [transactions, setTransactions] = useState<WisdomSeedTransaction[]>([]);
@@ -318,6 +320,50 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     return () => window.clearInterval(timer);
   }, [taskId, step, dailyInsight?.localDate]);
 
+  useEffect(() => {
+    if (firstLook?.status !== "GENERATING") return;
+    const timer = window.setInterval(() => {
+      api.profileFirstLook(firstLook.profileRevisionId).then((value) => {
+        setFirstLook(value);
+        if (value.status !== "GENERATING") setFirstLookLoading(false);
+      }).catch(() => undefined);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [firstLook?.status, firstLook?.profileRevisionId]);
+
+  async function generateFirstLook(revisionId: string) {
+    setFirstLookLoading(true); setApiError("");
+    try {
+      const value = await api.generateProfileFirstLook(revisionId);
+      setFirstLook(value);
+      if (value.status === "FAILED") setApiError(value.failure?.message || "生命智慧初识生成失败，请手动重试");
+    } catch (error) {
+      setFirstLook(null);
+      setApiError(apiMessage(error));
+    } finally {
+      setFirstLookLoading(false);
+    }
+  }
+
+  async function openFirstLookArchive() {
+    const revisionId = revision?.revisionId || home?.profile.currentRevisionId;
+    setStep(profileSteps.indexOf("MY-18"));
+    if (!revisionId) return;
+    if (firstLook?.profileRevisionId !== revisionId) setFirstLook(null);
+    setFirstLookLoading(true); setApiError("");
+    try {
+      setFirstLook(await api.profileFirstLook(revisionId));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "PROFILE_FIRST_LOOK_NOT_FOUND") {
+        await generateFirstLook(revisionId);
+      } else {
+        setApiError(apiMessage(error));
+      }
+    } finally {
+      setFirstLookLoading(false);
+    }
+  }
+
   async function previewProfile() {
     if (!data.locationId) return setApiError("请从搜索结果中选择出生地点");
     setApiBusy(true); setApiError("");
@@ -348,7 +394,11 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       if (editingSelf) {
         setEditingSelf(false);
         setStep(22);
-      } else setStep(8);
+      } else {
+        setFirstLook(null);
+        setStep(8);
+        await generateFirstLook(revision.revisionId);
+      }
     } catch (error) { setApiError(apiMessage(error)); }
     finally { setApiBusy(false); }
   }
@@ -498,7 +548,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       )}
       {id === "PROFILE-08" && <Calculating name={data.name} onDone={next} />}
       {id === "PROFILE-10" && <ProfileResult name={data.name} revision={revision} onNext={confirmProfile} onRestart={() => setStep(0)} busy={apiBusy} />}
-      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} onNext={next} />}
+      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
       {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
       {id === "DAILY-01" && <DailyStart name={data.name} onBack={back} onNext={next} />}
@@ -512,7 +562,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "SHARE-03" && <ShareSuccess onBack={back} onHome={() => setStep(10)} />}
       {id === "SHARE-04" && <ShareFailure onBack={back} onRetry={() => setStep(18)} onHome={() => setStep(10)} />}
       {id === "MY-01" && <MyHome name={data.name} balance={account?.available || 0} open={navigateR1} />}
-      {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} onEdit={openSelfEditor} onFirstLook={() => setStep(profileSteps.indexOf("MY-18"))} />}
+      {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} onEdit={openSelfEditor} onFirstLook={() => void openFirstLookArchive()} />}
       {id === "MY-03" && <MySeeds account={account} transactions={transactions} onBack={() => setStep(21)} />}
       {id === "MY-04" && <MyReports home={home} insight={dailyInsight} onBack={() => setStep(21)} onDaily={() => home?.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(21); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : undefined} />}
       {id === "MY-05" && <MyBenefits onBack={() => setStep(21)} openShop={() => setStep(133)} openOrders={() => setStep(156)} />}
@@ -528,7 +578,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact name={selectedProfile?.displayName || "这份人物档案"} busy={apiBusy} onBack={() => setStep(116)} onDone={deleteOtherProfile} />}
       {id === "MY-17" && <EditSelfProfile data={data} locations={locations} revision={revision} busy={apiBusy} onChange={setData} onBack={() => {setEditingSelf(false);setStep(22);}} onNext={previewProfile} />}
-      {id === "MY-18" && <FirstLookArchive name={home?.profile.displayName||data.name||"你"} revision={revision} onBack={() => setStep(22)} />}
+      {id === "MY-18" && <FirstLookArchive name={home?.profile.displayName||data.name||"你"} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onBack={() => setStep(22)} />}
       {id === "PREVIEW-READ" && <ComingSoonPage kind="问事" navigate={navigateR1} />}
       {id === "PREVIEW-GROWTH" && <ComingSoonPage kind="成长" navigate={navigateR1} />}
       {id === "PREVIEW-RELATIONSHIP" && <ComingSoonPage kind="关系" navigate={navigateR1} />}
@@ -678,16 +728,19 @@ function ProfileResult({ name, revision, onNext, onRestart, busy }: { name: stri
   return <div className="profile-result"><span className="result-spark">✦</span><p className="eyebrow">PROFILE PREVIEW</p><h1>{name}，你的生命智慧档案<br /><em>已经算好</em></h1><p>四张关系卡牌，是你理解自己、关系与成长节律的共同起点。</p><div className="wisdom-card-panel"><small>生命智慧档案 · V{revision?.revisionNumber || 1}</small><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/>{revision?.warnings?.map((warning) => <p key={warning}>{warning}</p>)}</div><button className="primary" type="button" onClick={onNext} disabled={busy}>{busy ? "正在确认…" : "确认档案并读懂四张卡牌"} <span>→</span></button><button className="text-action" type="button" onClick={onRestart}>重新填写出生资料</button></div>;
 }
 
-function RelationshipFirstLook({ name, revision, onNext }: { name: string; revision: ProfileRevision | null; onNext: () => void }) {
-  const insights = (revision?.cards || []).map((card) => [card.title, card.cardCode, card.summary]);
+function RelationshipFirstLook({ name, report, loading, onRetry, onNext }: { name: string; report: ProfileFirstLook | null; loading: boolean; onRetry: () => void; onNext: () => void }) {
+  const content = report?.status === "READY" ? report.content : null;
+  if (loading || report?.status === "GENERATING") return <section className="first-look"><div className="first-look-pending"><i>芽</i><h1>正在读懂你的四张卡牌</h1><p>Aqua 正在生成生命智慧初识，通常需要一到两分钟，请保持页面开启。</p></div><AiContentNotice /></section>;
+  if (!content) return <section className="first-look"><div className="first-look-pending"><i>!</i><h1>生命智慧初识暂未生成</h1><p>{report?.failure?.message || "本次没有使用占位内容，你可以手动重新发起同一业务请求。"}</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></div><AiContentNotice /></section>;
   return <section className="first-look">
     <p className="eyebrow">YOUR INNER SEASONS</p>
     <h1>{name}，先感受一下<br /><em>你的生命底色</em></h1>
     <div className="season-summary">
-      <div className="season-orbit" aria-hidden="true"><i /><i /><i /><i /><span>夏</span></div>
-      <div><small>四季能量 · 五行气质</small><h2>生于盛夏，火意明亮<br />土的力量让你落地</h2><p>你有向外照亮的热情，也有把想法变成现实的耐力。真正适合你的，不是一味用力，而是在热烈与安定之间找到自己的节奏。</p></div>
+      <div className="season-orbit" aria-hidden="true"><i /><i /><i /><i /><span>初</span></div>
+      <div><small>{content.profileSummary.keywords.join(" · ")}</small><h2>{content.profileSummary.title}</h2><p>{content.profileSummary.description}</p></div>
     </div>
-    <div className="insight-list">{insights.map(([title, mark, sentence], index) => <article key={title}><b>{String(index + 1).padStart(2, "0")}</b><div><small>{title} · {mark}</small><p>{sentence}</p></div></article>)}</div>
+    <div className="insight-list">{content.cards.map((card, index) => <article key={card.position}><b>{String(index + 1).padStart(2, "0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div>
+    <p className="first-look-notice">{content.notice}</p>
     <AiContentNotice />
     <div className="growth-hint"><span className="seed-mini" aria-hidden="true">●</span><p><strong>一颗智慧种子，是一次向内生长的机会</strong>下一步，收下为你准备的新手启程礼。</p></div>
     <FlowNext onClick={onNext}>领取我的新手智慧种子</FlowNext>
@@ -914,7 +967,7 @@ function MyProfile({ home, revision, onBack,onEdit,onFirstLook }: { home: HomeOv
   return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook}><i>初</i><span><small>生命智慧初识</small><strong>回看你的生命底色与四个短画像</strong></span><b>›</b></button><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {birth?.timePrecision || "—"}</strong></p><p><span>出生地点 ID</span><strong>{birth?.locationId || "—"}</strong></p></section><button className="outline-button" type="button" onClick={onEdit}>编辑生命智慧档案</button></section>;
 }
 
-function FirstLookArchive({name,revision,onBack}:{name:string;revision:ProfileRevision|null;onBack:()=>void}){const cards=revision?.cards||[];const ordered=[...cards].sort((a,b)=>({SELF:0,FAMILY:1,CAREER:2,SPACETIME:3}[a.dimension]-({SELF:0,FAMILY:1,CAREER:2,SPACETIME:3}[b.dimension])));const labels:Record<string,string>={SELF:"思想",FAMILY:"行为",CAREER:"事业",SPACETIME:"梦想目标"};const ready=ordered.length===4;return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/><p className="eyebrow">R1.0 · MY-18</p>{ready?<><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>你的生命底色，值得被慢慢读懂</h1><p>这里会保存你第一次认识四张卡牌时的基础内容。正式内容将由 PROFILE-11 初识服务返回，并始终与当前档案版本对应。</p><div><span>生命底色</span><span>内外节奏</span><span>四个画像</span></div></div><div className="first-look-voices">{ordered.map((card,index)=><article key={card.dimension}><b>{String(index+1).padStart(2,"0")}</b><div><small>{labels[card.dimension]}</small><h2>{card.title}</h2><p>{card.summary||"这张卡牌的初识内容正在准备中。"}</p></div></article>)}</div></>:<div className="first-look-pending"><i>芽</i><h1>生命智慧初识正在准备</h1><p>四张卡牌或初识内容尚未完整返回。接口完成后，这里会自动展示与当前档案版本对应的内容。</p></div>}<p className="first-look-notice">这是一份基础认识，不是对你人生的定论。</p><AiContentNotice /></section>}
+function FirstLookArchive({name,revision,report,loading,onRetry,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/><p className="eyebrow">R1.0 · MY-18</p>{content?<><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"Aqua 正在整理与当前档案版本对应的内容。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<AiContentNotice /></section>}
 
 function EditSelfProfile({data,locations,revision,busy,onChange,onBack,onNext}:{data:ProfileData;locations:Location[];revision:ProfileRevision|null;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page edit-self-profile"><MyHeader title="编辑生命智慧档案" onBack={onBack}/><p className="eyebrow">R1.0 · MY-17</p><h1>核对并更新<br/>你的生命智慧档案</h1><p className="edit-profile-lead">修改后会重新计算四张关系卡牌，并保存为新的档案版本；已经生成的历史内容仍保留原来的依据。</p><label className="archive-field"><span>希望我们怎么称呼你</span><input value={data.name} onChange={e=>onChange({...data,name:e.target.value})}/></label><div className="birth-fields"><label><span>出生日期</span><input type="date" value={data.date} onChange={e=>onChange({...data,date:e.target.value})}/></label><label><span>出生时间</span><input type="time" value={data.time} onChange={e=>onChange({...data,time:e.target.value})}/></label></div><div className="relation-picks"><small>计算性别</small><div>{([['FEMALE','女'],['MALE','男']] as const).map(([value,label])=><button type="button" key={value} className={data.gender===value?'active':''} onClick={()=>onChange({...data,gender:value})}>{label}</button>)}</div></div><label className="archive-field"><span>出生地点</span><input value={data.place} onChange={e=>onChange({...data,place:e.target.value,locationId:''})}/></label>{locations.map(location=><button className="place-result" type="button" key={location.locationId} onClick={()=>onChange({...data,place:location.displayName,locationId:location.locationId})}><span className="place-pin">{location.displayName.slice(0,1)}</span><span><strong>{location.displayName}</strong><small>{location.administrativePath.join(' · ')} · {location.timezone}</small></span><b>{data.locationId===location.locationId?'✓':'选择'}</b></button>)}<div className="edit-version-note"><i>V{(revision?.revisionNumber||1)+1}</i><span><strong>本次修改将创建新版本</strong><small>不会覆盖当前版本，也不会改变历史报告的计算依据</small></span></div><button className="primary" type="button" disabled={busy||!data.name.trim()||!data.locationId} onClick={onNext}>{busy?'正在重新计算…':'确认修改并重新计算'} <span>→</span></button><button className="text-action" type="button" onClick={onBack}>取消编辑</button></section>}
 
