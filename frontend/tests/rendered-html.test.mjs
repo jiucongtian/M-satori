@@ -124,6 +124,9 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   const home = page.match(/function TodayHome[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(home, /home-energy-card/);
   assert.match(home, /home\?\.dailyEnergySummary\.data/);
+  assert.match(home, /<h1>\{name\}，你好<\/h1>/);
+  assert.doesNotMatch(home, /summary\?\.greeting/);
+  assert.doesNotMatch(home, /home-note|今日指引 ·|summary\.date/);
   assert.match(home, /summary\?\.energyLevel === level/);
   assert.match(home, /summary\?\.guidance/);
   assert.match(home, /summary\.suitableActions/);

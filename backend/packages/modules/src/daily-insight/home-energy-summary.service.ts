@@ -56,7 +56,7 @@ export class HomeEnergySummaryService {
 
     // Preserve already-generated per-user rows while a new shared cache is warming up.
     const legacy = await this.findLegacyCached(context.userId, context.localDate);
-    if (legacy) return { state: 'READY', data: legacy };
+    if (legacy) return { state: 'READY', data: personalizeGreeting(legacy, context.userName) };
 
     if (!this.generator || !this.infrastructure.environment.HOME_ENERGY_SUMMARY_ENABLED) {
       return { state: 'UNAVAILABLE', data: null };
@@ -187,9 +187,11 @@ export class HomeEnergySummaryService {
         .onConflictDoNothing()
         .returning({ content: dailyEnergyHomeSummaries.content });
       const content = inserted[0]?.content as HomeEnergySummary | undefined;
-      if (content) return { state: 'READY', data: content };
+      if (content) return { state: 'READY', data: personalizeGreeting(content, context.userName) };
       const concurrent = await this.findLegacyCached(context.userId, context.localDate);
-      return concurrent ? { state: 'READY', data: concurrent } : { state: 'UNAVAILABLE', data: null };
+      return concurrent
+        ? { state: 'READY', data: personalizeGreeting(concurrent, context.userName) }
+        : { state: 'UNAVAILABLE', data: null };
     } catch {
       return { state: 'UNAVAILABLE', data: null };
     }
@@ -240,9 +242,7 @@ function heavenCardFor(localDate: string): string {
 
 export function personalizeGreeting(summary: HomeEnergySummary, userName: string): HomeEnergySummary {
   const name = userName.trim().slice(0, 64);
-  if (!name) return summary;
-  const genericGreeting = summary.greeting.slice(0, Math.max(0, 127 - name.length));
-  return { ...summary, greeting: `${name}，${genericGreeting}` };
+  return { ...summary, greeting: name ? `${name}，你好` : '你好' };
 }
 
 function errorCode(error: unknown): string {
