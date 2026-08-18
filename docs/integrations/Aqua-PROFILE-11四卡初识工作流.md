@@ -46,3 +46,13 @@
 - manifest：历史验收使用旧基线；当前固定基线升级后须以 `profile-four-card-first-look/1.0.7`、`1.0.0-aqua.3` 重新验收并记录实际模型。
 - 浏览器呈现：指定账号从“我的 → 生命智慧档案 → 生命智慧初识”进入 MY-18，实际显示总画像、四个维度短画像和 notice，未再次触发生成。
 - 限流分支：隔离账号曾收到 429 / `EXECUTION_LIMIT_EXCEEDED`，retryable=false、无 `Retry-After`，服务端未自动重试，失败记录已持久化。
+
+### `1.0.7 / aqua.3` 升级复验
+
+- 部署代码：`release/r1.0@700c2e8`；运行容器产物已确认固定为 `profile-four-card-first-look/1.0.7`、`1.0.0-aqua.3`。
+- 完整链路：新测试用户依次完成登录、本人档案 preview、资料更新、confirm，再触发 PROFILE-11 四卡初识生成。
+- 触发时间：2026-08-18 21:48:51（Asia/Shanghai）。
+- Satori HTTP 状态：503；错误码：`PROFILE_FIRST_LOOK_GENERATION_FAILED`；requestId：`4054ba33-7f03-44ed-88cf-53ce2649419a`。
+- Aqua upstream HTTP 状态：422；错误码：`OUTPUT_SCHEMA_INVALID`；requestId：`ce2bc29a-18f5-461f-b7fc-afbd07efdb74`；`retryable=false`；耗时 171281 ms。
+- 返回 Manifest：Aqua 在输出 Schema 校验阶段失败，未向 Satori 返回可供验收的成功 Manifest；因此 `1.0.7 / aqua.3` 的真实成功验收仍未完成。
+- 结论：旧版 `SKILL_VERSION_MISMATCH` 已消失，Satori 确认没有继续请求 `1.0.5 / aqua.2`；当前阻塞转为 Aqua `OUTPUT_SCHEMA_INVALID`，不应对同一非重试错误自动重放。
