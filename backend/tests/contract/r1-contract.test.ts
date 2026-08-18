@@ -18,6 +18,8 @@ const deliveryRoutes: Record<string, readonly string[]> = {
     'get /me/life-profile',
     'patch /me/life-profile',
     'post /me/life-profile/revisions/preview',
+    'get /me/life-profile/revisions/{revisionId}/first-look',
+    'post /me/life-profile/revisions/{revisionId}/first-look',
   ],
   '/me/registration-reward*': ['get /me/registration-reward', 'post /me/registration-reward/claim'],
   'GET /me/wisdom-seed-account': ['get'],
@@ -82,6 +84,16 @@ describe('R1 delivery contract', () => {
     const block = routeBlock('/generation-tasks/{taskId}/events');
     expect(block).toContain('Last-Event-ID');
     expect(block).toContain('text/event-stream');
+  });
+
+  it('freezes the PROFILE-11 Aqua-facing result contract in the product API', () => {
+    expect(openapi).toContain('ProfileFirstLookContent:');
+    expect(openapi).toContain("schemaVersion: {const: '1.0.0'}");
+    expect(openapi).toContain('position: {type: string, enum: [hour, day, month, year]}');
+    expect(openapi).toContain('dimension: {type: string, enum: [思想, 行为, 事业, 梦想目标]}');
+    expect(openapi).toContain('workflowVersion: {const: profile-four-card-first-look/1.0.5}');
+    expect(openapi).toContain('skillVersion: {const: 1.0.0-aqua.2}');
+    expect(openapi).toContain('notice: {const: 这是一份基础认识，不是对你人生的定论。}');
   });
 
   it('keeps the Aqua replacement stub deterministic and schema-valid', async () => {

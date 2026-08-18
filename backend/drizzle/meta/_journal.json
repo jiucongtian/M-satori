@@ -50,6 +50,13 @@
       "when": 1786976210748,
       "tag": "0006_known_ultimates",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787024786388,
+      "tag": "0007_kind_natasha_romanoff",
+      "breakpoints": true
     }
   ]
 }

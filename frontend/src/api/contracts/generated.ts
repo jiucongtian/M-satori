@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/life-profile/revisions/{revisionId}/first-look": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProfileFirstLook"];
+        put?: never;
+        post: operations["generateProfileFirstLook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/registration-reward": {
         parameters: {
             query?: never;
@@ -840,6 +856,73 @@ export interface components {
         };
         ProfileConfirmationEnvelope: {
             data: components["schemas"]["ProfileConfirmation"];
+        };
+        ProfileFirstLookSummary: {
+            title: string;
+            description: string;
+            keywords: string[];
+            outerTrait: string;
+            innerTrait: string;
+        };
+        ProfileFirstLookCard: {
+            /** @enum {string} */
+            position: "hour" | "day" | "month" | "year";
+            /** @enum {string} */
+            dimension: "思想" | "行为" | "事业" | "梦想目标";
+            card: string;
+            title: string;
+            summary: string;
+            innerTrait: string;
+            outerTrait: string;
+            /** @enum {string} */
+            status: "complete" | "partial";
+            evidence: {
+                [key: string]: string;
+            };
+            missingFields: string[];
+        };
+        ProfileFirstLookContent: {
+            /** @constant */
+            schemaVersion: "1.0.0";
+            /** @enum {string} */
+            status: "complete" | "partial";
+            profileSummary: components["schemas"]["ProfileFirstLookSummary"];
+            cards: components["schemas"]["ProfileFirstLookCard"][];
+            knowledgeRelease: string;
+            /** @constant */
+            notice: "这是一份基础认识，不是对你人生的定论。";
+        };
+        ProfileFirstLookManifest: {
+            /** @constant */
+            workflowVersion: "profile-four-card-first-look/1.0.5";
+            /** @constant */
+            skillVersion: "1.0.0-aqua.2";
+            model: string;
+            promptVersion: string;
+            outputSchemaVersion: string;
+            contentPolicyVersion: string;
+        };
+        ProfileFirstLook: {
+            reportId: string;
+            profileRevisionId: string;
+            /** @enum {string} */
+            status: "GENERATING" | "READY" | "FAILED";
+            content: components["schemas"]["ProfileFirstLookContent"] | null;
+            manifest: components["schemas"]["ProfileFirstLookManifest"] | null;
+            failure: {
+                code: string;
+                message: string;
+                retryable: boolean;
+            } | null;
+            /** Format: date-time */
+            generatedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ProfileFirstLookEnvelope: {
+            data: components["schemas"]["ProfileFirstLook"];
         };
         RelationshipCard: {
             /** @enum {string} */
@@ -1558,6 +1641,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileConfirmationEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProfileFirstLook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                revisionId: components["parameters"]["RevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persisted PROFILE-11 first-look report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileFirstLookEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    generateProfileFirstLook: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                revisionId: components["parameters"]["RevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Generated, in-progress, or replayed PROFILE-11 first-look report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileFirstLookEnvelope"];
                 };
             };
             default: components["responses"]["Error"];

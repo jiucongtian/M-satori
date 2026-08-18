@@ -28,6 +28,7 @@ import {
 } from 'class-validator';
 import type { AuthenticatedRequest } from '../identity/auth/authenticated-request.js';
 import { SelfProfileService } from './self-profile.service.js';
+import { ProfileFirstLookService } from './profile-first-look.service.js';
 
 export class BirthDateDto {
   @IsInt()
@@ -117,7 +118,10 @@ export class RevisionListQuery {
 
 @Controller('me/life-profile')
 export class SelfProfileController {
-  constructor(private readonly profiles: SelfProfileService) {}
+  constructor(
+    private readonly profiles: SelfProfileService,
+    private readonly firstLook: ProfileFirstLookService,
+  ) {}
 
   @Get()
   getCurrent(@Req() request: AuthenticatedRequest) {
@@ -165,6 +169,25 @@ export class SelfProfileController {
       revisionId,
       fingerprint: body.fingerprint,
       enhancedConfirmationAccepted: body.enhancedConfirmationAccepted,
+      idempotencyKey: requireIdempotencyKey(idempotencyKey),
+    });
+  }
+
+  @Get('revisions/:revisionId/first-look')
+  getFirstLook(@Req() request: AuthenticatedRequest, @Param('revisionId') revisionId: string) {
+    return this.firstLook.get(request.auth.userId, revisionId);
+  }
+
+  @Post('revisions/:revisionId/first-look')
+  @HttpCode(200)
+  generateFirstLook(
+    @Req() request: AuthenticatedRequest,
+    @Param('revisionId') revisionId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+  ) {
+    return this.firstLook.generate({
+      userId: request.auth.userId,
+      revisionId,
       idempotencyKey: requireIdempotencyKey(idempotencyKey),
     });
   }

@@ -323,6 +323,35 @@ export const cardBindings = pgTable(
   (table) => [uniqueIndex('card_bindings_revision_position_uq').on(table.revisionId, table.position)],
 );
 
+export const profileFirstLookReports = pgTable(
+  'profile_first_look_reports',
+  {
+    id: id(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    profileRevisionId: uuid('profile_revision_id')
+      .notNull()
+      .references(() => revisions.id),
+    status: varchar('status', { length: 24 }).notNull().default('GENERATING'),
+    idempotencyKey: varchar('idempotency_key', { length: 128 }).notNull(),
+    runReference: varchar('run_reference', { length: 128 }).notNull(),
+    content: jsonb('content'),
+    generationManifest: jsonb('generation_manifest'),
+    providerRequestId: varchar('provider_request_id', { length: 128 }),
+    providerExecutionId: varchar('provider_execution_id', { length: 128 }),
+    durationMs: integer('duration_ms'),
+    failure: jsonb('failure'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex('profile_first_look_reports_revision_uq').on(table.profileRevisionId),
+    index('profile_first_look_reports_owner_idx').on(table.ownerUserId, table.createdAt),
+  ],
+);
+
 export const cardDecks = pgTable(
   'card_decks',
   {

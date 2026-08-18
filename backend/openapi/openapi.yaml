@@ -168,6 +168,21 @@ paths:
       responses:
         '200': {description: Revision activated, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileConfirmationEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
+  /me/life-profile/revisions/{revisionId}/first-look:
+    get:
+      tags: [Profile]
+      operationId: getProfileFirstLook
+      parameters: [{$ref: '#/components/parameters/RevisionId'}]
+      responses:
+        '200': {description: Persisted PROFILE-11 first-look report, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileFirstLookEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      tags: [Profile]
+      operationId: generateProfileFirstLook
+      parameters: [{$ref: '#/components/parameters/RevisionId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200': {description: 'Generated, in-progress, or replayed PROFILE-11 first-look report', content: {application/json: {schema: {$ref: '#/components/schemas/ProfileFirstLookEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
   /me/registration-reward:
     get:
       tags: [WisdomSeed]
@@ -466,6 +481,68 @@ components:
     ConfirmProfileRevisionRequest: {type: object, required: [fingerprint, enhancedConfirmationAccepted], properties: {fingerprint: {type: string}, enhancedConfirmationAccepted: {type: boolean}}}
     ProfileConfirmation: {type: object, required: [profileId, revisionId, revisionNumber, status, astrologySnapshotId, confirmedAt, reportImpact], properties: {profileId: {type: string}, revisionId: {type: string}, revisionNumber: {type: integer}, status: {const: ACTIVE}, previousActiveRevisionId: {type: [string, 'null']}, astrologySnapshotId: {type: string}, confirmedAt: {type: string, format: date-time}, reportImpact: {type: object, required: [currentLifeReportStillAvailable, currentLifeReportBasedOnPreviousRevision, newLifeReportCanBeGenerated], properties: {currentLifeReportStillAvailable: {type: boolean}, currentLifeReportBasedOnPreviousRevision: {type: boolean}, newLifeReportCanBeGenerated: {type: boolean}}}}}
     ProfileConfirmationEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileConfirmation'}}}
+    ProfileFirstLookSummary:
+      type: object
+      additionalProperties: false
+      required: [title, description, keywords, outerTrait, innerTrait]
+      properties:
+        title: {type: string}
+        description: {type: string}
+        keywords: {type: array, minItems: 1, items: {type: string}}
+        outerTrait: {type: string}
+        innerTrait: {type: string}
+    ProfileFirstLookCard:
+      type: object
+      additionalProperties: false
+      required: [position, dimension, card, title, summary, innerTrait, outerTrait, status, evidence, missingFields]
+      properties:
+        position: {type: string, enum: [hour, day, month, year]}
+        dimension: {type: string, enum: [思想, 行为, 事业, 梦想目标]}
+        card: {type: string}
+        title: {type: string}
+        summary: {type: string}
+        innerTrait: {type: string}
+        outerTrait: {type: string}
+        status: {type: string, enum: [complete, partial]}
+        evidence: {type: object, additionalProperties: {type: string}}
+        missingFields: {type: array, items: {type: string}}
+    ProfileFirstLookContent:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, status, profileSummary, cards, knowledgeRelease, notice]
+      properties:
+        schemaVersion: {const: '1.0.0'}
+        status: {type: string, enum: [complete, partial]}
+        profileSummary: {$ref: '#/components/schemas/ProfileFirstLookSummary'}
+        cards: {type: array, minItems: 4, maxItems: 4, items: {$ref: '#/components/schemas/ProfileFirstLookCard'}}
+        knowledgeRelease: {type: string}
+        notice: {const: 这是一份基础认识，不是对你人生的定论。}
+    ProfileFirstLookManifest:
+      type: object
+      additionalProperties: false
+      required: [workflowVersion, skillVersion, model, promptVersion, outputSchemaVersion, contentPolicyVersion]
+      properties:
+        workflowVersion: {const: profile-four-card-first-look/1.0.5}
+        skillVersion: {const: 1.0.0-aqua.2}
+        model: {type: string}
+        promptVersion: {type: string}
+        outputSchemaVersion: {type: string}
+        contentPolicyVersion: {type: string}
+    ProfileFirstLook:
+      type: object
+      additionalProperties: false
+      required: [reportId, profileRevisionId, status, content, manifest, failure, generatedAt, createdAt, updatedAt]
+      properties:
+        reportId: {type: string}
+        profileRevisionId: {type: string}
+        status: {type: string, enum: [GENERATING, READY, FAILED]}
+        content: {oneOf: [{$ref: '#/components/schemas/ProfileFirstLookContent'}, {type: 'null'}]}
+        manifest: {oneOf: [{$ref: '#/components/schemas/ProfileFirstLookManifest'}, {type: 'null'}]}
+        failure: {oneOf: [{type: object, additionalProperties: false, required: [code, message, retryable], properties: {code: {type: string}, message: {type: string}, retryable: {type: boolean}}}, {type: 'null'}]}
+        generatedAt: {type: [string, 'null'], format: date-time}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ProfileFirstLookEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ProfileFirstLook'}}}
     RelationshipCard:
       type: object
       required: [dimension, title, order, cardId, cardCode, ganzhi, zodiac, season, talentMark, abilityMark, journeyMark, deckCode, deckVersion, assetUrl, altText, summary]

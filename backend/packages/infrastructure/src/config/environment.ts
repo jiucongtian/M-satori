@@ -49,6 +49,8 @@ export const environmentSchema = z
     AQUA_AI_SERVICE_KEY: z.string().min(20).optional(),
     AQUA_AI_WORKFLOW_ID: z.string().min(1).default('daily-insight'),
     AQUA_AI_WORKFLOW_VERSION: z.string().min(1).optional(),
+    PROFILE_FIRST_LOOK_ENABLED: booleanFromString,
+    PROFILE_FIRST_LOOK_TIMEOUT_MS: z.coerce.number().int().positive().default(300_000),
     HOME_ENERGY_SUMMARY_ENABLED: booleanFromString,
     HOME_ENERGY_SUMMARY_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
     HOME_ENERGY_SUMMARY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(2),
@@ -110,6 +112,16 @@ export const environmentSchema = z
         code: 'custom',
         path: ['AQUA_AI_BASE_URL'],
         message: 'Aqua AI base URL and service key are required when Aqua generation is enabled',
+      });
+    }
+    if (
+      environment.PROFILE_FIRST_LOOK_ENABLED &&
+      (!environment.AQUA_AI_BASE_URL || !environment.AQUA_AI_SERVICE_KEY)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PROFILE_FIRST_LOOK_ENABLED'],
+        message: 'Aqua AI base URL and service key are required for PROFILE-11 first-look generation',
       });
     }
     if (

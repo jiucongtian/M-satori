@@ -1,5 +1,6 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
+import { PROFILE_FIRST_LOOK_GENERATOR } from '@satori/application';
 import {
   dailyInsights,
   deletionRequests,
@@ -16,7 +17,7 @@ import {
 import { and, eq } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ApiModule } from '../../apps/api/src/api.module.js';
 import { configureApi, createFastifyAdapter } from '../../apps/api/src/configure-api.js';
 import { validateEnvironment } from '../../packages/infrastructure/src/config/environment.js';
@@ -28,6 +29,40 @@ import { DailyInsightService } from '../../packages/modules/src/daily-insight/da
 import { AccountDeletionService } from '../../packages/modules/src/feedback/account-deletion.service.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
+const generateProfileFirstLook = vi.fn((input: {
+  cards: Record<'year' | 'month' | 'day' | 'hour', string>;
+}) => ({
+  content: {
+    schemaVersion: '1.0.0' as const,
+    status: 'complete' as const,
+    profileSummary: {
+      title: '真实初识测试标题',
+      description: '基于四张卡牌生成并持久化的初识测试摘要。',
+      keywords: ['真实接口', '四卡初识'],
+      outerTrait: '外在测试特质',
+      innerTrait: '内在测试特质',
+    },
+    cards: [
+      firstLookCard('hour', '思想', input.cards.hour),
+      firstLookCard('day', '行为', input.cards.day),
+      firstLookCard('month', '事业', input.cards.month),
+      firstLookCard('year', '梦想目标', input.cards.year),
+    ],
+    knowledgeRelease: 'e2e',
+    notice: '这是一份基础认识，不是对你人生的定论。' as const,
+  },
+  manifest: {
+    workflowVersion: 'profile-four-card-first-look/1.0.5' as const,
+    skillVersion: '1.0.0-aqua.2' as const,
+    model: 'e2e-generator',
+    promptVersion: 'e2e-prompt',
+    outputSchemaVersion: 'e2e-schema',
+    contentPolicyVersion: 'e2e-policy',
+  },
+  providerRequestId: 'e2e-aqua-request',
+  providerExecutionId: null,
+  durationMs: 42,
+}));
 
 describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
   let app: NestFastifyApplication;
@@ -38,7 +73,10 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
   const phone = `138${suffix}`;
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({ imports: [ApiModule] }).compile();
+    const module = await Test.createTestingModule({ imports: [ApiModule] })
+      .overrideProvider(PROFILE_FIRST_LOOK_GENERATOR)
+      .useValue({ generate: generateProfileFirstLook })
+      .compile();
     app = module.createNestApplication<NestFastifyApplication>(createFastifyAdapter());
     await configureApi(app, validateEnvironment(process.env));
     await app.init();
@@ -173,6 +211,56 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     });
     expect(confirmed.statusCode).toBe(200);
     expect(confirmed.json<{ data: { status: string } }>().data.status).toBe('ACTIVE');
+
+    const firstLook = await app.inject({
+      method: 'POST',
+      url: `/api/v1/me/life-profile/revisions/${previewBody.revisionId}/first-look`,
+      headers: authHeaders('profile-first-look-generate-01'),
+    });
+    expect(firstLook.statusCode).toBe(200);
+    const firstLookBody = firstLook.json<{
+      data: {
+        reportId: string;
+        status: string;
+        content: { schemaVersion: string; cards: { position: string; dimension: string }[]; notice: string };
+        manifest: { workflowVersion: string; skillVersion: string };
+      };
+    }>().data;
+    expect(firstLookBody.status).toBe('READY');
+    expect(firstLookBody.content.schemaVersion).toBe('1.0.0');
+    expect(firstLookBody.content.cards.map((card) => card.position)).toEqual([
+      'hour',
+      'day',
+      'month',
+      'year',
+    ]);
+    expect(firstLookBody.content.cards.map((card) => card.dimension)).toEqual([
+      '思想',
+      '行为',
+      '事业',
+      '梦想目标',
+    ]);
+    expect(firstLookBody.content.notice).toBe('这是一份基础认识，不是对你人生的定论。');
+    expect(firstLookBody.manifest).toMatchObject({
+      workflowVersion: 'profile-four-card-first-look/1.0.5',
+      skillVersion: '1.0.0-aqua.2',
+    });
+    expect(generateProfileFirstLook).toHaveBeenCalledOnce();
+    expect(generateProfileFirstLook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cards: { year: '庚午', month: '辛巳', day: '乙酉', hour: '壬午' },
+      }),
+    );
+
+    const persistedFirstLook = await app.inject({
+      method: 'GET',
+      url: `/api/v1/me/life-profile/revisions/${previewBody.revisionId}/first-look`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(persistedFirstLook.statusCode).toBe(200);
+    expect(persistedFirstLook.json<{ data: { reportId: string } }>().data.reportId).toBe(
+      firstLookBody.reportId,
+    );
 
     const confirmReplay = await app.inject({
       method: 'POST',
@@ -1291,3 +1379,22 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     };
   }
 });
+
+function firstLookCard(
+  position: 'hour' | 'day' | 'month' | 'year',
+  dimension: '思想' | '行为' | '事业' | '梦想目标',
+  card: string,
+) {
+  return {
+    position,
+    dimension,
+    card,
+    title: `${dimension}测试画像`,
+    summary: `${dimension}测试摘要`,
+    innerTrait: '内在测试特质',
+    outerTrait: '外在测试特质',
+    status: 'complete' as const,
+    evidence: { source: 'e2e' },
+    missingFields: [],
+  };
+}
