@@ -121,6 +121,7 @@ test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
 
 test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const home = page.match(/function TodayHome[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(home, /home-energy-card/);
   assert.match(home, /home\?\.dailyEnergySummary\.data/);
@@ -131,6 +132,11 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(home, /summary\?\.guidance/);
   assert.match(home, /summary\.suitableActions/);
   assert.match(home, /summary\.cautions/);
+  assert.match(home, /home-growth-scene/);
+  assert.match(css, /\.today-home \.home-energy-card\{min-height:458px/);
+  assert.match(css, /\.home-growth-scene \.life-growth\{top:50%;right:auto;left:50%/);
+  assert.match(css, /\.home-energy-card \.guide-tips>div\+div\{padding:3px 4px 7px;border:0;text-align:center\}/);
+  assert.match(css, /\.home-energy-card button\{width:auto;min-width:0;height:auto;margin:3px 0 0 auto/);
   assert.doesNotMatch(home, /先稳住自己的节奏，再清醒回应外界的变化/);
   assert.match(home, /适合做什么/);
   assert.match(home, /注意什么/);
