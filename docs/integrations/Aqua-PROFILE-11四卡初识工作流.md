@@ -56,3 +56,12 @@
 - Aqua upstream HTTP 状态：422；错误码：`OUTPUT_SCHEMA_INVALID`；requestId：`ce2bc29a-18f5-461f-b7fc-afbd07efdb74`；`retryable=false`；耗时 171281 ms。
 - 返回 Manifest：Aqua 在输出 Schema 校验阶段失败，未向 Satori 返回可供验收的成功 Manifest；因此 `1.0.7 / aqua.3` 的真实成功验收仍未完成。
 - 结论：旧版 `SKILL_VERSION_MISMATCH` 已消失，Satori 确认没有继续请求 `1.0.5 / aqua.2`；当前阻塞转为 Aqua `OUTPUT_SCHEMA_INVALID`，不应对同一非重试错误自动重放。
+
+### Aqua 修复后成功复验
+
+- 触发时间：2026-08-18 22:12:12 至 22:14:32（Asia/Shanghai）。
+- 完整链路：新测试用户登录 201、preview 201、资料更新 200、confirm 200、PROFILE-11 生成 200、持久化 GET 200。
+- Satori requestId：`01a01537-2ba4-72b4-aacf-c4c2cdf81cfc`；Aqua requestId：`19ba1437-da4a-4f1b-8384-ee11f7ca831b`。
+- 结果：报告 `01a01537-2bae-7109-86cc-0d9ec0584bad` 为 `READY / complete`，`schemaVersion=1.0.0`，返回 4 张卡，顺序为 `hour → day → month → year`；数据库持久化耗时 140117 ms，随后 GET 读取到同一 reportId。
+- Manifest：Workflow `profile-four-card-first-look/1.0.7`、Skill `1.0.0-aqua.3`、模型 `deepseek-v4-flash`、Prompt `stateless-runtime/1.0.0`、输出 Schema `output@sha256:2c6e313c68e9`、内容策略 `stateless-baseline/1.0.0`。
+- 结论：Aqua 修复后真实基础报告的生成、严格校验、持久化和后端回读均已跑通。
