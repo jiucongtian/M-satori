@@ -8,6 +8,7 @@ import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLo
 
 type View = "welcome" | "login" | "recovery" | "profile";
 type LoginIntent = "new" | "existing";
+type EnergyLevel = "高" | "中" | "低";
 
 function apiMessage(error: unknown) {
   if (error instanceof ApiError) return `${error.message}${error.requestId ? `（请求 ${error.requestId}）` : ""}`;
@@ -248,6 +249,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [dailyReturnStep, setDailyReturnStep] = useState(10);
   const [editingSelf, setEditingSelf] = useState(false);
   const [calculationAttempt, setCalculationAttempt] = useState(0);
+  const dailyEnergyLevel = home?.dailyEnergySummary.data?.energyLevel;
   const [calculationStage, setCalculationStage] = useState(0);
   const [calculationState, setCalculationState] = useState<"idle" | "running" | "complete" | "failed">("idle");
   const calculationRunRef = useRef<number | null>(null);
@@ -595,15 +597,15 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
       {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
-      {id === "DAILY-01" && <DailyStart name={data.name} onBack={back} onNext={next} />}
+      {id === "DAILY-01" && <DailyStart name={data.name} energyLevel={dailyEnergyLevel} onBack={back} onNext={next} />}
       {id === "PAY-01" && <SeedPayment balance={account?.available || 0} busy={apiBusy} onBack={back} onNext={startDailyInsight} onSupport={() => setStep(profileSteps.indexOf("MY-08"))} />}
       {id === "DAILY-02" && <DailyGenerating name={data.name} balance={account?.available || 0} onBack={back} />}
-      {id === "DAILY-03" && <DailyReport name={data.name} insight={dailyInsight} balance={account?.available || 0} onBack={() => setStep(dailyReturnStep)} onNext={() => setStep(10)} />}
+      {id === "DAILY-03" && <DailyReport name={data.name} insight={dailyInsight} energyLevel={dailyEnergyLevel} balance={account?.available || 0} onBack={() => setStep(dailyReturnStep)} onNext={() => setStep(10)} />}
       {id === "DAILY-04" && <DailyAction onBack={back} onNext={next} />}
-      {id === "DAILY-05" && <DailyShare name={data.name} onBack={back} onGenerate={next} onHome={() => setStep(10)} />}
-      {id === "SHARE-01" && <ShareOptions onBack={back} onNext={next} />}
-      {id === "SHARE-02" && <ShareGenerating onBack={back} onSuccess={next} onFailure={() => setStep(20)} />}
-      {id === "SHARE-03" && <ShareSuccess onBack={back} onHome={() => setStep(10)} />}
+      {id === "DAILY-05" && <DailyShare name={data.name} energyLevel={dailyEnergyLevel} onBack={back} onGenerate={next} onHome={() => setStep(10)} />}
+      {id === "SHARE-01" && <ShareOptions energyLevel={dailyEnergyLevel} onBack={back} onNext={next} />}
+      {id === "SHARE-02" && <ShareGenerating energyLevel={dailyEnergyLevel} onBack={back} onSuccess={next} onFailure={() => setStep(20)} />}
+      {id === "SHARE-03" && <ShareSuccess energyLevel={dailyEnergyLevel} onBack={back} onHome={() => setStep(10)} />}
       {id === "SHARE-04" && <ShareFailure onBack={back} onRetry={() => setStep(18)} onHome={() => setStep(10)} />}
       {id === "MY-01" && <MyHome name={data.name} balance={account?.available || 0} open={navigateR1} />}
       {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} onEdit={openSelfEditor} onFirstLook={() => void openFirstLookArchive()} />}
@@ -815,8 +817,8 @@ function DailyHeader({ onBack, balance = 3 }: { onBack: () => void; balance?: nu
   return <header className="daily-header"><button className="back-button" type="button" onClick={onBack} aria-label="返回上一页">←</button><Brand compact /><div className="mini-balance"><i>●</i>{balance}</div></header>;
 }
 
-function DailyStart({ name, onBack, onNext }: { name: string; onBack: () => void; onNext: () => void }) {
-  return <section className="daily-page daily-start"><DailyHeader onBack={onBack} /><div className="daily-seed-scene" aria-hidden="true"><i /><span>中</span><b>今日能量</b></div><p className="eyebrow">DAILY GUIDANCE</p><h1>{name}，今天的能量<br />正在邀请你慢下来</h1><p className="daily-lead">结合你的生命智慧档案与今日节律，为你整理一份只属于今天的行动指引。</p><div className="will-get"><small>你将获得</small><span><b>01</b>今日整体能量</span><span><b>02</b>事业与外部节奏</span><span><b>03</b>情绪与个人状态</span><span><b>04</b>一个可完成的小行动</span></div><div className="cost-preview"><span><i>●</i><small>本次使用体验额度</small></span><strong>1 颗智慧种子</strong></div><button className="primary" type="button" onClick={onNext}>继续开启 <span>→</span></button></section>;
+function DailyStart({ name, energyLevel, onBack, onNext }: { name: string; energyLevel?: EnergyLevel; onBack: () => void; onNext: () => void }) {
+  return <section className="daily-page daily-start"><DailyHeader onBack={onBack} /><div className="daily-seed-scene" aria-hidden="true"><i /><span>{energyLevel ?? "—"}</span><b>今日能量</b></div><p className="eyebrow">DAILY GUIDANCE</p><h1>{name}，今天的能量<br />正在邀请你慢下来</h1><p className="daily-lead">结合你的生命智慧档案与今日节律，为你整理一份只属于今天的行动指引。</p><div className="will-get"><small>你将获得</small><span><b>01</b>今日整体能量</span><span><b>02</b>事业与外部节奏</span><span><b>03</b>情绪与个人状态</span><span><b>04</b>一个可完成的小行动</span></div><div className="cost-preview"><span><i>●</i><small>本次使用体验额度</small></span><strong>1 颗智慧种子</strong></div><button className="primary" type="button" onClick={onNext}>继续开启 <span>→</span></button></section>;
 }
 
 function SeedPayment({ balance, busy, onBack, onNext, onSupport }: { balance: number; busy: boolean; onBack: () => void; onNext: () => void; onSupport: () => void }) {
@@ -829,9 +831,9 @@ function DailyGenerating({ name, balance, onBack }: { name: string; balance: num
   return <section className="daily-page daily-generating"><DailyHeader onBack={onBack} balance={balance} /><div className="growing-report" aria-hidden="true"><div className="report-soil" /><i className="report-stem" /><i className="report-leaf a" /><i className="report-leaf b" /><span>●</span></div><p className="eyebrow">YOUR SEED IS GROWING</p><h1>{name}，你的今日指引<br />正在生长</h1><div className="generation-list"><span className="done">✓ 感受你的今日节律</span><span className="done">✓ 连接生命智慧档案</span><span className="active">· 整理事业与个人状态</span><span>· 长成今日行动建议</span></div><p className="quiet-wait">不用着急，生成完成后会自动打开</p></section>;
 }
 
-function DailyReport({ name, insight, balance, onBack, onNext }: { name: string; insight: DailyInsight | null; balance: number; onBack: () => void; onNext: () => void }) {
+function DailyReport({ name, insight, energyLevel, balance, onBack, onNext }: { name: string; insight: DailyInsight | null; energyLevel?: EnergyLevel; balance: number; onBack: () => void; onNext: () => void }) {
   const content = insight?.content;
-  return <section className="daily-page daily-report"><DailyHeader onBack={onBack} balance={balance} /><div className="report-scroll"><p className="eyebrow">TODAY · {insight?.localDate || "今日"}</p><h1>{name}的今日能量指引</h1><div className="energy-header"><div><span>中</span><small>今日能量</small></div><p><small>今日关键词</small><strong>{content?.theme || "回到自己的节奏"}</strong></p></div><article className="report-opening"><b>今日总览</b><h2>{content?.theme || "把重要的事，放在心静之后"}</h2><p>{content?.insight || insight?.fallback?.message || "今天的指引已经生成。"}</p></article><div className="report-columns"><article><small>今日行动</small><h3>从一件小事开始</h3><p>{content?.action || "为自己留出一点安静的时间。"}</p></article><article><small>今日反思</small><h3>问问自己</h3><p>{content?.reflectionQuestion || "此刻对我真正重要的是什么？"}</p></article></div>{content?.notice && <blockquote>{content.notice}</blockquote>}<AiContentNotice /><button className="primary" type="button" onClick={onNext}>收下今天的行动 <span>→</span></button></div></section>;
+  return <section className="daily-page daily-report"><DailyHeader onBack={onBack} balance={balance} /><div className="report-scroll"><p className="eyebrow">TODAY · {insight?.localDate || "今日"}</p><h1>{name}的今日能量指引</h1><div className="energy-header"><div><span>{energyLevel ?? "—"}</span><small>今日能量</small></div><p><small>今日关键词</small><strong>{content?.theme || "回到自己的节奏"}</strong></p></div><article className="report-opening"><b>今日总览</b><h2>{content?.theme || "把重要的事，放在心静之后"}</h2><p>{content?.insight || insight?.fallback?.message || "今天的指引已经生成。"}</p></article><div className="report-columns"><article><small>今日行动</small><h3>从一件小事开始</h3><p>{content?.action || "为自己留出一点安静的时间。"}</p></article><article><small>今日反思</small><h3>问问自己</h3><p>{content?.reflectionQuestion || "此刻对我真正重要的是什么？"}</p></article></div>{content?.notice && <blockquote>{content.notice}</blockquote>}<AiContentNotice /><button className="primary" type="button" onClick={onNext}>收下今天的行动 <span>→</span></button></div></section>;
 }
 
 function AiContentNotice() {
@@ -848,23 +850,23 @@ function DailyAction({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   return <section className="daily-page daily-action"><DailyHeader onBack={onBack} balance={2} /><p className="eyebrow">ONE SMALL STEP</p><h1>让今天的智慧<br />落在一个行动里</h1><p className="daily-lead">不需要改变很多，只选择一件此刻愿意做到的小事。</p><div className="action-seed" aria-hidden="true"><i /><span>芽</span></div><div className="action-options">{actions.map((action) => <button type="button" key={action} className={choice === action ? "active" : ""} onClick={() => setChoice(action)}><i>{choice === action ? "✓" : ""}</i><span>{action}</span></button>)}</div><div className="timeline-note"><i>❧</i><p><strong>完成后会记入成长时间线</strong>它会成为你今天留下的一片新叶。</p></div><button className="primary" type="button" onClick={onNext}>选择这个行动 <span>→</span></button></section>;
 }
 
-function DailyShare({ name, onBack, onGenerate, onHome }: { name: string; onBack: () => void; onGenerate: () => void; onHome: () => void }) {
-  return <section className="daily-page daily-share"><DailyHeader onBack={onBack} balance={2} /><p className="eyebrow">TODAY&apos;S FRUIT</p><h1>今天的指引<br />已经成为一份收获</h1><div className="share-card"><div className="share-brand">身心游 <small>SATORI</small></div><div className="share-energy"><span>中</span><small>今日能量</small></div><p>{name || "小满"}的今日指引</p><h2>先稳住自己<br />再回应世界</h2><blockquote>给自己十分钟留白，让清晰自然长出来。</blockquote><div className="share-growth"><i>●</i><b /><i>♧</i><b /><i>❧</i><b /><i>✦</i></div><footer>2026.08.06 · 今日能量指引</footer></div><p className="share-privacy">分享卡不包含出生资料与完整报告内容</p><button className="primary" type="button" onClick={onGenerate}>生成分享图片 <span>↗</span></button><button className="text-action" type="button" onClick={onHome}>完成，回到今日首页</button></section>;
+function DailyShare({ name, energyLevel, onBack, onGenerate, onHome }: { name: string; energyLevel?: EnergyLevel; onBack: () => void; onGenerate: () => void; onHome: () => void }) {
+  return <section className="daily-page daily-share"><DailyHeader onBack={onBack} balance={2} /><p className="eyebrow">TODAY&apos;S FRUIT</p><h1>今天的指引<br />已经成为一份收获</h1><div className="share-card"><div className="share-brand">身心游 <small>SATORI</small></div><div className="share-energy"><span>{energyLevel ?? "—"}</span><small>今日能量</small></div><p>{name || "小满"}的今日指引</p><h2>先稳住自己<br />再回应世界</h2><blockquote>给自己十分钟留白，让清晰自然长出来。</blockquote><div className="share-growth"><i>●</i><b /><i>♧</i><b /><i>❧</i><b /><i>✦</i></div><footer>2026.08.06 · 今日能量指引</footer></div><p className="share-privacy">分享卡不包含出生资料与完整报告内容</p><button className="primary" type="button" onClick={onGenerate}>生成分享图片 <span>↗</span></button><button className="text-action" type="button" onClick={onHome}>完成，回到今日首页</button></section>;
 }
 
-function ShareOptions({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+function ShareOptions({ energyLevel, onBack, onNext }: { energyLevel?: EnergyLevel; onBack: () => void; onNext: () => void }) {
   const [method, setMethod] = useState("保存图片");
   const methods = [["保存图片", "存入手机相册后自由分享", "↓"], ["系统分享", "调用手机支持的分享方式", "↗"], ["复制分享文案", "复制今日关键词与短句", "文"]];
-  return <section className="share-flow share-options"><DailyHeader onBack={onBack} balance={2} /><p className="eyebrow">SHARE YOUR INSIGHT</p><h1>想怎样分享<br />今天的这份收获？</h1><p className="share-lead">选择一种方式，我们会先生成不含隐私信息的分享图片。</p><div className="share-preview-mini"><div><span>中</span><small>今日能量</small></div><p>先稳住自己<br /><strong>再回应世界</strong></p><i>❧</i></div><div className="share-methods">{methods.map(([title, note, icon]) => <button type="button" key={title} className={method === title ? "active" : ""} onClick={() => setMethod(title)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>{method === title ? "✓" : ""}</b></button>)}</div><div className="share-safe"><span className="lock" /><p><strong>默认保护你的隐私</strong>不包含出生日期、地点、卡牌干支与完整报告。</p></div><button className="primary" type="button" onClick={onNext}>继续生成分享图片 <span>→</span></button></section>;
+  return <section className="share-flow share-options"><DailyHeader onBack={onBack} balance={2} /><p className="eyebrow">SHARE YOUR INSIGHT</p><h1>想怎样分享<br />今天的这份收获？</h1><p className="share-lead">选择一种方式，我们会先生成不含隐私信息的分享图片。</p><div className="share-preview-mini"><div><span>{energyLevel ?? "—"}</span><small>今日能量</small></div><p>先稳住自己<br /><strong>再回应世界</strong></p><i>❧</i></div><div className="share-methods">{methods.map(([title, note, icon]) => <button type="button" key={title} className={method === title ? "active" : ""} onClick={() => setMethod(title)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>{method === title ? "✓" : ""}</b></button>)}</div><div className="share-safe"><span className="lock" /><p><strong>默认保护你的隐私</strong>不包含出生日期、地点、卡牌干支与完整报告。</p></div><button className="primary" type="button" onClick={onNext}>继续生成分享图片 <span>→</span></button></section>;
 }
 
-function ShareGenerating({ onBack, onSuccess, onFailure }: { onBack: () => void; onSuccess: () => void; onFailure: () => void }) {
-  return <section className="share-flow share-generating"><DailyHeader onBack={onBack} balance={2} /><div className="image-growing" aria-hidden="true"><div className="paper"><i>中</i><span /><b /></div><div className="image-sprout"><i /><i /></div><span className="render-ring one" /><span className="render-ring two" /></div><p className="eyebrow">GROWING AN IMAGE</p><h1>正在把今天的智慧<br />长成一张图片</h1><div className="render-progress"><i /><span>适配高清分享尺寸</span></div><p className="share-wait">正在整理文字、颜色与隐私信息，请稍候</p><button className="text-action" type="button" onClick={onSuccess}>原型中查看生成完成 →</button><button className="prototype-failure" type="button" onClick={onFailure}>原型分支 · 查看生成失败</button></section>;
+function ShareGenerating({ energyLevel, onBack, onSuccess, onFailure }: { energyLevel?: EnergyLevel; onBack: () => void; onSuccess: () => void; onFailure: () => void }) {
+  return <section className="share-flow share-generating"><DailyHeader onBack={onBack} balance={2} /><div className="image-growing" aria-hidden="true"><div className="paper"><i>{energyLevel ?? "—"}</i><span /><b /></div><div className="image-sprout"><i /><i /></div><span className="render-ring one" /><span className="render-ring two" /></div><p className="eyebrow">GROWING AN IMAGE</p><h1>正在把今天的智慧<br />长成一张图片</h1><div className="render-progress"><i /><span>适配高清分享尺寸</span></div><p className="share-wait">正在整理文字、颜色与隐私信息，请稍候</p><button className="text-action" type="button" onClick={onSuccess}>原型中查看生成完成 →</button><button className="prototype-failure" type="button" onClick={onFailure}>原型分支 · 查看生成失败</button></section>;
 }
 
-function ShareSuccess({ onBack, onHome }: { onBack: () => void; onHome: () => void }) {
+function ShareSuccess({ energyLevel, onBack, onHome }: { energyLevel?: EnergyLevel; onBack: () => void; onHome: () => void }) {
   const [saved, setSaved] = useState(false);
-  return <section className="share-flow share-success"><DailyHeader onBack={onBack} balance={2} /><div className="success-bloom" aria-hidden="true"><i /><i /><i /><i /><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved ? "图片已保存" : "分享图片已经长好"}</h1><p className="share-lead">{saved ? "可以前往微信、朋友圈或其他应用分享。" : "高清图片已生成，保存后即可分享给你在意的人。"}</p><div className="ready-image"><span>中<small>今日能量</small></span><p>先稳住自己<br /><strong>再回应世界</strong></p><footer>身心游 · SATORI</footer></div><div className="ready-actions"><button type="button" onClick={() => setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved ? "已保存到相册" : "高清分享图"}</small></span></button><button type="button"><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><p className="share-toast" aria-live="polite">{saved ? "✓ 保存成功" : "图片将在设备支持的范围内保存或分享"}</p><button className="primary" type="button" onClick={onHome}>完成，回到今日首页 <span>→</span></button></section>;
+  return <section className="share-flow share-success"><DailyHeader onBack={onBack} balance={2} /><div className="success-bloom" aria-hidden="true"><i /><i /><i /><i /><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved ? "图片已保存" : "分享图片已经长好"}</h1><p className="share-lead">{saved ? "可以前往微信、朋友圈或其他应用分享。" : "高清图片已生成，保存后即可分享给你在意的人。"}</p><div className="ready-image"><span>{energyLevel ?? "—"}<small>今日能量</small></span><p>先稳住自己<br /><strong>再回应世界</strong></p><footer>身心游 · SATORI</footer></div><div className="ready-actions"><button type="button" onClick={() => setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved ? "已保存到相册" : "高清分享图"}</small></span></button><button type="button"><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><p className="share-toast" aria-live="polite">{saved ? "✓ 保存成功" : "图片将在设备支持的范围内保存或分享"}</p><button className="primary" type="button" onClick={onHome}>完成，回到今日首页 <span>→</span></button></section>;
 }
 
 function ShareFailure({ onBack, onRetry, onHome }: { onBack: () => void; onRetry: () => void; onHome: () => void }) {

@@ -207,6 +207,17 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(home, /ready \? "查看今日能量指引" : "获取今日能量指引"/);
 });
 
+test("每日指引和分享流程复用首页能量状态", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /const dailyEnergyLevel = home\?\.dailyEnergySummary\.data\?\.energyLevel/);
+  for (const component of ["DailyStart", "DailyReport", "DailyShare", "ShareOptions", "ShareGenerating", "ShareSuccess"]) {
+    const source = page.match(new RegExp(`function ${component}[\\s\\S]*?\\n}`))?.[0] ?? "";
+    assert.match(source, /energyLevel\?: EnergyLevel/);
+    assert.match(source, /\{energyLevel \?\? "—"\}/);
+    assert.doesNotMatch(source, />中</);
+  }
+});
+
 test("HOME-01 今日能量卡使用轻透疗愈层次而非厚重实色", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /\.daily-guide \{[^}]*rgba\(99,138,117,\.82\)/);
