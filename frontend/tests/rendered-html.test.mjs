@@ -104,12 +104,19 @@ test("R1.0 Release 白名单阻断购种、商城与种子兑换页面", async (
 test("MY-02 进入 MY-17 完整编辑档案闭环", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const profile = page.match(/function MyProfile[\s\S]*?\n}\n/)?.[0] ?? "";
+  const editor = page.match(/function EditSelfProfile[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(profile, /编辑生命智慧档案/);
   assert.match(page, /function EditSelfProfile/);
   assert.match(page, /R1\.0 · MY-17/);
   assert.match(page, /api\.previewProfile/);
   assert.match(page, /api\.confirmProfile/);
   assert.match(page, /本次修改将创建新版本/);
+  assert.match(editor, /edit-profile-scroll unified-profile/);
+  assert.match(editor, /unified-form-card/);
+  assert.match(editor, /calendar-switch/);
+  assert.match(editor, /lunar-date-row/);
+  assert.match(editor, /unified-time-row/);
+  assert.match(editor, /edit-gender-options/);
   assert.doesNotMatch(profile, /编辑功能正在完善中/);
   assert.doesNotMatch(profile, /编辑出生资料|查看版本与历史影响/);
 });
@@ -144,7 +151,7 @@ test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
   assert.doesNotMatch(page, /card\.summary\|\|/);
 });
 
-test("PROFILE-08 进入后自动请求后端并依次点亮生成阶段", async () => {
+test("PROFILE-08 自动生成预览，点击开启后跳过 PROFILE-10 进入初见生成态", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const flow = page.match(/function ProfileFlow[\s\S]*?\n}\n\nfunction FlowStep/)?.[0] ?? "";
   const calculating = page.match(/function Calculating[\s\S]*?\n}\n/)?.[0] ?? "";
@@ -154,10 +161,12 @@ test("PROFILE-08 进入后自动请求后端并依次点亮生成阶段", async 
   assert.match(flow, /setTimeout\(\(\) => active && setCalculationStage\(2\), 1100\)/);
   assert.match(flow, /setTimeout\(\(\) => active && setCalculationStage\(3\), 1700\)/);
   assert.match(flow, /setCalculationStage\(4\)/);
-  assert.match(flow, /setStep\(7\)/);
+  assert.doesNotMatch(flow, /setStep\(7\)/);
+  assert.match(flow, /onDone=\{\(\) => void confirmProfile\(\)\}/);
+  assert.match(flow, /setFirstLookLoading\(true\);\s*setStep\(8\)/);
   assert.match(calculating, /index < stage/);
   assert.match(calculating, /done \? "✓" : active \? "●" : "○"/);
-  assert.match(calculating, /完成后会自动打开/);
+  assert.match(calculating, /开启后会自动生成并打开详情/);
   assert.match(calculating, /重新生成/);
   assert.doesNotMatch(calculating, /className="done">✓ 校验/);
 });
@@ -170,7 +179,7 @@ test("PROFILE-11 请求失败后回读后端持久化失败状态", async () => 
   assert.match(generation, /setApiError\(apiMessage\(error\)\)/);
 });
 
-test("PROFILE-10 防止并发重复确认并恢复已激活的档案版本", async () => {
+test("PROFILE-08 开启初见时防止并发重复确认并恢复已激活的档案版本", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const confirmation = page.match(/async function confirmProfile\(\) \{[\s\S]*?\n  \}\n\n  async function claimReward/)?.[0] ?? "";
   assert.match(page, /const confirmingRevisionRef = useRef<string \| null>\(null\)/);
@@ -196,7 +205,7 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(home, /summary\.suitableActions/);
   assert.match(home, /summary\.cautions/);
   assert.match(home, /home-growth-scene/);
-  assert.match(css, /\.today-home \.home-energy-card\{min-height:458px/);
+  assert.match(css, /\.today-home \.home-energy-card\{min-height:clamp\(340px,44svh,390px\)/);
   assert.match(css, /\.home-growth-scene \.life-growth\{top:50%;right:auto;left:50%/);
   assert.match(css, /\.home-energy-card \.guide-tips>div\+div\{padding:3px 4px 7px;border:0;text-align:center\}/);
   assert.match(css, /\.home-energy-card button\{width:auto;min-width:0;height:auto;margin:3px 0 0 auto/);
@@ -205,6 +214,11 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(home, /注意什么/);
   assert.match(home, /home\?\.wisdomSeedAccount\.available/);
   assert.match(home, /ready \? "查看今日能量指引" : "获取今日能量指引"/);
+  assert.match(page, /id === "HOME-01" \? " home-flow"/);
+  assert.match(css, /\.profile-flow\.home-flow\{height:100%;min-height:0;overflow:hidden\}/);
+  assert.match(css, /\.home-flow \.today-home\{[^}]*overflow-y:auto[^}]*scrollbar-width:thin/);
+  assert.match(css, /\.home-flow \.today-home>h1\{[^}]*overflow-wrap:anywhere/);
+  assert.match(css, /\.home-flow \.today-home>\.main-nav\{position:sticky/);
 });
 
 test("每日指引和分享流程复用首页能量状态", async () => {
@@ -319,19 +333,30 @@ test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维
   for (const asset of ["official-video-channel.png", "official-wechat-account.jpeg", "official-xiaohongshu.png", "official-customer-service.png"]) assert.match(support, new RegExp(asset));
   assert.match(support, /contact-tabs/);
   assert.match(support, /contact-focus/);
+  assert.ok(support.indexOf("官方客服") < support.indexOf("官方视频号"));
 });
 
-test("PROFILE-08/10 使用生命智慧语言且 PAY-01 提供客服帮助闭环", async () => {
+test("PROFILE-11 与 GIFT-01 不展示返回和保存退出操作", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(page, /const headerlessSteps = new Set\(\[\.\.\.standaloneSteps, "PROFILE-11", "GIFT-01"\]\)/);
+  assert.match(page, /!headerlessSteps\.has\(id\) && <header className="flow-header">/);
+  assert.match(page, /headerlessSteps\.has\(id\) \? " headerless-flow"/);
+  assert.match(css, /\.profile-flow\.headerless-flow\{height:100%;min-height:0;overflow:hidden\}/);
+});
+
+test("PROFILE-08/11 直达初见详情、四张卡牌置顶且 PAY-01 提供客服帮助闭环", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const calculating = page.match(/function Calculating[\s\S]*?\n}\n/)?.[0] ?? "";
-  const result = page.match(/function ProfileResult[\s\S]*?\n}\n/)?.[0] ?? "";
+  const firstLook = page.match(/function RelationshipFirstLook[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(calculating, /<span>成档<\/span>/);
   assert.match(calculating, /对齐你的生命节律/);
   assert.match(calculating, /生成四张关系卡牌/);
-  assert.match(calculating, /你的档案初见已准备好/);
-  assert.match(result, /确认这份档案，开启生命初见/);
-  assert.doesNotMatch(`${calculating}\n${result}`, /生命智慧档案 · V\{|已经算好|计算已经完成|查看计算结果/);
-  assert.match(page, /id !== "PROFILE-10"/);
+  assert.match(calculating, /开启档案初见/);
+  assert.match(firstLook, /<FirstLookCardPanel revision=\{revision\} \/>/);
+  assert.doesNotMatch(page, /function ProfileResult/);
+  assert.doesNotMatch(page, /\{id === "PROFILE-10"/);
+  assert.doesNotMatch(`${calculating}\n${firstLook}`, /生命智慧档案 · V\{|已经算好|计算已经完成|查看计算结果/);
   assert.match(page, /AI 体验额度不足，获取帮助/);
   assert.match(page, /本次体验额度暂时不足/);
   assert.match(page, /profileSteps\.indexOf\("MY-08"\)/);

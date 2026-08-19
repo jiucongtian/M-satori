@@ -218,8 +218,9 @@ const R1_UNSELECTED_LOCATION_LABEL = "当前版本暂不启用地区校正";
 const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05", "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP"];
 profileSteps.push("MY-17", "MY-18");
 const standaloneSteps = profileSteps.slice(10);
+const headerlessSteps = new Set([...standaloneSteps, "PROFILE-11", "GIFT-01"]);
 const r1StepIds = new Set([
-  "PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11",
+  "PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-11",
   "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03",
   "MY-01", "MY-02", "MY-03", "MY-04", "MY-07", "MY-08",
   "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-16", "MY-17", "MY-18",
@@ -315,7 +316,6 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       setRevision(value);
       setCalculationStage(4);
       setCalculationState("complete");
-      progressTimers.push(window.setTimeout(() => active && setStep(7), 700));
     }).catch((error) => {
       if (!active) return;
       progressTimers.forEach((timer) => window.clearTimeout(timer));
@@ -450,14 +450,16 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
         if (persistedRevision.status !== "ACTIVE") throw error;
         setRevision(persistedRevision);
       }
-      await loadOverview();
       if (editingSelf) {
+        await loadOverview();
         setEditingSelf(false);
         setStep(22);
       } else {
         setFirstLook(null);
+        setFirstLookLoading(true);
         setStep(8);
-        await generateFirstLook(revision.revisionId);
+        void loadOverview();
+        await generateFirstLook(revisionToConfirm.revisionId);
       }
     } catch (error) { setApiError(apiMessage(error)); }
     finally {
@@ -537,7 +539,6 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   }
 
   function next() {
-    if (id === "PROFILE-08") return setStep(7);
     if (id === "PROFILE-04") return setStep(5);
     setStep((value) => Math.min(value + 1, profileSteps.length - 1));
   }
@@ -545,17 +546,18 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   function back() {
     if (step === 0) return onExit();
     if (id === "PROFILE-08") return setStep(1);
+    if (id === "PROFILE-11") return setStep(6);
     if (id === "PROFILE-07") return setStep(3);
     setStep((value) => value - 1);
   }
 
   return (
-    <div className="profile-flow">
+    <div className={`profile-flow${id === "HOME-01" ? " home-flow" : ""}${headerlessSteps.has(id) ? " headerless-flow" : ""}`}>
       <span className="screen-id">R1.0 · {id === "PROFILE-02" ? "PROFILE-02—07" : id}</span>
-      {!standaloneSteps.includes(id) && <header className="flow-header">
+      {!headerlessSteps.has(id) && <header className="flow-header">
         <button className="back-button" type="button" onClick={back} aria-label="返回上一步">←</button>
         <div className="flow-progress" aria-label={`建档进度 ${Math.round(progress)}%`}><i style={{ width: `${progress}%` }} /></div>
-        {id !== "PROFILE-02" && id !== "PROFILE-10" && <button className="save-exit" type="button" onClick={onExit}>保存退出</button>}
+        {id !== "PROFILE-02" && <button className="save-exit" type="button" onClick={onExit}>保存退出</button>}
       </header>}
       {apiError && <div className="form-message" role="alert">{apiError}</div>}
 
@@ -594,9 +596,8 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
           <FlowNext onClick={previewProfile}>确认并生成生命智慧档案</FlowNext>
         </FlowStep>
       )}
-      {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => setStep(7)} />}
-      {id === "PROFILE-10" && <ProfileResult name={data.name} revision={revision} onNext={confirmProfile} onRestart={() => setStep(0)} busy={apiBusy} />}
-      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onNext={next} />}
+      {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} busy={apiBusy} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => void confirmProfile()} />}
+      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
       {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
       {id === "DAILY-01" && <DailyStart name={data.name} energyLevel={dailyEnergyLevel} onBack={back} onNext={next} />}
@@ -793,21 +794,22 @@ function SummaryRow({ label, value, edit }: { label: string; value: string; edit
   return <div className="summary-row"><span>{label}</span><strong>{value}</strong>{edit ? <button type="button" onClick={edit}>修改</button> : <i />}</div>;
 }
 
-function Calculating({ name, stage, state, onRetry, onDone }: { name: string; stage: number; state: "idle" | "running" | "complete" | "failed"; onRetry: () => void; onDone: () => void }) {
+function Calculating({ name, stage, state, busy, onRetry, onDone }: { name: string; stage: number; state: "idle" | "running" | "complete" | "failed"; busy: boolean; onRetry: () => void; onDone: () => void }) {
   const stages = ["核对出生日期与时间", "对齐你的生命节律", "生成四张关系卡牌", "准备你的档案初见"];
-  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>成档</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages" aria-live="polite">{stages.map((label, index) => { const done = index < stage; const active = state === "running" && index === stage; return <span key={label} className={done ? "done" : active ? "active" : ""}>{done ? "✓" : active ? "●" : "○"} {label}</span>; })}</div>{state === "failed" ? <><p>档案生成暂时中断，已填写的资料仍然保留。</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></> : state === "complete" ? <><p>你的档案初见已准备好，即将自动打开。</p><button className="text-action" type="button" onClick={onDone}>开启档案初见 →</button></> : <p>正在连接后端生成基础档案，完成后会自动打开。</p>}</div>;
+  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>成档</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages" aria-live="polite">{stages.map((label, index) => { const done = index < stage; const active = state === "running" && index === stage; return <span key={label} className={done ? "done" : active ? "active" : ""}>{done ? "✓" : active ? "●" : "○"} {label}</span>; })}</div>{state === "failed" ? <><p>档案生成暂时中断，已填写的资料仍然保留。</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></> : state === "complete" ? <><p>档案已经建立，开启后会自动生成并打开详情。</p><button className="text-action" type="button" onClick={onDone} disabled={busy}>{busy ? "正在开启…" : "开启档案初见 →"}</button></> : <p>正在连接后端生成基础档案，请稍候。</p>}</div>;
 }
 
-function ProfileResult({ name, revision, onNext, onRestart, busy }: { name: string; revision: ProfileRevision | null; onNext: () => void; onRestart: () => void; busy: boolean }) {
-  return <div className="profile-result"><span className="result-spark">✦</span><p className="eyebrow">PROFILE CREATED</p><h1>{name}，你的生命智慧档案<br /><em>已经创建</em></h1><p>四张关系卡牌，是你理解自己、关系与成长节律的共同起点。</p><div className="wisdom-card-panel"><small>生命智慧档案</small><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/>{revision?.warnings?.map((warning) => <p key={warning}>{warning}</p>)}</div><button className="primary" type="button" onClick={onNext} disabled={busy}>{busy ? "正在确认…" : "确认这份档案，开启生命初见"} <span>→</span></button><button className="text-action" type="button" onClick={onRestart}>重新填写出生资料</button></div>;
+function FirstLookCardPanel({ revision }: { revision: ProfileRevision | null }) {
+  return <div className="wisdom-card-panel first-look-card-panel"><small>你的四张关系卡牌</small><LifeWisdomCardRow cards={revision?.cards || []} size="medium" />{revision?.warnings?.map((warning) => <p key={warning}>{warning}</p>)}</div>;
 }
 
-function RelationshipFirstLook({ name, report, loading, onRetry, onNext }: { name: string; report: ProfileFirstLook | null; loading: boolean; onRetry: () => void; onNext: () => void }) {
+function RelationshipFirstLook({ name, revision, report, loading, onRetry, onNext }: { name: string; revision: ProfileRevision | null; report: ProfileFirstLook | null; loading: boolean; onRetry: () => void; onNext: () => void }) {
   const content = report?.status === "READY" ? report.content : null;
   if (loading || report?.status === "GENERATING") return <section className="first-look"><div className="first-look-pending"><i>芽</i><h1>正在读懂你的四张卡牌</h1><p>正在依据已确认的四张卡牌整理你的生命智慧初识。</p></div><ProfileReferenceNotice /></section>;
   if (!content) return <section className="first-look"><div className="first-look-pending"><i>!</i><h1>生命智慧初识暂未生成</h1><p>{report?.failure?.message || "本次没有使用占位内容，你可以手动重新发起同一业务请求。"}</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></div><ProfileReferenceNotice /></section>;
   return <section className="first-look">
     <p className="eyebrow">YOUR INNER SEASONS</p>
+    <FirstLookCardPanel revision={revision} />
     <h1>{name}，先感受一下<br /><em>你的生命底色</em></h1>
     <div className="season-summary">
       <div className="season-orbit" aria-hidden="true"><i /><i /><i /><i /><span>初</span></div>
@@ -1047,9 +1049,38 @@ function MyProfile({ home, revision, onBack,onEdit,onFirstLook }: { home: HomeOv
   return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook}><i>初</i><span><small>生命智慧初识</small><strong>回看你的生命底色与四个短画像</strong></span><b>›</b></button><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {birth?.timePrecision || "—"}</strong></p></section><button className="outline-button" type="button" onClick={onEdit}>编辑生命智慧档案</button></section>;
 }
 
-function FirstLookArchive({name,revision,report,loading,onRetry,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/><p className="eyebrow">R1.0 · MY-18</p>{content?<><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"正在依据当前档案版本整理生命智慧初识。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<ProfileReferenceNotice /></section>}
+function FirstLookArchive({name,revision,report,loading,onRetry,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/><p className="eyebrow">R1.0 · MY-18</p>{content?<><FirstLookCardPanel revision={revision}/><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"正在依据当前档案版本整理生命智慧初识。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<ProfileReferenceNotice /></section>}
 
-function EditSelfProfile({data,revision,busy,onChange,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page edit-self-profile"><MyHeader title="编辑生命智慧档案" onBack={onBack}/><p className="eyebrow">R1.0 · MY-17</p><h1>核对并更新<br/>你的生命智慧档案</h1><p className="edit-profile-lead">修改后会重新计算四张关系卡牌，并保存为新的档案版本；已经生成的历史内容仍保留原来的依据。</p><label className="archive-field"><span>希望我们怎么称呼你</span><input value={data.name} onChange={e=>onChange({...data,name:e.target.value})}/></label><div className="birth-fields"><label><span>出生日期</span><input type="date" value={data.date} onChange={e=>onChange({...data,date:e.target.value})}/></label><label><span>出生时间</span><input type="time" value={data.time} onChange={e=>onChange({...data,time:e.target.value})}/></label></div><div className="relation-picks"><small>计算性别</small><div>{([['FEMALE','女'],['MALE','男']] as const).map(([value,label])=><button type="button" key={value} className={data.gender===value?'active':''} onClick={()=>onChange({...data,gender:value})}>{label}</button>)}</div></div><div className="edit-version-note"><i>V{(revision?.revisionNumber||1)+1}</i><span><strong>本次修改将创建新版本</strong><small>不会覆盖当前版本，也不会改变历史报告的计算依据</small></span></div><button className="primary" type="button" disabled={busy||!data.name.trim()} onClick={onNext}>{busy?'正在重新计算…':'确认修改并重新计算'} <span>→</span></button><button className="text-action" type="button" onClick={onBack}>取消编辑</button></section>}
+function EditSelfProfile({data,revision,busy,onChange,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}) {
+  const [solarNotice, setSolarNotice] = useState(false);
+  const timeOptions = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
+  const lunarMonths = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
+  const lunarDays = ["初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十", "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"];
+  const calendarReady = data.calendarType === "SOLAR" ? Boolean(data.date) : Boolean(data.lunarYear && data.lunarMonth && data.lunarDay);
+  return <section className="my-page edit-self-profile">
+    <MyHeader title="编辑生命智慧档案" onBack={onBack}/>
+    <div className="edit-profile-scroll unified-profile">
+      <header className="unified-profile-intro"><p className="eyebrow">R1.0 · MY-17</p><h1>重新核对<br/>认识自己的起点</h1><p>沿用建档时的结构修改资料；提交后会生成新的档案版本，历史内容不会被覆盖。</p></header>
+      <div className="unified-form-card">
+        <section className="unified-field-group"><span className="unified-field-index">01</span><label className="field-label" htmlFor="edit-profile-nickname">希望我们怎么称呼你</label><div className="field profile-field"><input id="edit-profile-nickname" maxLength={16} value={data.name} onChange={e=>onChange({...data,name:e.target.value})}/></div><small>不需要填写真实姓名</small></section>
+        <section className="unified-field-group">
+          <span className="unified-field-index">02</span><label className="field-label" htmlFor={data.calendarType === "SOLAR" ? "edit-profile-birth-date" : "edit-lunar-year"}>出生日期</label>
+          <div className="calendar-switch" role="group" aria-label="选择出生日期历法"><button type="button" className={data.calendarType === "SOLAR" ? "active" : ""} aria-pressed={data.calendarType === "SOLAR"} onClick={() => onChange({ ...data, calendarType: "SOLAR" })}>公历</button><button type="button" className={data.calendarType === "LUNAR" ? "active" : ""} aria-pressed={data.calendarType === "LUNAR"} onClick={() => onChange({ ...data, calendarType: "LUNAR" })}>农历</button></div>
+          {data.calendarType === "SOLAR" ? <div className="field profile-field"><input id="edit-profile-birth-date" type="date" value={data.date} max="2026-08-19" onChange={e=>onChange({...data,date:e.target.value})}/></div> : <div className="lunar-date-row"><label><select id="edit-lunar-year" aria-label="农历年份" value={data.lunarYear} onChange={e=>onChange({...data,lunarYear:Number(e.target.value)})}>{Array.from({length:127},(_,index)=>2026-index).map(year=><option key={year} value={year}>{year}年</option>)}</select></label><label><select aria-label="农历月份" value={`${data.lunarMonth}-${data.isLeapMonth?"leap":"normal"}`} onChange={e=>{const [month,mode]=e.target.value.split("-");onChange({...data,lunarMonth:Number(month),isLeapMonth:mode==="leap"});}}>{lunarMonths.flatMap((month,index)=>[<option key={`${index+1}-normal`} value={`${index+1}-normal`}>{month}</option>,<option key={`${index+1}-leap`} value={`${index+1}-leap`}>闰{month}</option>])}</select></label><label><select aria-label="农历日期" value={data.lunarDay} onChange={e=>onChange({...data,lunarDay:Number(e.target.value)})}>{lunarDays.map((day,index)=><option key={day} value={index+1}>{day}</option>)}</select></label></div>}
+          <small>{data.calendarType === "SOLAR" ? "按公历记录出生日期" : "支持闰月；系统会保留农历原始日期并统一换算"}</small>
+        </section>
+        <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="edit-profile-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="edit-profile-birth-time" type="time" value={data.time} onChange={e=>onChange({...data,time:e.target.value})}/></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={e=>onChange({...data,accuracy:e.target.value})}>{timeOptions.map(item=><option key={item}>{item}</option>)}</select></div><small>不知道准确时间也没关系，如实选择即可</small></section>
+        <section className="unified-field-group edit-gender-group"><span className="unified-field-index">04</span><span className="field-label">计算性别</span><div className="edit-gender-options">{([['FEMALE','女'],['MALE','男']] as const).map(([value,label])=><button type="button" key={value} className={data.gender===value?'active':''} onClick={()=>onChange({...data,gender:value})}>{label}</button>)}</div><small>用于传统排盘规则计算</small></section>
+        <section className="solar-time-option"><div className="solar-time-symbol" aria-hidden="true">日</div><div className="solar-time-copy"><span><strong>真太阳时校正</strong><b>后续开放</b></span><p>当前版本先按出生时间更新档案，暂不启用该功能。</p></div><button type="button" role="switch" aria-checked="false" aria-label="真太阳时校正，后续开放" onClick={()=>setSolarNotice(true)}><i/></button></section>
+        {solarNotice&&<div className="solar-time-notice" role="status"><span>芽</span><p><strong>真太阳时校正正在准备</strong>当前先按出生时间更新档案，开放后再补充城市。</p><button type="button" aria-label="关闭提示" onClick={()=>setSolarNotice(false)}>×</button></div>}
+        <div className="edit-version-note"><i>V{(revision?.revisionNumber||1)+1}</i><span><strong>本次修改将创建新版本</strong><small>不会覆盖当前版本，也不会改变历史报告的计算依据</small></span></div>
+      </div>
+      <div className="privacy-inline"><span className="lock"/><p>资料仅用于建立你的生命智慧档案，默认只对你可见。</p></div>
+      <button className="primary unified-profile-submit" type="button" disabled={busy||!data.name.trim()||!calendarReady} onClick={onNext}>{busy?'正在重新计算…':'确认修改并重新计算'} <span>→</span></button>
+      <button className="text-action" type="button" onClick={onBack}>取消编辑</button>
+    </div>
+  </section>;
+}
 
 function MySeeds({ account, transactions, onBack }: { account: WisdomSeedAccount | null; transactions: WisdomSeedTransaction[]; onBack: () => void }) {
   const [tab,setTab]=useState("最近记录");
@@ -1079,10 +1110,10 @@ function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: 
 
 function MySupport({ onBack }: { onBack: () => void }) {
   const channels = [
+    { title:"官方客服", short:"客服", description:"咨询账号、智慧种子与报告问题", src:"/contact/official-customer-service.png", width:196, height:198 },
     { title:"官方视频号", short:"视频", description:"关注我们的视频动态", src:"/contact/official-video-channel.png", width:904, height:926 },
     { title:"官方公众号", short:"公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:1280, height:1280 },
     { title:"官方小红书", short:"小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:194, height:196 },
-    { title:"官方客服", short:"客服", description:"咨询账号、智慧种子与报告问题", src:"/contact/official-customer-service.png", width:196, height:198 },
   ];
   const [selected,setSelected]=useState(0);
   const channel=channels[selected];
