@@ -30,6 +30,24 @@ describe('runtime baseline', () => {
     expect(environment).not.toHaveProperty('AQUA_JWT_SECRET');
   });
 
+  it('uses local first-look generation without Aqua credentials and validates the Aqua opt-in', () => {
+    const local = validateEnvironment({ PROFILE_FIRST_LOOK_ENABLED: 'true' });
+    expect(local.PROFILE_FIRST_LOOK_GENERATOR).toBe('LOCAL');
+    expect(() =>
+      validateEnvironment({
+        PROFILE_FIRST_LOOK_ENABLED: 'true',
+        PROFILE_FIRST_LOOK_GENERATOR: 'AQUA',
+      }),
+    ).toThrow();
+    const aqua = validateEnvironment({
+      PROFILE_FIRST_LOOK_ENABLED: 'true',
+      PROFILE_FIRST_LOOK_GENERATOR: 'AQUA',
+      AQUA_AI_BASE_URL: 'https://aqua.example.com',
+      AQUA_AI_SERVICE_KEY: 'test-service-key-with-safe-length',
+    });
+    expect(aqua.PROFILE_FIRST_LOOK_GENERATOR).toBe('AQUA');
+  });
+
   it('requires server-only Aqua credentials when home energy summaries are enabled', () => {
     expect(() => validateEnvironment({ HOME_ENERGY_SUMMARY_ENABLED: 'true' })).toThrow();
     const environment = validateEnvironment({

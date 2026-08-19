@@ -50,6 +50,7 @@ export const environmentSchema = z
     AQUA_AI_WORKFLOW_ID: z.string().min(1).default('daily-insight'),
     AQUA_AI_WORKFLOW_VERSION: z.string().min(1).optional(),
     PROFILE_FIRST_LOOK_ENABLED: booleanFromString,
+    PROFILE_FIRST_LOOK_GENERATOR: z.enum(['LOCAL', 'AQUA']).default('LOCAL'),
     PROFILE_FIRST_LOOK_TIMEOUT_MS: z.coerce.number().int().positive().default(300_000),
     HOME_ENERGY_SUMMARY_ENABLED: booleanFromString,
     HOME_ENERGY_SUMMARY_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
@@ -116,12 +117,13 @@ export const environmentSchema = z
     }
     if (
       environment.PROFILE_FIRST_LOOK_ENABLED &&
+      environment.PROFILE_FIRST_LOOK_GENERATOR === 'AQUA' &&
       (!environment.AQUA_AI_BASE_URL || !environment.AQUA_AI_SERVICE_KEY)
     ) {
       context.addIssue({
         code: 'custom',
         path: ['PROFILE_FIRST_LOOK_ENABLED'],
-        message: 'Aqua AI base URL and service key are required for PROFILE-11 first-look generation',
+        message: 'Aqua AI base URL and service key are required when PROFILE-11 uses the Aqua generator',
       });
     }
     if (

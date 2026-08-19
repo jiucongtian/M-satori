@@ -1,5 +1,7 @@
 # Aqua PROFILE-11 四卡初识工作流
 
+> 本文保留 Aqua 历史验收与应急回退基线。2026-08-19 起，PROFILE-11 默认使用 `PROFILE_FIRST_LOOK_GENERATOR=LOCAL` 的本地确定性生成器；当前实现见 [`PROFILE-11本地确定性生成.md`](./PROFILE-11本地确定性生成.md)。只有显式选择 `AQUA` 时才执行本文流程。
+
 ## 接入基线
 
 - Workflow ID：`profile-four-card-first-look`
@@ -10,7 +12,7 @@
 - 超时：300 秒
 - 重试：不自动重试；人工重试复用同一业务报告中持久化的 Aqua `idempotencyKey`
 
-测试环境开关为 `PROFILE_FIRST_LOOK_ENABLED=true`，Aqua 地址和 service key 通过服务器环境变量注入。
+回退 Aqua 时配置 `PROFILE_FIRST_LOOK_ENABLED=true`、`PROFILE_FIRST_LOOK_GENERATOR=AQUA`，Aqua 地址和 service key 通过服务器环境变量注入。
 
 ## Satori 业务流程
 

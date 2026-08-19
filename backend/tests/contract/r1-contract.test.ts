@@ -86,13 +86,14 @@ describe('R1 delivery contract', () => {
     expect(block).toContain('text/event-stream');
   });
 
-  it('freezes the PROFILE-11 Aqua-facing result contract in the product API', () => {
+  it('freezes the provider-neutral PROFILE-11 result contract in the product API', () => {
     expect(openapi).toContain('ProfileFirstLookContent:');
     expect(openapi).toContain("schemaVersion: {const: '1.0.0'}");
     expect(openapi).toContain('position: {type: string, enum: [hour, day, month, year]}');
     expect(openapi).toContain('dimension: {type: string, enum: [思想, 行为, 事业, 梦想目标]}');
-    expect(openapi).toContain('workflowVersion: {const: profile-four-card-first-look/1.0.7}');
-    expect(openapi).toContain('skillVersion: {const: 1.0.0-aqua.3}');
+    expect(openapi).toContain('workflowVersion: {type: string}');
+    expect(openapi).toContain('skillVersion: {type: string}');
+    expect(openapi).toContain('generator: {type: string, enum: [aqua, deterministic]}');
     expect(openapi).toContain('notice: {const: 这是一份基础认识，不是对你人生的定论。}');
   });
 
@@ -122,12 +123,19 @@ describe('R1 delivery contract', () => {
     const previousMode = process.env.DAILY_INSIGHT_STUB_MODE;
     const generator = new DeterministicDailyInsightGenerator();
     const input = {
-      dailyInsightId: '00000000-0000-7000-8000-000000000003', localDate: '2026-08-10', timezone: 'Asia/Shanghai',
-      profileRevisionId: '00000000-0000-7000-8000-000000000004', astrologySnapshot: {}, cards: [],
+      dailyInsightId: '00000000-0000-7000-8000-000000000003',
+      localDate: '2026-08-10',
+      timezone: 'Asia/Shanghai',
+      profileRevisionId: '00000000-0000-7000-8000-000000000004',
+      astrologySnapshot: {},
+      cards: [],
     };
     try {
       process.env.DAILY_INSIGHT_STUB_MODE = 'FAILURE';
-      await expect(generator.generate(input)).rejects.toMatchObject({ message: 'Test daily-insight generator failure', code: 'TEST_GENERATION_FAILURE' });
+      await expect(generator.generate(input)).rejects.toMatchObject({
+        message: 'Test daily-insight generator failure',
+        code: 'TEST_GENERATION_FAILURE',
+      });
     } finally {
       if (previousMode === undefined) delete process.env.DAILY_INSIGHT_STUB_MODE;
       else process.env.DAILY_INSIGHT_STUB_MODE = previousMode;

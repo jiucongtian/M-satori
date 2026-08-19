@@ -38,12 +38,15 @@ export interface ProfileFirstLookContent {
 }
 
 export interface ProfileFirstLookManifest {
-  workflowVersion: 'profile-four-card-first-look/1.0.7';
-  skillVersion: '1.0.0-aqua.3';
+  workflowVersion: string;
+  skillVersion: string;
   model: string;
   promptVersion: string;
   outputSchemaVersion: string;
   contentPolicyVersion: string;
+  generator?: 'aqua' | 'deterministic';
+  ruleVersion?: string;
+  knowledgeRelease?: string;
 }
 
 export interface ProfileFirstLookGenerationResult {

@@ -13,6 +13,7 @@ import { AquaHomeEnergySummaryGenerator } from './daily-energy/aqua-home-energy-
 import { LocationController } from './locations/location.controller.js';
 import { LocalLocationProvider } from './locations/location.provider.js';
 import { AquaProfileFirstLookGenerator } from './profile-first-look/aqua-profile-first-look.generator.js';
+import { DeterministicProfileFirstLookGenerator } from './profile-first-look/deterministic-profile-first-look.generator.js';
 
 @Global()
 @Module({
@@ -25,6 +26,9 @@ import { AquaProfileFirstLookGenerator } from './profile-first-look/aqua-profile
       useFactory: (infrastructure: RuntimeInfrastructure) => {
         const environment = infrastructure.environment;
         if (!environment.PROFILE_FIRST_LOOK_ENABLED) return null;
+        if (environment.PROFILE_FIRST_LOOK_GENERATOR === 'LOCAL') {
+          return new DeterministicProfileFirstLookGenerator();
+        }
         const client = new AquaAIClient({
           baseUrl: environment.AQUA_AI_BASE_URL!,
           auth: { type: 'serviceKey', serviceKey: environment.AQUA_AI_SERVICE_KEY! },

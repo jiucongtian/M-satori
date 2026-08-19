@@ -522,12 +522,15 @@ components:
       additionalProperties: false
       required: [workflowVersion, skillVersion, model, promptVersion, outputSchemaVersion, contentPolicyVersion]
       properties:
-        workflowVersion: {const: profile-four-card-first-look/1.0.7}
-        skillVersion: {const: 1.0.0-aqua.3}
+        workflowVersion: {type: string}
+        skillVersion: {type: string}
         model: {type: string}
         promptVersion: {type: string}
         outputSchemaVersion: {type: string}
         contentPolicyVersion: {type: string}
+        generator: {type: string, enum: [aqua, deterministic]}
+        ruleVersion: {type: string}
+        knowledgeRelease: {type: string}
     ProfileFirstLook:
       type: object
       additionalProperties: false
