@@ -216,9 +216,10 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(home, /ready \? "查看今日能量指引" : "获取今日能量指引"/);
   assert.match(page, /id === "HOME-01" \? " home-flow"/);
   assert.match(css, /\.profile-flow\.home-flow\{height:100%;min-height:0;overflow:hidden\}/);
-  assert.match(css, /\.home-flow \.today-home\{[^}]*overflow-y:auto[^}]*scrollbar-width:thin/);
+  assert.match(css, /\.home-flow \.today-home\{[^}]*overflow-y:auto[^}]*display:flex[^}]*flex-direction:column[^}]*scrollbar-width:thin/);
   assert.match(css, /\.home-flow \.today-home>h1\{[^}]*overflow-wrap:anywhere/);
-  assert.match(css, /\.home-flow \.today-home>\.main-nav\{position:sticky/);
+  assert.match(css, /\.home-flow \.today-home>\.home-energy-card\{flex:none;margin-bottom:18px\}/);
+  assert.match(css, /\.home-flow \.today-home>\.main-nav\{position:sticky[^}]*margin:auto -9px 0/);
 });
 
 test("每日指引和分享流程复用首页能量状态", async () => {

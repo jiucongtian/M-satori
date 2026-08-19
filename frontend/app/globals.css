@@ -539,11 +539,12 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 .home-energy-card button span{margin-left:5px;color:#f0d596}
 .profile-flow.home-flow{height:100%;min-height:0;overflow:hidden}
 .profile-flow.headerless-flow{height:100%;min-height:0;overflow:hidden}.headerless-flow>.first-look{height:100%;min-height:0}.headerless-flow>.seed-gift{min-height:100%}
-.home-flow .today-home{height:auto;min-height:0;flex:1;overflow-y:auto;padding-bottom:0;scrollbar-width:thin;scrollbar-color:rgba(69,107,91,.28) transparent}
+.home-flow .today-home{height:auto;min-height:0;flex:1;overflow-y:auto;padding-bottom:0;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:rgba(69,107,91,.28) transparent}
 .home-flow .today-home::-webkit-scrollbar{display:block;width:3px}.home-flow .today-home::-webkit-scrollbar-thumb{border-radius:3px;background:rgba(69,107,91,.28)}
 .home-flow .today-home>.eyebrow{margin-top:clamp(24px,6svh,48px)}
 .home-flow .today-home>h1{max-width:100%;overflow-wrap:anywhere;font-size:clamp(25px,7.5vw,31px)}
-.home-flow .today-home>.main-nav{position:sticky;left:auto;right:auto;bottom:0;width:calc(100% + 18px);margin:18px -9px 0;height:52px;flex:none}
+.home-flow .today-home>.home-energy-card{flex:none;margin-bottom:18px}
+.home-flow .today-home>.main-nav{position:sticky;left:auto;right:auto;bottom:0;width:calc(100% + 18px);margin:auto -9px 0;height:52px;flex:none}
 .edit-self-profile{height:100%;min-height:0;overflow:hidden}.edit-profile-scroll{padding-top:18px;padding-bottom:24px}.edit-profile-scroll>.privacy-inline{margin:11px 8px 0}.edit-profile-scroll>.text-action{flex:none;margin-top:9px}
 .edit-gender-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}.edit-gender-options button{min-height:42px;border:1px solid rgba(69,107,91,.11);border-radius:14px;color:#718078;background:rgba(247,248,242,.88);font-size:9px}.edit-gender-options button.active{border-color:var(--sage);color:#fff;background:var(--sage)}
 
