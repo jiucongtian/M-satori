@@ -109,6 +109,21 @@ test("MY-02 进入 MY-17 完整编辑档案闭环", async () => {
   assert.doesNotMatch(profile, /编辑出生资料|查看版本与历史影响/);
 });
 
+test("R1.0 所有建档入口均跳过并隐藏太阳时地区选择", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const flow = page.match(/function ProfileFlow[\s\S]*?\n}\n\nfunction FlowStep/)?.[0] ?? "";
+  const editSelf = page.match(/function EditSelfProfile[\s\S]*?function MySeeds/)?.[0] ?? "";
+  const newPerson = page.match(/function NewPersonArchive[\s\S]*?function ArchiveConfirm/)?.[0] ?? "";
+  assert.match(page, /R1_UNSELECTED_LOCATION_ID = "loc_cn_330100"/);
+  assert.match(flow, /const effectiveStep = step === 4 \? 5 : step/);
+  assert.match(flow, /id === "PROFILE-04"\) return setStep\(5\)/);
+  assert.match(flow, /id === "PROFILE-07"\) return setStep\(3\)/);
+  assert.doesNotMatch(flow, /BIRTH REGION|太阳时地区|地区校正|region-unavailable/);
+  for (const component of [editSelf, newPerson]) {
+    assert.doesNotMatch(component, /太阳时地区|地区校正|region-unavailable|searchLocations|place-result|出生地点<\/span><input/);
+  }
+});
+
 test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /MY-18/);
@@ -245,7 +260,7 @@ test("手机号登录后按后端真实档案状态分流，老用户直接进�
 
 test("R1 核心页面调用真实后端能力", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.searchLocations", "api.previewProfile", "api.confirmProfile", "api.generateProfileFirstLook", "api.profileFirstLook", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
+  for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.previewProfile", "api.confirmProfile", "api.generateProfileFirstLook", "api.profileFirstLook", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
     assert.match(page, new RegExp(call.replace(".", "\\.")));
   }
   assert.match(page, /await api\.createSession\(challengeId, code, consentAcceptances\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
