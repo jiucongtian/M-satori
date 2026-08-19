@@ -212,7 +212,7 @@ export default function WelcomePage() {
   );
 }
 
-type ProfileData = { name: string; date: string; time: string; accuracy: string; place: string; locationId: string; gender: "MALE" | "FEMALE"; relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER" };
+type ProfileData = { name: string; date: string; calendarType: "SOLAR" | "LUNAR"; lunarYear: number; lunarMonth: number; lunarDay: number; isLeapMonth: boolean; time: string; accuracy: string; place: string; locationId: string; gender: "MALE" | "FEMALE"; relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER" };
 const R1_UNSELECTED_LOCATION_ID = "loc_cn_330100";
 const R1_UNSELECTED_LOCATION_LABEL = "当前版本暂不启用地区校正";
 const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05", "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP"];
@@ -228,7 +228,7 @@ const r1StepIds = new Set([
 
 function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void; onLogout: () => void; initialStep?: number }) {
   const [step, setStep] = useState(initialStep);
-  const [data, setData] = useState<ProfileData>({ name: "", date: "1990-05-18", time: "08:30", accuracy: "准确到分钟", place: R1_UNSELECTED_LOCATION_LABEL, locationId: R1_UNSELECTED_LOCATION_ID, gender: "FEMALE", relationshipType: "OTHER" });
+  const [data, setData] = useState<ProfileData>({ name: "", date: "1990-05-18", calendarType: "SOLAR", lunarYear: 1990, lunarMonth: 4, lunarDay: 24, isLeapMonth: false, time: "08:30", accuracy: "准确到分钟", place: R1_UNSELECTED_LOCATION_LABEL, locationId: R1_UNSELECTED_LOCATION_ID, gender: "FEMALE", relationshipType: "OTHER" });
   const [revision, setRevision] = useState<ProfileRevision | null>(null);
   const [firstLook, setFirstLook] = useState<ProfileFirstLook | null>(null);
   const [firstLookLoading, setFirstLookLoading] = useState(false);
@@ -239,7 +239,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [profiles, setProfiles] = useState<LifeProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<LifeProfile | null>(null);
   const [otherRevision, setOtherRevision] = useState<ProfileRevision | null>(null);
-  const [otherData, setOtherData] = useState<ProfileData>({ name: "", date: "1964-03-12", time: "06:30", accuracy: "准确到分钟", place: R1_UNSELECTED_LOCATION_LABEL, locationId: R1_UNSELECTED_LOCATION_ID, gender: "FEMALE", relationshipType: "FAMILY" });
+  const [otherData, setOtherData] = useState<ProfileData>({ name: "", date: "1964-03-12", calendarType: "SOLAR", lunarYear: 1964, lunarMonth: 3, lunarDay: 12, isLeapMonth: false, time: "06:30", accuracy: "准确到分钟", place: R1_UNSELECTED_LOCATION_LABEL, locationId: R1_UNSELECTED_LOCATION_ID, gender: "FEMALE", relationshipType: "FAMILY" });
   const [taskId, setTaskId] = useState<string | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -296,11 +296,14 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     setApiBusy(true);
     setApiError("");
 
-    const [year, month, day] = data.date.split("-").map(Number);
+    const [solarYear, solarMonth, solarDay] = data.date.split("-").map(Number);
+    const year = data.calendarType === "LUNAR" ? data.lunarYear : solarYear;
+    const month = data.calendarType === "LUNAR" ? data.lunarMonth : solarMonth;
+    const day = data.calendarType === "LUNAR" ? data.lunarDay : solarDay;
     const exact = data.accuracy === "准确到分钟" || data.accuracy === "大致时间";
     const request = api.previewProfile({
-      calendarType: "SOLAR",
-      date: { year, month, day, isLeapMonth: false },
+      calendarType: data.calendarType,
+      date: { year, month, day, isLeapMonth: data.calendarType === "LUNAR" && data.isLeapMonth },
       timePrecision: data.accuracy === "准确到分钟" ? "EXACT_MINUTE" : data.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
       time: { localTime: exact ? data.time : null, hourBranchCode: null },
       locationId: data.locationId,
@@ -326,7 +329,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       active = false;
       progressTimers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [calculationAttempt, data.accuracy, data.date, data.gender, data.locationId, data.time, id]);
+  }, [calculationAttempt, data.accuracy, data.calendarType, data.date, data.gender, data.isLeapMonth, data.locationId, data.lunarDay, data.lunarMonth, data.lunarYear, data.time, id]);
 
   function openSelfEditor() {
     const birth = revision?.originalInput;
@@ -334,6 +337,11 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       ...current,
       name: home?.profile.displayName || current.name,
       date: `${birth.date.year}-${String(birth.date.month).padStart(2,"0")}-${String(birth.date.day).padStart(2,"0")}`,
+      calendarType: birth.calendarType,
+      lunarYear: birth.date.year,
+      lunarMonth: birth.date.month,
+      lunarDay: birth.date.day,
+      isLeapMonth: birth.date.isLeapMonth,
       time: birth.time.localTime || "08:30",
       accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : "完全不知道",
       locationId: birth.locationId,
@@ -536,29 +544,23 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
   function back() {
     if (step === 0) return onExit();
+    if (id === "PROFILE-08") return setStep(1);
     if (id === "PROFILE-07") return setStep(3);
     setStep((value) => value - 1);
   }
 
   return (
     <div className="profile-flow">
-      <span className="screen-id">R1.0 · {id}</span>
+      <span className="screen-id">R1.0 · {id === "PROFILE-02" ? "PROFILE-02—07" : id}</span>
       {!standaloneSteps.includes(id) && <header className="flow-header">
         <button className="back-button" type="button" onClick={back} aria-label="返回上一步">←</button>
         <div className="flow-progress" aria-label={`建档进度 ${Math.round(progress)}%`}><i style={{ width: `${progress}%` }} /></div>
-        {id !== "PROFILE-10" ? <button className="save-exit" type="button" onClick={onExit}>保存退出</button> : <span className="header-spacer" />}
+        {id !== "PROFILE-02" && id !== "PROFILE-10" && <button className="save-exit" type="button" onClick={onExit}>保存退出</button>}
       </header>}
       {apiError && <div className="form-message" role="alert">{apiError}</div>}
 
       {id === "PROFILE-01" && <ProfileIntro onNext={next} />}
-      {id === "PROFILE-02" && (
-        <FlowStep eyebrow="ABOUT YOU" title="希望我们怎么称呼你？" note="这个称呼会出现在你的日签与报告中，之后可以随时修改。">
-          <label className="field-label" htmlFor="nickname">你的称呼</label>
-          <div className="field profile-field"><input id="nickname" autoFocus maxLength={16} placeholder="例如：小满" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} /></div>
-          <p className="input-helper">不需要填写真实姓名，1—16 个字符</p>
-          <FlowNext onClick={next} disabled={!data.name.trim()}>继续</FlowNext>
-        </FlowStep>
-      )}
+      {id === "PROFILE-02" && <UnifiedProfileForm data={data} onChange={setData} onNext={previewProfile} />}
       {id === "PROFILE-03" && (
         <FlowStep eyebrow="BIRTH DATE" title={`${data.name || "你"}，你的出生日期是？`} note="首版使用公历日期。接近节气边界时，系统会结合具体时间计算。">
           <label className="field-label" htmlFor="birth-date">公历出生日期</label>
@@ -752,6 +754,31 @@ function ProfileRecovery({ onBack, onContinue, onRestart }: { onBack: () => void
 
 function ProfileIntro({ onNext }: { onNext: () => void }) {
   return <div className="profile-intro"><div className="profile-seal" aria-hidden="true"><span>生</span><i /></div><p className="eyebrow">YOUR LIFE PROFILE</p><h1>建立你的<br /><em>生命智慧档案</em></h1><p className="profile-lead">它不是给你贴标签，而是一份陪伴日签、问事、关系与成长报告持续更新的个人起点。</p><div className="benefit-list"><span><b>01</b>需要出生日期和时间</span><span><b>02</b>整个过程会自动保存</span><span><b>03</b>资料默认仅自己可见，可随时管理</span></div><FlowNext onClick={onNext}>开始建立</FlowNext></div>;
+}
+
+function UnifiedProfileForm({ data, onChange, onNext }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void }) {
+  const [solarNotice, setSolarNotice] = useState(false);
+  const timeOptions = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
+  const lunarMonths = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
+  const lunarDays = ["初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十", "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"];
+  const calendarReady = data.calendarType === "SOLAR" ? Boolean(data.date) : Boolean(data.lunarYear && data.lunarMonth && data.lunarDay);
+  return <section className="unified-profile">
+    <header className="unified-profile-intro"><p className="eyebrow">YOUR LIFE PROFILE</p><h1>一次写下<br />认识自己的起点</h1><p>这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。</p></header>
+    <div className="unified-form-card">
+      <section className="unified-field-group"><span className="unified-field-index">01</span><label className="field-label" htmlFor="unified-nickname">希望我们怎么称呼你</label><div className="field profile-field"><input id="unified-nickname" autoFocus maxLength={16} placeholder="例如：小满" value={data.name} onChange={(e) => onChange({ ...data, name: e.target.value })} /></div><small>不需要填写真实姓名</small></section>
+      <section className="unified-field-group">
+        <span className="unified-field-index">02</span><label className="field-label" htmlFor={data.calendarType === "SOLAR" ? "unified-birth-date" : "lunar-year"}>出生日期</label>
+        <div className="calendar-switch" role="group" aria-label="选择出生日期历法"><button type="button" className={data.calendarType === "SOLAR" ? "active" : ""} aria-pressed={data.calendarType === "SOLAR"} onClick={() => onChange({ ...data, calendarType: "SOLAR" })}>公历</button><button type="button" className={data.calendarType === "LUNAR" ? "active" : ""} aria-pressed={data.calendarType === "LUNAR"} onClick={() => onChange({ ...data, calendarType: "LUNAR" })}>农历</button></div>
+        {data.calendarType === "SOLAR" ? <div className="field profile-field"><input id="unified-birth-date" type="date" value={data.date} max="2026-08-19" onChange={(e) => onChange({ ...data, date: e.target.value })} /></div> : <div className="lunar-date-row"><label><select id="lunar-year" aria-label="农历年份" value={data.lunarYear} onChange={(e) => onChange({ ...data, lunarYear: Number(e.target.value) })}>{Array.from({ length: 127 }, (_, index) => 2026 - index).map((year) => <option key={year} value={year}>{year}年</option>)}</select></label><label><select aria-label="农历月份" value={`${data.lunarMonth}-${data.isLeapMonth ? "leap" : "normal"}`} onChange={(e) => { const [month, mode] = e.target.value.split("-"); onChange({ ...data, lunarMonth: Number(month), isLeapMonth: mode === "leap" }); }}>{lunarMonths.flatMap((month, index) => [<option key={`${index + 1}-normal`} value={`${index + 1}-normal`}>{month}</option>, <option key={`${index + 1}-leap`} value={`${index + 1}-leap`}>闰{month}</option>])}</select></label><label><select aria-label="农历日期" value={data.lunarDay} onChange={(e) => onChange({ ...data, lunarDay: Number(e.target.value) })}>{lunarDays.map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label></div>}
+        <small>{data.calendarType === "SOLAR" ? "按公历记录出生日期" : "支持闰月；系统会保留农历原始日期并统一换算"}</small>
+      </section>
+      <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="unified-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="unified-birth-time" type="time" value={data.time} onChange={(e) => onChange({ ...data, time: e.target.value })} /></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={(e) => onChange({ ...data, accuracy: e.target.value })}>{timeOptions.map((item) => <option key={item}>{item}</option>)}</select></div><small>不知道准确时间也没关系，如实选择即可</small></section>
+      <section className="solar-time-option"><div className="solar-time-symbol" aria-hidden="true">日</div><div className="solar-time-copy"><span><strong>真太阳时校正</strong><b>后续开放</b></span><p>根据出生城市，让时间更贴近当地真实的太阳节律。</p></div><button type="button" role="switch" aria-checked="false" aria-label="真太阳时校正，后续开放" onClick={() => setSolarNotice(true)}><i /></button></section>
+      {solarNotice && <div className="solar-time-notice" role="status"><span>芽</span><p><strong>真太阳时校正正在准备</strong>当前先按出生时间建档，开放后再补充城市。</p><button type="button" aria-label="关闭提示" onClick={() => setSolarNotice(false)}>×</button></div>}
+    </div>
+    <div className="privacy-inline"><span className="lock" /><p>资料仅用于建立你的生命智慧档案，默认只对你可见。</p></div>
+    <button className="primary unified-profile-submit" type="button" disabled={!data.name.trim() || !calendarReady} onClick={onNext}>确认资料，开始建立档案 <span>→</span></button>
+  </section>;
 }
 
 function FlowStep({ eyebrow, title, note, children }: { eyebrow: string; title: string; note: string; children: React.ReactNode }) {

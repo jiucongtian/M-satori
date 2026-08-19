@@ -337,6 +337,22 @@ test("PROFILE-08/10 使用生命智慧语言且 PAY-01 提供客服帮助闭环"
   assert.match(page, /profileSteps\.indexOf\("MY-08"\)/);
 });
 
+test("PROFILE-02—07 单页完成建档并真实提交公历或农历参数", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const form = page.match(/function UnifiedProfileForm[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(page, /id === "PROFILE-02" \? "PROFILE-02—07" : id/);
+  assert.match(page, /<UnifiedProfileForm data=\{data\} onChange=\{setData\} onNext=\{previewProfile\}/);
+  assert.match(form, /选择出生日期历法/);
+  assert.match(form, />公历<\/button>/);
+  assert.match(form, />农历<\/button>/);
+  assert.match(form, /系统会保留农历原始日期并统一换算/);
+  assert.match(form, /真太阳时校正正在准备/);
+  assert.match(form, /aria-checked="false"/);
+  assert.match(page, /calendarType: data\.calendarType/);
+  assert.match(page, /isLeapMonth: data\.calendarType === "LUNAR" && data\.isLeapMonth/);
+  assert.doesNotMatch(page, /id === "PROFILE-02"[\s\S]{0,180}保存退出/);
+});
+
 test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");

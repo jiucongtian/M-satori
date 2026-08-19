@@ -193,6 +193,38 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 .benefit-list span { color: #66786f; font-size: 11px; }
 .benefit-list b { margin-right: 11px; color: #aa8150; font: 9px/1 Arial, sans-serif; }
 .profile-intro .flow-next { margin-top: auto; }
+.unified-profile { min-height: 0; padding: 22px 2px 18px; display: flex; flex: 1; flex-direction: column; overflow-y: auto; scrollbar-width: none; }
+.unified-profile::-webkit-scrollbar { display: none; }
+.unified-profile-intro h1 { margin: 5px 0 0; font-size: 28px; line-height: 1.4; font-weight: 500; }
+.unified-profile-intro > p:last-child { margin: 10px 0 0; max-width: 310px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.unified-form-card { margin-top: 17px; padding: 4px 16px 14px; border: 1px solid rgba(69,107,91,.1); border-radius: 23px; background: rgba(255,255,255,.58); box-shadow: 0 14px 38px rgba(61,79,68,.06); }
+.unified-field-group { position: relative; padding: 15px 0 13px; border-bottom: 1px solid rgba(69,107,91,.08); }
+.unified-field-group .field-label { margin: 0 0 8px 31px; }
+.unified-field-group .profile-field { min-height: 46px; margin: 0; }
+.unified-field-group small { display: block; margin-top: 6px; color: #969e99; font-size: 7px; }
+.unified-field-index { position: absolute; top: 15px; left: 0; color: #b18a58; font: 7px/1 Arial,sans-serif; letter-spacing: .08em; }
+.calendar-switch { width: 132px; margin: 0 0 9px; padding: 3px; display: grid; grid-template-columns: 1fr 1fr; border-radius: 13px; background: rgba(69,107,91,.08); }
+.calendar-switch button { min-height: 29px; border: 0; border-radius: 10px; color: #8b9690; background: transparent; font-size: 8px; cursor: pointer; transition: background .2s ease,color .2s ease,box-shadow .2s ease; }
+.calendar-switch button.active { color: #385648; background: rgba(255,255,255,.9); box-shadow: 0 3px 9px rgba(55,77,65,.09); }
+.lunar-date-row { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 7px; }
+.lunar-date-row select { width: 100%; min-height: 46px; padding: 0 9px; border: 1px solid rgba(69,107,91,.11); border-radius: 14px; outline: none; color: #425e50; background: rgba(255,255,255,.72); font-size: 9px; }
+.unified-time-row { display: grid; grid-template-columns: 1fr 126px; gap: 8px; }
+.unified-time-row select { min-width: 0; padding: 0 10px; border: 1px solid rgba(69,107,91,.11); border-radius: 14px; outline: none; color: #607269; background: rgba(247,248,242,.88); font-size: 9px; }
+.solar-time-option { margin-top: 13px; padding: 12px; display: grid; grid-template-columns: 38px 1fr 38px; gap: 10px; align-items: center; border-radius: 17px; background: linear-gradient(135deg,rgba(232,239,231,.8),rgba(247,241,225,.72)); }
+.solar-time-symbol { width: 37px; height: 37px; display: grid; place-items: center; border: 1px solid rgba(177,138,88,.24); border-radius: 50%; color: #9a7548; background: rgba(255,250,238,.76); font-size: 14px; }
+.solar-time-copy span { display: flex; align-items: center; gap: 7px; }
+.solar-time-copy strong { color: #385648; font-size: 10px; font-weight: 500; }
+.solar-time-copy b { padding: 3px 6px; border-radius: 8px; color: #9a7548; background: rgba(239,222,188,.65); font-size: 6px; font-weight: 400; }
+.solar-time-copy p { margin: 5px 0 0; color: #819087; font-size: 7px; line-height: 1.55; }
+.solar-time-option > button { position: relative; width: 36px; height: 21px; padding: 0; border: 0; border-radius: 15px; background: rgba(69,107,91,.16); cursor: pointer; }
+.solar-time-option > button i { position: absolute; width: 17px; height: 17px; top: 2px; left: 2px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(53,73,62,.14); }
+.solar-time-notice { position: relative; margin-top: 9px; padding: 11px 31px 11px 11px; display: grid; grid-template-columns: 28px 1fr; gap: 9px; align-items: start; border: 1px solid rgba(177,138,88,.18); border-radius: 15px; color: #76867d; background: rgba(251,247,236,.92); animation: page-in .24s ease-out; }
+.solar-time-notice > span { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 50%; color: #9b774a; background: #f1e3c7; font-size: 9px; }
+.solar-time-notice p { margin: 0; font-size: 7px; line-height: 1.65; }
+.solar-time-notice strong { display: block; margin-bottom: 2px; color: #52695d; font-size: 8px; font-weight: 500; }
+.solar-time-notice > button { position: absolute; top: 8px; right: 8px; border: 0; color: #9aa39d; background: transparent; cursor: pointer; }
+.unified-profile > .privacy-inline { margin: 11px 8px 0; }
+.unified-profile-submit { margin-top: 13px; flex: none; }
 .flow-step { padding-top: clamp(44px, 7vh, 70px); display: flex; flex: 1; flex-direction: column; }
 .flow-step h1 { margin: 0; }
 .flow-note { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
