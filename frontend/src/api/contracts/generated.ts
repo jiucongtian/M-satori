@@ -893,14 +893,16 @@ export interface components {
             notice: "这是一份基础认识，不是对你人生的定论。";
         };
         ProfileFirstLookManifest: {
-            /** @constant */
-            workflowVersion: "profile-four-card-first-look/1.0.7";
-            /** @constant */
-            skillVersion: "1.0.0-aqua.3";
+            workflowVersion: string;
+            skillVersion: string;
             model: string;
             promptVersion: string;
             outputSchemaVersion: string;
             contentPolicyVersion: string;
+            /** @enum {string} */
+            generator?: "aqua" | "deterministic";
+            ruleVersion?: string;
+            knowledgeRelease?: string;
         };
         ProfileFirstLook: {
             reportId: string;

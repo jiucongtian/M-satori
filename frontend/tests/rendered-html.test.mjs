@@ -77,15 +77,20 @@ test("R1.0 智慧种子统一为不可交易的 AI 体验额度", async () => {
   }
 });
 
-test("R1.0 正式 AI 内容入口展示统一边界声明", async () => {
+test("R1.0 AI 与确定性知识内容分别展示准确边界声明", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const notice = page.match(/function AiContentNotice[\s\S]*?\n}\n/)?.[0] ?? "";
-  assert.match(notice, /AI 生成内容/);
-  assert.match(notice, /不构成医疗、投资、法律建议或对未来结果的保证/);
-  for (const name of ["RelationshipFirstLook", "DailyReport", "FirstLookArchive"]) {
+  const aiNotice = page.match(/function AiContentNotice[\s\S]*?\n}\n/)?.[0] ?? "";
+  const profileNotice = page.match(/function ProfileReferenceNotice[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(aiNotice, /AI 生成内容/);
+  assert.match(profileNotice, /传统文化参考内容/);
+  assert.match(profileNotice, /固定知识版本与规则生成/);
+  assert.match(profileNotice, /不构成医疗、投资、法律建议或对未来结果的保证/);
+  for (const name of ["RelationshipFirstLook", "FirstLookArchive"]) {
     const component = page.match(new RegExp(`function ${name}[\\s\\S]*?\\n}\\n`))?.[0] ?? "";
-    assert.match(component, /<AiContentNotice \/>/);
+    assert.match(component, /<ProfileReferenceNotice \/>/);
   }
+  const daily = page.match(/function DailyReport[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(daily, /<AiContentNotice \/>/);
 });
 
 test("R1.0 Release 白名单阻断购种、商城与种子兑换页面", async () => {
