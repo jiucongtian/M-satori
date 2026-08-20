@@ -506,3 +506,23 @@ test("R1.0 用户可见品牌统一为横排初见 · FRESH", async () => {
   assert.match(card, />初见<\/span>/);
   assert.doesNotMatch(`${page}\n${layout}\n${card}`, /身心游|SATORI/);
 });
+
+test("R1.0 DAILY-01—03 始终展示真实智慧种子余额", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const dailyHeader = page.match(/function DailyHeader[\s\S]*?\n}/)?.[0] ?? "";
+  const payment = page.match(/function SeedPayment[\s\S]*?\n}\n\nfunction DailyGenerating/)?.[0] ?? "";
+  const start = page.match(/function DailyStart[\s\S]*?\n}\n\nfunction SeedPayment/)?.[0] ?? "";
+  const createDaily = page.match(/async function startDailyInsight[\s\S]*?\n  }/)?.[0] ?? "";
+
+  assert.match(page, /const availableBalance = account\?\.available \?\? null/);
+  for (const id of ["DAILY-01", "PAY-01", "DAILY-02", "DAILY-03"]) {
+    assert.match(page, new RegExp(`id === "${id}"[\\s\\S]{0,220}balance=\\{availableBalance\\}`));
+  }
+  assert.match(dailyHeader, /balance: number \| null/);
+  assert.match(dailyHeader, /balance \?\? "—"/);
+  assert.doesNotMatch(dailyHeader, /balance = 3/);
+  assert.match(start, /<DailyHeader onBack=\{onBack\} balance=\{balance\}/);
+  assert.match(payment, /const syncing = balance === null/);
+  assert.match(payment, /disabled=\{busy \|\| syncing\}/);
+  assert.match(createDaily, /await loadOverview\(\);/);
+});
