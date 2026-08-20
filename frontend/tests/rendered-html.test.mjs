@@ -428,6 +428,19 @@ test("MY-10 复用统一建档组件并真实提交历法与时间精度", async
   assert.match(page, /资料来源正当/);
 });
 
+test("MY-09 新增人物在 MY-11 确认后直接返回档案库", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const confirmFlow = page.match(/async function confirmOtherProfile[\s\S]*?\n  }\n/)?.[0] ?? "";
+  const confirmPage = page.match(/function ArchiveConfirm[\s\S]*?\n\nfunction ArchiveGenerating/)?.[0] ?? "";
+  assert.match(page, /id === "MY-09"[\s\S]*?onAdd=\{\(\) => setStep\(112\)\}/);
+  assert.match(page, /id === "MY-10"[\s\S]*?onNext=\{createOtherProfile\}/);
+  assert.match(page, /id === "MY-11"[\s\S]*?onNext=\{confirmOtherProfile\}/);
+  assert.match(confirmFlow, /setProfiles\(await api\.profiles\(\)\); setStep\(111\)/);
+  assert.doesNotMatch(confirmFlow, /setStep\(114\)/);
+  assert.match(confirmPage, /确认并创建档案/);
+  assert.doesNotMatch(confirmPage, /确认并生成四张卡牌/);
+});
+
 test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
