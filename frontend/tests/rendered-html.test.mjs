@@ -171,6 +171,11 @@ test("PROFILE-08 自动生成预览，点击开启后跳过 PROFILE-10 进入初
   assert.doesNotMatch(calculating, /className="done">✓ 校验/);
 });
 
+test("PROFILE-08 不展示保存退出操作", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /id !== "PROFILE-02" && id !== "PROFILE-08" && id !== "PROFILE-10"/);
+});
+
 test("PROFILE-11 请求失败后回读后端持久化失败状态", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const generation = page.match(/async function generateFirstLook[\s\S]*?\n  }\n\n  async function openFirstLookArchive/)?.[0] ?? "";
@@ -377,6 +382,25 @@ test("PROFILE-02—07 单页完成建档并真实提交公历或农历参数", a
   assert.match(page, /calendarType: data\.calendarType/);
   assert.match(page, /isLeapMonth: data\.calendarType === "LUNAR" && data\.isLeapMonth/);
   assert.doesNotMatch(page, /id === "PROFILE-02"[\s\S]{0,180}保存退出/);
+});
+
+test("MY-02 将出生时间精度枚举转换为中文", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const profile = page.match(/function MyProfile[\s\S]*?\n}\n/)?.[0] ?? "";
+  for (const label of ["准确到分钟", "大致时间", "只知道时辰", "未提供具体时间"]) assert.match(profile, new RegExp(label));
+  assert.doesNotMatch(profile, /birth\?\.timePrecision \|\|/);
+});
+
+test("MY-10 复用统一建档组件并真实提交历法与时间精度", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const newPerson = page.match(/function NewPersonArchive[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(newPerson, /<UnifiedProfileForm/);
+  assert.match(newPerson, /variant="other"/);
+  assert.match(page, /calendarType: otherData\.calendarType/);
+  assert.match(page, /isLeapMonth: otherData\.calendarType === "LUNAR" && otherData\.isLeapMonth/);
+  assert.match(page, /otherData\.accuracy === "准确到分钟" \? "EXACT_MINUTE"/);
+  assert.match(page, /与我的关系/);
+  assert.match(page, /资料来源正当/);
 });
 
 test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底", async () => {
