@@ -430,7 +430,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       url: `/api/v1/me/life-profile/revisions/${revision.revisionId}/first-look`,
       headers: authHeaders('other-profile-first-look-01'),
     });
-    expect(otherFirstLook.statusCode).toBe(200);
+    expect(otherFirstLook.statusCode, otherFirstLook.body).toBe(200);
     expect(
       otherFirstLook.json<{ data: { status: string; profileRevisionId: string } }>().data,
     ).toMatchObject({ status: 'READY', profileRevisionId: revision.revisionId });
