@@ -9,6 +9,12 @@ import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLo
 type View = "welcome" | "login" | "recovery" | "profile";
 type LoginIntent = "new" | "existing";
 type EnergyLevel = "高" | "中" | "低";
+const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true";
+
+function PageDebugLabel({ children }: { children: string }) {
+  if (!showPageDebugLabels) return null;
+  return <span className="screen-id" aria-hidden="true">{children}</span>;
+}
 
 function apiMessage(error: unknown) {
   if (error instanceof ApiError) return `${error.message}${error.requestId ? `（请求 ${error.requestId}）` : ""}`;
@@ -118,7 +124,7 @@ export default function WelcomePage() {
 
         {!sessionReady ? <SessionRestoring /> : view === "welcome" ? (
           <>
-            <span className="screen-id">R1.0 · AUTH-02</span>
+            <PageDebugLabel>R1.0 · AUTH-02</PageDebugLabel>
             <header className="brand-row">
               <Brand />
               <button className="quiet-link" type="button" onClick={() => enterLogin("existing")}>已有档案</button>
@@ -157,7 +163,7 @@ export default function WelcomePage() {
           </>
         ) : view === "login" ? (
           <div className="login-page">
-            <span className="screen-id">R1.0 · {codeSent ? "AUTH-04" : "AUTH-03"}</span>
+            <PageDebugLabel>{`R1.0 · ${codeSent ? "AUTH-04" : "AUTH-03"}`}</PageDebugLabel>
             <header className="login-header">
               <button className="back-button" type="button" onClick={() => setView("welcome")} aria-label="返回欢迎页">←</button>
               <Brand compact />
@@ -639,7 +645,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
   return (
     <div className={`profile-flow${id === "HOME-01" ? " home-flow" : ""}${headerlessSteps.has(id) ? " headerless-flow" : ""}`}>
-      <span className="screen-id">R1.0 · {id === "PROFILE-02" ? "PROFILE-02—07" : id}</span>
+      <PageDebugLabel>{`R1.0 · ${id === "PROFILE-02" ? "PROFILE-02—07" : id}`}</PageDebugLabel>
       {!headerlessSteps.has(id) && <header className="flow-header">
         <button className="back-button" type="button" onClick={back} aria-label="返回上一步">←</button>
         <div className="flow-progress" aria-label={`建档进度 ${Math.round(progress)}%`}><i style={{ width: `${progress}%` }} /></div>
@@ -819,7 +825,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
 function ProfileRecovery({ onBack, onContinue, onRestart }: { onBack: () => void; onContinue: () => void; onRestart: () => void }) {
   return <section className="profile-recovery">
-    <span className="screen-id">R1.0 · AUTH-08</span>
+    <PageDebugLabel>R1.0 · AUTH-08</PageDebugLabel>
     <header className="recovery-header"><button className="back-button" type="button" onClick={onBack} aria-label="返回登录页">←</button><Brand compact /><span /></header>
     <div className="remembered-life" aria-hidden="true"><div className="saved-seed"><i /><i /></div><span className="memory-ring ring-a" /><span className="memory-ring ring-b" /></div>
     <p className="eyebrow">WELCOME BACK</p>

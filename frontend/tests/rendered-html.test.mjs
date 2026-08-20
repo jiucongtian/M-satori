@@ -20,6 +20,20 @@ test("服务端首屏渲染中性 Session 恢复态，避免老用户闪现欢�
   assert.doesNotMatch(html, /R1\.0 · AUTH-02/);
 });
 
+test("页面编号仅在显式开启的研发与测试构建中显示", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const component = page.match(/const showPageDebugLabels[\s\S]*?function PageDebugLabel[\s\S]*?\n}/)?.[0] ?? "";
+  assert.match(component, /process\.env\.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true"/);
+  assert.match(component, /if \(!showPageDebugLabels\) return null/);
+  assert.equal((page.match(/className="screen-id"/g) || []).length, 1);
+  assert.ok((page.match(/<PageDebugLabel>/g) || []).length >= 3);
+
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(packageJson.scripts.dev, /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.doesNotMatch(packageJson.scripts["build:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.match(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+});
+
 test("正式工程包含完整原型基础样式", async () => {
   const formalCss = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   for (const selector of [".stage", ".phone", ".hero-copy", ".login-page", ".profile-flow", ".today-home", ".my-home"]) {
