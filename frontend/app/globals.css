@@ -225,6 +225,14 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 .solar-time-notice > button { position: absolute; top: 8px; right: 8px; border: 0; color: #9aa39d; background: transparent; cursor: pointer; }
 .unified-profile > .privacy-inline { margin: 11px 8px 0; }
 .unified-profile-submit { margin-top: 13px; flex: none; }
+.unified-relation-group .relation-picks { margin-top: 0; }
+.unified-relation-group .relation-picks > div { margin-top: 0; }
+.other-profile-consent { margin: 9px 8px 0; padding: 10px 12px; display: flex; gap: 9px; align-items: flex-start; border-radius: 14px; color: #7f8c85; background: rgba(235,223,199,.32); font-size: 8px; line-height: 1.6; }
+.other-profile-consent .lock { margin-top: 3px; flex: none; }
+.other-profile-consent p { margin: 0; }
+.other-profile-consent strong { display: block; color: #53695e; font-size: 9px; font-weight: 500; }
+.new-person-unified { min-height: 0; overflow: hidden; }
+.new-person-unified > .unified-profile { padding-top: 12px; }
 .flow-step { padding-top: clamp(44px, 7vh, 70px); display: flex; flex: 1; flex-direction: column; }
 .flow-step h1 { margin: 0; }
 .flow-note { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }

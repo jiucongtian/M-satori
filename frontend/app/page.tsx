@@ -488,11 +488,16 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     if (!otherData.name.trim()) return setApiError("请填写称呼");
     setApiBusy(true); setApiError("");
     try {
-      const [year, month, day] = otherData.date.split("-").map(Number);
+      const [solarYear, solarMonth, solarDay] = otherData.date.split("-").map(Number);
+      const year = otherData.calendarType === "LUNAR" ? otherData.lunarYear : solarYear;
+      const month = otherData.calendarType === "LUNAR" ? otherData.lunarMonth : solarMonth;
+      const day = otherData.calendarType === "LUNAR" ? otherData.lunarDay : solarDay;
+      const exact = otherData.accuracy === "准确到分钟" || otherData.accuracy === "大致时间";
       const profile = await api.createProfile(otherData.name.trim(), otherData.relationshipType);
       const preview = await api.previewOtherProfile(profile.profileId, {
-        calendarType: "SOLAR", date: { year, month, day, isLeapMonth: false },
-        timePrecision: "EXACT_MINUTE", time: { localTime: otherData.time, hourBranchCode: null },
+        calendarType: otherData.calendarType, date: { year, month, day, isLeapMonth: otherData.calendarType === "LUNAR" && otherData.isLeapMonth },
+        timePrecision: otherData.accuracy === "准确到分钟" ? "EXACT_MINUTE" : otherData.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
+        time: { localTime: exact ? otherData.time : null, hourBranchCode: null },
         locationId: otherData.locationId, calculationGender: otherData.gender,
       });
       setSelectedProfile(profile); setOtherRevision(preview); setStep(113);
@@ -555,7 +560,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {!standaloneSteps.includes(id) && <header className="flow-header">
         <button className="back-button" type="button" onClick={back} aria-label="返回上一步">←</button>
         <div className="flow-progress" aria-label={`建档进度 ${Math.round(progress)}%`}><i style={{ width: `${progress}%` }} /></div>
-        {id !== "PROFILE-02" && id !== "PROFILE-10" && <button className="save-exit" type="button" onClick={onExit}>保存退出</button>}
+        {id !== "PROFILE-02" && id !== "PROFILE-08" && id !== "PROFILE-10" && <button className="save-exit" type="button" onClick={onExit}>保存退出</button>}
       </header>}
       {apiError && <div className="form-message" role="alert">{apiError}</div>}
 
@@ -756,16 +761,18 @@ function ProfileIntro({ onNext }: { onNext: () => void }) {
   return <div className="profile-intro"><div className="profile-seal" aria-hidden="true"><span>生</span><i /></div><p className="eyebrow">YOUR LIFE PROFILE</p><h1>建立你的<br /><em>生命智慧档案</em></h1><p className="profile-lead">它不是给你贴标签，而是一份陪伴日签、问事、关系与成长报告持续更新的个人起点。</p><div className="benefit-list"><span><b>01</b>需要出生日期和时间</span><span><b>02</b>整个过程会自动保存</span><span><b>03</b>资料默认仅自己可见，可随时管理</span></div><FlowNext onClick={onNext}>开始建立</FlowNext></div>;
 }
 
-function UnifiedProfileForm({ data, onChange, onNext }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void }) {
+function UnifiedProfileForm({ data, onChange, onNext, variant = "self", busy = false }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void; variant?: "self" | "other"; busy?: boolean }) {
   const [solarNotice, setSolarNotice] = useState(false);
   const timeOptions = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
   const lunarMonths = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
   const lunarDays = ["初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十", "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"];
+  const relations = [["家人", "FAMILY"], ["朋友", "FRIEND"], ["同事", "COLLEAGUE"], ["其他", "OTHER"]] as const;
   const calendarReady = data.calendarType === "SOLAR" ? Boolean(data.date) : Boolean(data.lunarYear && data.lunarMonth && data.lunarDay);
   return <section className="unified-profile">
-    <header className="unified-profile-intro"><p className="eyebrow">YOUR LIFE PROFILE</p><h1>一次写下<br />认识自己的起点</h1><p>这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。</p></header>
+    <header className="unified-profile-intro"><p className="eyebrow">{variant === "other" ? "ONE IMPORTANT PERSON" : "YOUR LIFE PROFILE"}</p><h1>一次写下<br />{variant === "other" ? "理解彼此的起点" : "认识自己的起点"}</h1><p>{variant === "other" ? "这些资料会建立一份仅你可见的人物档案，帮助你更有边界地理解关系。" : "这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。"}</p></header>
     <div className="unified-form-card">
-      <section className="unified-field-group"><span className="unified-field-index">01</span><label className="field-label" htmlFor="unified-nickname">希望我们怎么称呼你</label><div className="field profile-field"><input id="unified-nickname" autoFocus maxLength={16} placeholder="例如：小满" value={data.name} onChange={(e) => onChange({ ...data, name: e.target.value })} /></div><small>不需要填写真实姓名</small></section>
+      <section className="unified-field-group"><span className="unified-field-index">01</span><label className="field-label" htmlFor={`unified-nickname-${variant}`}>{variant === "other" ? "姓名或你熟悉的称呼" : "希望我们怎么称呼你"}</label><div className="field profile-field"><input id={`unified-nickname-${variant}`} autoFocus maxLength={16} placeholder={variant === "other" ? "例如：妈妈、小林" : "例如：小满"} value={data.name} onChange={(e) => onChange({ ...data, name: e.target.value })} /></div><small>{variant === "other" ? "这份称呼只会出现在你的私人档案中" : "不需要填写真实姓名"}</small></section>
+      {variant === "other" && <section className="unified-field-group unified-relation-group"><span className="unified-field-index">类</span><label className="field-label">与我的关系</label><div className="relation-picks"><div>{relations.map(([label, value]) => <button type="button" key={value} className={data.relationshipType === value ? "active" : ""} onClick={() => onChange({ ...data, relationshipType: value })}>{label}</button>)}</div></div><small>用于档案分组，之后可以调整</small></section>}
       <section className="unified-field-group">
         <span className="unified-field-index">02</span><label className="field-label" htmlFor={data.calendarType === "SOLAR" ? "unified-birth-date" : "lunar-year"}>出生日期</label>
         <div className="calendar-switch" role="group" aria-label="选择出生日期历法"><button type="button" className={data.calendarType === "SOLAR" ? "active" : ""} aria-pressed={data.calendarType === "SOLAR"} onClick={() => onChange({ ...data, calendarType: "SOLAR" })}>公历</button><button type="button" className={data.calendarType === "LUNAR" ? "active" : ""} aria-pressed={data.calendarType === "LUNAR"} onClick={() => onChange({ ...data, calendarType: "LUNAR" })}>农历</button></div>
@@ -777,7 +784,8 @@ function UnifiedProfileForm({ data, onChange, onNext }: { data: ProfileData; onC
       {solarNotice && <div className="solar-time-notice" role="status"><span>芽</span><p><strong>真太阳时校正正在准备</strong>当前先按出生时间建档，开放后再补充城市。</p><button type="button" aria-label="关闭提示" onClick={() => setSolarNotice(false)}>×</button></div>}
     </div>
     <div className="privacy-inline"><span className="lock" /><p>资料仅用于建立你的生命智慧档案，默认只对你可见。</p></div>
-    <button className="primary unified-profile-submit" type="button" disabled={!data.name.trim() || !calendarReady} onClick={onNext}>确认资料，开始建立档案 <span>→</span></button>
+    {variant === "other" && <div className="other-profile-consent"><span className="lock"/><p><strong>请确认资料来源正当</strong>档案默认仅自己可见，不代表对方已经授权。</p></div>}
+    <button className="primary unified-profile-submit" type="button" disabled={busy || !data.name.trim() || !calendarReady} onClick={onNext}>{busy ? "正在建立档案…" : variant === "other" ? "确认资料，继续建立档案" : "确认资料，开始建立档案"} <span>→</span></button>
   </section>;
 }
 
@@ -1044,7 +1052,8 @@ function MyProfile({ home, revision, onBack,onEdit,onFirstLook }: { home: HomeOv
   const cards = revision?.cards || home?.cards || [];
   const birth = revision?.originalInput;
   const birthDate = birth ? `${birth.date.year}.${String(birth.date.month).padStart(2,"0")}.${String(birth.date.day).padStart(2,"0")}` : "—";
-  return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook}><i>初</i><span><small>生命智慧初识</small><strong>回看你的生命底色与四个短画像</strong></span><b>›</b></button><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {birth?.timePrecision || "—"}</strong></p></section><button className="outline-button" type="button" onClick={onEdit}>编辑生命智慧档案</button></section>;
+  const precisionLabel = birth?.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth?.timePrecision === "APPROXIMATE" ? "大致时间" : birth?.timePrecision === "HOUR_RANGE" ? "只知道时辰" : birth?.timePrecision === "DATE_ONLY" ? "未提供具体时间" : "—";
+  return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook}><i>初</i><span><small>生命智慧初识</small><strong>回看你的生命底色与四个短画像</strong></span><b>›</b></button><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {precisionLabel}</strong></p></section><button className="outline-button" type="button" onClick={onEdit}>编辑生命智慧档案</button></section>;
 }
 
 function FirstLookArchive({name,revision,report,loading,onRetry,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/><p className="eyebrow">R1.0 · MY-18</p>{content?<><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"正在依据当前档案版本整理生命智慧初识。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<ProfileReferenceNotice /></section>}
@@ -1097,7 +1106,7 @@ function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:Li
   return <section className="my-page archive-page"><MyHeader title="生命智慧档案库" onBack={onBack}/><div className="archive-owner" onClick={onSelf} role="button" tabIndex={0}><span>{(self?.displayName||"我").slice(0,1)}</span><p><small>我的主档案 · 唯一</small><strong>{self?.displayName||"我的生命智慧档案"}</strong><b>{self?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</b></p><i>›</i></div><div className="archive-tools"><label>⌕<input aria-label="搜索档案" placeholder="搜索姓名、称呼或关系"/></label><button onClick={onAdd}>＋ 添加人物</button></div><div className="archive-groups">{["全部","家人","朋友","同事","其他"].map(x=><button key={x} className={group===x?"active":""} onClick={()=>setGroup(x)}>{x}</button>)}</div><div className="people-title"><strong>{group}档案</strong><small>共 {shown.length} 人</small></div><div className="people-list">{shown.map(({profile,label})=><button key={profile.profileId} onClick={()=>onPerson(profile)}><span>{profile.displayName.slice(0,1)}</span><p><strong>{profile.displayName}<em>{label}</em></strong><small>{profile.state==="ACTIVE"?"四张卡牌已生成":"出生资料待完善"}</small></p><i>{profile.state==="ACTIVE"?"私人记录":"待完善"}</i><b>›</b></button>)}</div>{shown.length===0&&<div className="prototype-empty">这一分组暂无人物档案</div>}</section>
 }
 
-function NewPersonArchive({data,busy,onChange,onBack,onNext}:{data:ProfileData;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){const relations=[["家人","FAMILY"],["朋友","FRIEND"],["同事","COLLEAGUE"],["其他","OTHER"]] as const;return <section className="my-page archive-page"><MyHeader title="新建人物档案" onBack={onBack}/><p className="eyebrow">ONE IMPORTANT PERSON</p><h1>把一个重要的人<br/>轻轻放进你的关系地图</h1><label className="archive-field"><span>姓名或你熟悉的称呼</span><input value={data.name} onChange={e=>onChange({...data,name:e.target.value})}/></label><div className="relation-picks"><small>与我的关系</small><div>{relations.map(([label,value])=><button key={value} className={data.relationshipType===value?"active":""} onClick={()=>onChange({...data,relationshipType:value})}>{label}</button>)}</div></div><div className="birth-fields"><label><span>出生日期</span><input type="date" value={data.date} onChange={e=>onChange({...data,date:e.target.value})}/></label><label><span>出生时间</span><input type="time" value={data.time} onChange={e=>onChange({...data,time:e.target.value})}/></label></div><div className="relation-picks"><small>计算性别</small><div>{([["FEMALE","女"],["MALE","男"]] as const).map(([value,label])=><button key={value} className={data.gender===value?"active":""} onClick={()=>onChange({...data,gender:value})}>{label}</button>)}</div></div><label className="timeline-switch"><span><strong>我确认这些资料来自本人或正当知情</strong><small>档案默认仅自己可见，不代表对方已授权</small></span><input type="checkbox" defaultChecked/></label><button className="primary" disabled={busy||!data.name.trim()} onClick={onNext}>{busy?"正在创建…":"继续确认出生信息"} <span>→</span></button></section>}
+function NewPersonArchive({data,busy,onChange,onBack,onNext}:{data:ProfileData;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page new-person-unified"><MyHeader title="新建人物档案" onBack={onBack}/><UnifiedProfileForm data={data} busy={busy} variant="other" onChange={onChange} onNext={onNext}/></section>}
 
 function ArchiveConfirm({data,revision,busy,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page"><MyHeader title="确认出生信息" onBack={onBack}/><div className="confirm-person"><span>{data.name.slice(0,1)}</span><p><small>即将创建</small><strong>{data.name}的生命智慧档案</strong><b>私人记录 · 待确认</b></p></div><div className="archive-facts"><p><span>历法</span><strong>公历</strong></p><p><span>出生日期</span><strong>{data.date}</strong></p><p><span>出生时间</span><strong>{data.time} · 准确到分钟</strong></p></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><div className="privacy-inline"><span className="lock"/><p><strong>这是你的私人关系记录</strong><small>对方不会收到通知；共享、共同查看或互动前需另行授权。</small></p></div><button className="primary" disabled={busy} onClick={onNext}>{busy?"正在确认…":"确认并生成四张卡牌"} <span>→</span></button><button className="text-action" onClick={onBack}>返回修改</button></section>}
 
