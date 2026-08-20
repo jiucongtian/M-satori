@@ -456,3 +456,14 @@ test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底",
   assert.doesNotMatch(component, /card\.ganzhi/);
   assert.match(css, /\.life-card-visual/);
 });
+
+test("R1.0 用户可见品牌统一为横排初见 · FRESH", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  const card = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
+  assert.match(page, /初见/);
+  assert.match(page, /FRESH/);
+  assert.match(layout, /初见 · FRESH/);
+  assert.match(card, />初见<\/span>/);
+  assert.doesNotMatch(`${page}\n${layout}\n${card}`, /身心游|SATORI/);
+});
