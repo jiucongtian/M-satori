@@ -215,7 +215,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const firstLook = await app.inject({
       method: 'POST',
       url: `/api/v1/me/life-profile/revisions/${previewBody.revisionId}/first-look`,
-      headers: authHeaders('profile-first-look-generate-01'),
+      headers: idempotentAuthHeaders('profile-first-look-generate-01'),
     });
     expect(firstLook.statusCode).toBe(200);
     const firstLookBody = firstLook.json<{
@@ -428,7 +428,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const otherFirstLook = await app.inject({
       method: 'POST',
       url: `/api/v1/me/life-profile/revisions/${revision.revisionId}/first-look`,
-      headers: authHeaders('other-profile-first-look-01'),
+      headers: idempotentAuthHeaders('other-profile-first-look-01'),
     });
     expect(otherFirstLook.statusCode, otherFirstLook.body).toBe(200);
     expect(
