@@ -145,7 +145,6 @@ export default function WelcomePage() {
             <div className="bottom-panel">
               <div className="trust-note"><span className="lock" aria-hidden="true" /><span>你的出生资料默认仅自己可见，也可以随时管理</span></div>
               <button className="primary" type="button" onClick={() => setStarted(true)}>开始认识自己 <span aria-hidden="true">→</span></button>
-              <p className="agreement">继续即表示你已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a> 与 <a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a></p>
             </div>
 
             {started && (
@@ -1471,7 +1470,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <a className={`brand ${compact ? "brand-compact" : ""}`} href="#" aria-label="初见首页">
       <span className="brand-mark" aria-hidden="true"><i /></span>
-      {!compact && <span><strong>初见</strong><small>FRESH</small></span>}
+      <span><strong>初见</strong><small>FRESH</small></span>
     </a>
   );
 }

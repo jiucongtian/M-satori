@@ -548,3 +548,31 @@ test("用户协议与隐私政策进入安全且可读的前端阅读页", async
   assert.match(css, /\.legal-markdown/);
   assert.match(css, /\.legal-table-wrap/);
 });
+
+test("所有图形 Logo 均统一展示初见与 FRESH", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const brand = page.match(/function Brand[\s\S]*?\n}/)?.[0] ?? "";
+  assert.match(brand, /<strong>初见<\/strong><small>FRESH<\/small>/);
+  assert.doesNotMatch(brand, /!compact/);
+  assert.match(css, /\.brand-compact \.brand-mark/);
+  assert.match(css, /\.brand-compact strong/);
+});
+
+test("AUTH-02 移除重复协议文案但 AUTH-04 保留正式协议确认", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const welcome = page.match(/view === "welcome" \? \([\s\S]*?\) : view === "login"/)?.[0] ?? "";
+  const login = page.match(/view === "login" \? \([\s\S]*?\) : view === "recovery"/)?.[0] ?? "";
+  assert.doesNotMatch(welcome, /继续即表示你已阅读并同意/);
+  assert.match(login, /我已阅读并同意/);
+  assert.match(login, /legalHref\("TERMS_OF_SERVICE"\)/);
+  assert.match(login, /legalHref\("PRIVACY_POLICY"\)/);
+});
+
+test("HOME-01 生命动画提高枝叶与金色线条可见度", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.home-growth-scene \.life-growth\{[^}]*opacity:\.62/);
+  assert.match(css, /\.home-growth-scene \.living-stem\{[^}]*#d2aa63/);
+  assert.match(css, /\.home-growth-scene \.living-leaf\{[^}]*rgba\(232,204,145,\.78\)/);
+  assert.match(css, /\.home-growth-scene \.living-leaf::after\{[^}]*rgba\(235,203,137,\.82\)/);
+});
