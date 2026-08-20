@@ -38,10 +38,11 @@ test("AUTH-04 使用统一资料用途文案且不展示内部协议规则编号
   assert.doesNotMatch(login, /并知晓出生资料的用途|AUTH-05 · 协议与隐私确认/);
 });
 
-test("AUTH-03 在登录 Logo 下展示初见 FRESH 品牌名", async () => {
+test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const login = page.match(/view === "login" \? \([\s\S]*?\) : view === "recovery"/)?.[0] ?? "";
-  assert.match(login, /className="login-brand"[\s\S]*?<Brand compact \/>[\s\S]*?初见 · FRESH/);
+  assert.match(login, /<header className="brand-row login-header">\s*<Brand \/>\s*<\/header>/);
+  assert.doesNotMatch(login, /back-button|返回欢迎页|login-brand|Brand compact/);
 });
 
 test("页面编号仅在显式开启的研发与测试构建中显示", async () => {
