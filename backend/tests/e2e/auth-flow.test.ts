@@ -608,7 +608,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(available.statusCode).toBe(200);
     expect(available.json<{ data: { status: string; wisdomSeedAmount: number } }>().data).toMatchObject({
       status: 'AVAILABLE',
-      wisdomSeedAmount: 3,
+      wisdomSeedAmount: 18,
     });
 
     const [firstClaim, concurrentClaim] = await Promise.all([

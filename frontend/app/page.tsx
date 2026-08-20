@@ -127,7 +127,6 @@ export default function WelcomePage() {
             <PageDebugLabel>R1.0 · AUTH-02</PageDebugLabel>
             <header className="brand-row">
               <Brand />
-              <button className="quiet-link" type="button" onClick={() => enterLogin("existing")}>已有档案</button>
             </header>
 
             <div className="hero-copy">
@@ -690,7 +689,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       )}
       {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} busy={apiBusy} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => void confirmProfile()} />}
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onNext={next} />}
-      {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
+      {id === "GIFT-01" && <SeedGift name={data.name} amount={home?.registrationReward.wisdomSeedAmount ?? 18} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
       {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
       {id === "DAILY-01" && <DailyStart name={data.name} energyLevel={dailyEnergyLevel} onBack={back} onNext={next} />}
       {id === "PAY-01" && <SeedPayment balance={account?.available || 0} busy={apiBusy} onBack={back} onNext={startDailyInsight} onSupport={() => setStep(profileSteps.indexOf("MY-08"))} />}
@@ -917,16 +916,16 @@ function RelationshipFirstLook({ name, revision, report, loading, onRetry, onNex
   </section>;
 }
 
-function SeedGift({ name, claimed = false, busy, onClaim, onNext }: { name: string; claimed?: boolean; busy: boolean; onClaim: () => void; onNext: () => void }) {
+function SeedGift({ name, amount, claimed = false, busy, onClaim, onNext }: { name: string; amount: number; claimed?: boolean; busy: boolean; onClaim: () => void; onNext: () => void }) {
   return <section className={`seed-gift ${claimed ? "claimed" : ""}`}>
     <p className="eyebrow">A GIFT FOR YOUR JOURNEY</p>
     <h1>{claimed ? `${name}，种子已入袋` : `送给${name}的第一袋智慧种子`}</h1>
-    <div className="seed-visual" aria-hidden="true"><div className="soil" /><div className="sprout"><i /><i /></div><span>3</span><small>智慧种子</small></div>
+    <div className="seed-visual" aria-hidden="true"><div className="soil" /><div className="sprout"><i /><i /></div><span>{amount}</span><small>智慧种子</small></div>
     <p className="gift-lead">{claimed ? "从今天开始，让每一次指引都成为一次生长。" : "完成生命智慧档案的新用户，都可以领取一份启程礼。"}</p>
-    <div className="seed-value"><span>新手启程礼</span><strong>3 颗</strong><span>智慧种子</span></div>
+    <div className="seed-value"><span>新手启程礼</span><strong>{amount} 颗</strong><span>智慧种子</span></div>
     <div className="growth-path" aria-label="智慧种子的成长路径"><span className="active"><i>●</i>种下</span><b /><span><i>♧</i>发芽</span><b /><span><i>❧</i>枝叶</span><b /><span><i>✦</i>结果</span></div>
     <p className="seed-rule">智慧种子是平台免费赠送、会员附赠或学院配置的 AI 体验额度，不可购买、充值、提现、转赠或交易。</p>
-    {!claimed ? <button className="primary" type="button" disabled={busy} onClick={onClaim}>{busy ? "领取中…" : "收下 3 颗智慧种子"} <span>＋</span></button> : <button className="primary" type="button" onClick={onNext}>进入今日首页 <span>→</span></button>}
+    {!claimed ? <button className="primary" type="button" disabled={busy} onClick={onClaim}>{busy ? "领取中…" : `收下 ${amount} 颗智慧种子`} <span>＋</span></button> : <button className="primary" type="button" onClick={onNext}>进入今日首页 <span>→</span></button>}
   </section>;
 }
 

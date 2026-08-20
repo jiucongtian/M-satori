@@ -8,7 +8,7 @@ describe('runtime baseline', () => {
     const environment = validateEnvironment({});
     expect(environment.DAILY_INSIGHT_PRICE).toBe(1);
     expect(environment.QUEUE_JOB_TIMEOUT_MS).toBe(360_000);
-    expect(environment.REGISTRATION_REWARD_AMOUNT).toBe(3);
+    expect(environment.REGISTRATION_REWARD_AMOUNT).toBe(18);
     expect(environment.OTP_TTL_SECONDS).toBe(300);
     expect(environment.ACCOUNT_DELETION_CANCELLATION_HOURS).toBe(168);
   });

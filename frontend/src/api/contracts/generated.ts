@@ -1068,8 +1068,7 @@ export interface components {
             rewardType: "NEW_USER_ONBOARDING";
             /** @enum {string} */
             status: "AVAILABLE" | "CLAIMED" | "EXPIRED" | "INELIGIBLE";
-            /** @constant */
-            wisdomSeedAmount: 3;
+            wisdomSeedAmount: number;
             /** Format: date-time */
             claimedAt?: string | null;
             /** Format: date-time */
@@ -1659,7 +1658,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Persisted PROFILE-11 first-look report */
+            /** @description Persisted first-look report for an owned confirmed profile revision */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1684,7 +1683,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Generated, in-progress, or replayed PROFILE-11 first-look report */
+            /** @description Generated, in-progress, or replayed first-look report for an owned confirmed profile revision */
             200: {
                 headers: {
                     [name: string]: unknown;

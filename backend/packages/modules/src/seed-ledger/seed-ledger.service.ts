@@ -109,7 +109,7 @@ export class SeedLedgerService {
         rewardId: `ineligible:${userId}`,
         rewardType: 'NEW_USER_ONBOARDING' as const,
         status: 'INELIGIBLE' as const,
-        wisdomSeedAmount: 3,
+        wisdomSeedAmount: this.infrastructure.environment.REGISTRATION_REWARD_AMOUNT,
         claimedAt: null,
         expiresAt: null,
       };

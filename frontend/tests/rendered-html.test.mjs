@@ -20,6 +20,17 @@ test("服务端首屏渲染中性 Session 恢复态，避免老用户闪现欢�
   assert.doesNotMatch(html, /R1\.0 · AUTH-02/);
 });
 
+test("AUTH-02 不展示已有档案快捷入口，新用户礼物按后端额度显示", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const welcome = page.match(/view === "welcome" \? \([\s\S]*?\) : view === "login"/)?.[0] ?? "";
+  const gift = page.match(/function SeedGift[\s\S]*?\n}\n\nfunction TodayHome/)?.[0] ?? "";
+  assert.doesNotMatch(welcome, /已有档案/);
+  assert.match(page, /amount=\{home\?\.registrationReward\.wisdomSeedAmount \?\? 18\}/);
+  assert.match(gift, /<span>\{amount\}<\/span>/);
+  assert.match(gift, /收下 \$\{amount\} 颗智慧种子/);
+  assert.doesNotMatch(gift, /收下 3 颗智慧种子|<span>3<\/span>|<strong>3 颗<\/strong>/);
+});
+
 test("页面编号仅在显式开启的研发与测试构建中显示", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = page.match(/const showPageDebugLabels[\s\S]*?function PageDebugLabel[\s\S]*?\n}/)?.[0] ?? "";
