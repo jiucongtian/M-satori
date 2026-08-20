@@ -526,3 +526,25 @@ test("R1.0 DAILY-01—03 始终展示真实智慧种子余额", async () => {
   assert.match(payment, /disabled=\{busy \|\| syncing\}/);
   assert.match(createDaily, /await loadOverview\(\);/);
 });
+
+test("MY-18 不再通过页面内容硬编码调试编号", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const firstLook = page.match(/function FirstLookArchive[\s\S]*?\n\nfunction EditSelfProfile/)?.[0] ?? "";
+  assert.match(firstLook, /生命智慧初识/);
+  assert.doesNotMatch(firstLook, /R1\.0 · MY-18/);
+});
+
+test("用户协议与隐私政策进入安全且可读的前端阅读页", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const legal = await readFile(new URL("../app/legal/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(page, /`\/legal\.html\?documentId=\$\{encodeURIComponent\(document\.documentId\)\}`/);
+  assert.doesNotMatch(page, /return document \? `\/api\/v1\/legal-documents/);
+  assert.match(legal, /fetch\(`\/api\/v1\/legal-documents\/\$\{encodeURIComponent\(documentId\)\}`/);
+  assert.match(legal, /function MarkdownDocument/);
+  assert.match(legal, /<table>/);
+  assert.match(legal, /<blockquote/);
+  assert.doesNotMatch(legal, /dangerouslySetInnerHTML/);
+  assert.match(css, /\.legal-markdown/);
+  assert.match(css, /\.legal-table-wrap/);
+});

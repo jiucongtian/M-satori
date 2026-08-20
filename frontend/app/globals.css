@@ -19,6 +19,46 @@ body {
   font-family: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
 }
 
+.legal-page { min-height: 100svh; padding: max(18px, env(safe-area-inset-top)) 16px max(40px, env(safe-area-inset-bottom)); background: radial-gradient(circle at 86% 8%, rgba(215,163,90,.13), transparent 27%), radial-gradient(circle at 0 48%, rgba(69,107,91,.1), transparent 25%), #f6f2e8; }
+.legal-header { width: min(100%, 760px); margin: 0 auto 18px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; }
+.legal-header button { width: 44px; height: 44px; border: 1px solid rgba(69,107,91,.18); border-radius: 15px; background: rgba(255,255,255,.45); color: var(--sage); font-size: 22px; cursor: pointer; }
+.legal-header div { text-align: center; }
+.legal-header strong { display: block; font-size: 17px; letter-spacing: .12em; }
+.legal-header strong span { margin-left: 5px; font: 600 13px/1 Arial, sans-serif; letter-spacing: .08em; }
+.legal-header small { display: block; margin-top: 5px; color: var(--muted); font: 10px/1.2 Arial, sans-serif; letter-spacing: .1em; }
+.legal-paper { width: min(100%, 760px); min-height: 72svh; margin: 0 auto; padding: clamp(28px, 6vw, 58px); border: 1px solid rgba(69,107,91,.12); border-radius: 28px; background: rgba(255,255,255,.62); box-shadow: 0 22px 60px rgba(40,59,52,.08); }
+.legal-title { padding-bottom: 26px; margin-bottom: 30px; border-bottom: 1px solid rgba(69,107,91,.15); }
+.legal-title small { color: #a27a43; font: 600 10px/1 Arial, sans-serif; letter-spacing: .24em; }
+.legal-title h1 { margin-top: 14px; font-size: clamp(30px, 7vw, 42px); line-height: 1.25; }
+.legal-title p { margin: 14px 0 0; color: var(--muted); font-size: 14px; line-height: 1.8; }
+.legal-markdown { color: #40524a; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.9; }
+.legal-markdown h1 { margin: 40px 0 18px; color: var(--ink); font-size: 26px; line-height: 1.4; }
+.legal-markdown h2 { margin: 36px 0 14px; padding-left: 13px; border-left: 3px solid rgba(215,163,90,.72); color: var(--ink); font-size: 20px; line-height: 1.5; }
+.legal-markdown h3 { margin: 28px 0 10px; color: var(--ink); font-size: 17px; line-height: 1.6; }
+.legal-markdown p { margin: 0 0 16px; }
+.legal-markdown strong { color: #30483e; }
+.legal-markdown ul, .legal-markdown ol { margin: 0 0 20px; padding-left: 1.5em; }
+.legal-markdown li { margin: 7px 0; padding-left: 4px; }
+.legal-markdown blockquote { margin: 22px 0; padding: 15px 18px; border-radius: 14px; background: rgba(69,107,91,.07); color: #53685e; }
+.legal-markdown blockquote p:last-child { margin-bottom: 0; }
+.legal-table-wrap { max-width: 100%; margin: 22px 0; overflow-x: auto; border: 1px solid rgba(69,107,91,.13); border-radius: 14px; }
+.legal-markdown table { width: 100%; border-collapse: collapse; min-width: 480px; font-size: 13px; line-height: 1.65; }
+.legal-markdown th, .legal-markdown td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid rgba(69,107,91,.11); }
+.legal-markdown th { background: rgba(69,107,91,.08); color: var(--ink); white-space: nowrap; }
+.legal-markdown tr:last-child td { border-bottom: 0; }
+.legal-paper > footer { margin-top: 42px; padding-top: 20px; border-top: 1px solid rgba(69,107,91,.14); color: var(--muted); text-align: center; font-size: 12px; letter-spacing: .06em; }
+.legal-state { min-height: 58svh; display: grid; place-content: center; justify-items: center; text-align: center; color: var(--muted); }
+.legal-state i { width: 70px; height: 70px; display: grid; place-items: center; border-radius: 50%; background: rgba(215,163,90,.2); color: #9f7338; font-style: normal; font-size: 24px; }
+.legal-state h1 { margin-top: 20px; font-size: 28px; }
+.legal-state p { max-width: 280px; line-height: 1.8; }
+.legal-state button { padding: 11px 22px; border: 0; border-radius: 999px; background: var(--sage); color: white; cursor: pointer; }
+
+@media (max-width: 520px) {
+  .legal-page { padding-inline: 10px; }
+  .legal-paper { padding: 28px 21px 40px; border-radius: 24px; }
+  .legal-markdown { font-size: 14px; line-height: 1.88; }
+}
+
 .stage {
   min-height: 100svh;
   display: grid;
