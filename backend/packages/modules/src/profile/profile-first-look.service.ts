@@ -57,7 +57,7 @@ export class ProfileFirstLookService {
   }
 
   async get(userId: string, revisionId: string) {
-    await this.requireConfirmedSelfRevision(userId, revisionId);
+    await this.requireConfirmedOwnedRevision(userId, revisionId);
     const report = await this.findReport(userId, revisionId);
     if (!report) {
       throw new NotFoundException({
@@ -91,7 +91,7 @@ export class ProfileFirstLookService {
   }
 
   private async generateOnce(userId: string, revisionId: string) {
-    const context = await this.requireConfirmedSelfRevision(userId, revisionId);
+    const context = await this.requireConfirmedOwnedRevision(userId, revisionId);
     const cards = await this.loadCards(revisionId);
     const displayName = this.cipher.decrypt(context.displayNameCiphertext);
     let report = await this.findReport(userId, revisionId);
@@ -183,7 +183,7 @@ export class ProfileFirstLookService {
     }
   }
 
-  private async requireConfirmedSelfRevision(userId: string, revisionId: string) {
+  private async requireConfirmedOwnedRevision(userId: string, revisionId: string) {
     const [row] = await this.infrastructure.database
       .select({
         revisionStatus: revisions.status,
@@ -197,8 +197,6 @@ export class ProfileFirstLookService {
           eq(revisions.id, revisionId),
           eq(revisions.ownerUserId, userId),
           eq(lifeProfiles.ownerUserId, userId),
-          eq(lifeProfiles.relationshipType, 'SELF'),
-          eq(subjects.type, 'SELF'),
           isNull(lifeProfiles.deletedAt),
           inArray(revisions.status, ['ACTIVE', 'SUPERSEDED']),
         ),
@@ -207,7 +205,7 @@ export class ProfileFirstLookService {
     if (!row) {
       throw new NotFoundException({
         code: 'PROFILE_REVISION_NOT_FOUND',
-        message: 'Confirmed self profile revision not found',
+        message: 'Confirmed profile revision not found',
       });
     }
     return row;

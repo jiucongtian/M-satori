@@ -174,14 +174,14 @@ paths:
       operationId: getProfileFirstLook
       parameters: [{$ref: '#/components/parameters/RevisionId'}]
       responses:
-        '200': {description: Persisted PROFILE-11 first-look report, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileFirstLookEnvelope'}}}}
+        '200': {description: Persisted first-look report for an owned confirmed profile revision, content: {application/json: {schema: {$ref: '#/components/schemas/ProfileFirstLookEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
     post:
       tags: [Profile]
       operationId: generateProfileFirstLook
       parameters: [{$ref: '#/components/parameters/RevisionId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       responses:
-        '200': {description: 'Generated, in-progress, or replayed PROFILE-11 first-look report', content: {application/json: {schema: {$ref: '#/components/schemas/ProfileFirstLookEnvelope'}}}}
+        '200': {description: 'Generated, in-progress, or replayed first-look report for an owned confirmed profile revision', content: {application/json: {schema: {$ref: '#/components/schemas/ProfileFirstLookEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
   /me/registration-reward:
     get:
