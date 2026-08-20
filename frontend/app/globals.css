@@ -120,7 +120,8 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 .login-mode::after { content: ""; position: absolute; width: 260px; height: 260px; top: -150px; right: -100px; border: 1px solid rgba(69,107,91,.1); border-radius: 50%; box-shadow: 0 0 0 34px rgba(69,107,91,.025), 0 0 0 68px rgba(215,163,90,.025); z-index: -1; }
 .login-page { min-height: 100%; display: flex; flex-direction: column; animation: page-in .35s ease-out; }
 .login-header { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; }
-.login-header .brand { justify-self: center; }
+.login-brand { justify-self: center; display: grid; justify-items: center; gap: 5px; color: #587164; }
+.login-brand > span { font: 600 8px/1 Arial, sans-serif; letter-spacing: .16em; white-space: nowrap; }
 .brand-compact .brand-mark { width: 31px; height: 31px; }
 .back-button { width: 38px; height: 38px; border: 1px solid rgba(69,107,91,.14); border-radius: 13px; color: #526b60; background: rgba(255,255,255,.46); font: 20px/1 Arial, sans-serif; cursor: pointer; }
 .header-spacer { width: 42px; }

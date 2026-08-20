@@ -165,7 +165,10 @@ export default function WelcomePage() {
             <PageDebugLabel>{`R1.0 · ${codeSent ? "AUTH-04" : "AUTH-03"}`}</PageDebugLabel>
             <header className="login-header">
               <button className="back-button" type="button" onClick={() => setView("welcome")} aria-label="返回欢迎页">←</button>
-              <Brand compact />
+              <div className="login-brand">
+                <Brand compact />
+                <span>初见 · FRESH</span>
+              </div>
               <span className="header-spacer" />
             </header>
 
