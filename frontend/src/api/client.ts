@@ -216,6 +216,11 @@ class SatoriApiClient {
       method: "POST", body: JSON.stringify({ displayName, relationshipType, groupId: null }),
     }).then((x) => x.data);
   }
+  updateProfile(profileId: string, displayName: string, relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER") {
+    return this.command<Schemas["LifeProfileEnvelope"]>(`/me/life-profiles/${profileId}`, {
+      method: "PATCH", body: JSON.stringify({ displayName, relationshipType }),
+    }).then((x) => x.data);
+  }
   previewOtherProfile(profileId: string, birthInput: BirthInput) {
     return this.command<Schemas["ProfileRevisionEnvelope"]>(`/me/life-profiles/${profileId}/revisions/preview`, {
       method: "POST", body: JSON.stringify({ birthInput }),

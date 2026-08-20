@@ -240,6 +240,9 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [profiles, setProfiles] = useState<LifeProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<LifeProfile | null>(null);
   const [otherRevision, setOtherRevision] = useState<ProfileRevision | null>(null);
+  const [otherFirstLook, setOtherFirstLook] = useState<ProfileFirstLook | null>(null);
+  const [otherFirstLookLoading, setOtherFirstLookLoading] = useState(false);
+  const [editingOther, setEditingOther] = useState(false);
   const [otherData, setOtherData] = useState<ProfileData>({ name: "", date: "1964-03-12", calendarType: "SOLAR", lunarYear: 1964, lunarMonth: 3, lunarDay: 12, isLeapMonth: false, time: "06:30", accuracy: "准确到分钟", place: R1_UNSELECTED_LOCATION_LABEL, locationId: R1_UNSELECTED_LOCATION_ID, gender: "FEMALE", relationshipType: "FAMILY" });
   const [taskId, setTaskId] = useState<string | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
@@ -389,6 +392,17 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     return () => window.clearInterval(timer);
   }, [firstLook?.status, firstLook?.profileRevisionId]);
 
+  useEffect(() => {
+    if (otherFirstLook?.status !== "GENERATING") return;
+    const timer = window.setInterval(() => {
+      api.profileFirstLook(otherFirstLook.profileRevisionId).then((value) => {
+        setOtherFirstLook(value);
+        if (value.status !== "GENERATING") setOtherFirstLookLoading(false);
+      }).catch(() => undefined);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [otherFirstLook?.status, otherFirstLook?.profileRevisionId]);
+
   async function generateFirstLook(revisionId: string) {
     setFirstLookLoading(true); setApiError("");
     try {
@@ -520,8 +534,75 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
   function openOtherProfile(profile: LifeProfile) {
     setSelectedProfile(profile);
+    setOtherFirstLook(null);
+    setEditingOther(false);
     if (profile.currentRevisionId) api.profileRevision(profile.currentRevisionId).then(setOtherRevision).catch(() => undefined);
     setStep(115);
+  }
+
+  function openOtherEditor() {
+    if (!selectedProfile || !otherRevision?.originalInput) return;
+    const birth = otherRevision.originalInput;
+    setOtherData((current) => ({
+      ...current,
+      name: selectedProfile.displayName,
+      relationshipType: selectedProfile.relationshipType === "SELF" || !selectedProfile.relationshipType ? "OTHER" : selectedProfile.relationshipType,
+      date: `${birth.date.year}-${String(birth.date.month).padStart(2,"0")}-${String(birth.date.day).padStart(2,"0")}`,
+      calendarType: birth.calendarType,
+      lunarYear: birth.date.year,
+      lunarMonth: birth.date.month,
+      lunarDay: birth.date.day,
+      isLeapMonth: birth.date.isLeapMonth,
+      time: birth.time.localTime || "08:30",
+      accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : "完全不知道",
+      locationId: birth.locationId,
+      gender: birth.calculationGender,
+    }));
+    setEditingOther(true);
+  }
+
+  async function saveOtherProfile() {
+    if (!selectedProfile || !otherData.name.trim()) return;
+    setApiBusy(true); setApiError("");
+    try {
+      const [solarYear, solarMonth, solarDay] = otherData.date.split("-").map(Number);
+      const year = otherData.calendarType === "LUNAR" ? otherData.lunarYear : solarYear;
+      const month = otherData.calendarType === "LUNAR" ? otherData.lunarMonth : solarMonth;
+      const day = otherData.calendarType === "LUNAR" ? otherData.lunarDay : solarDay;
+      const exact = otherData.accuracy === "准确到分钟" || otherData.accuracy === "大致时间";
+      const updatedProfile = await api.updateProfile(selectedProfile.profileId, otherData.name.trim(), otherData.relationshipType);
+      const preview = await api.previewOtherProfile(selectedProfile.profileId, {
+        calendarType: otherData.calendarType,
+        date: { year, month, day, isLeapMonth: otherData.calendarType === "LUNAR" && otherData.isLeapMonth },
+        timePrecision: otherData.accuracy === "准确到分钟" ? "EXACT_MINUTE" : otherData.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
+        time: { localTime: exact ? otherData.time : null, hourBranchCode: null },
+        locationId: otherData.locationId,
+        calculationGender: otherData.gender,
+      });
+      if (!preview.inputFingerprint) throw new Error("人物档案预览缺少校验指纹");
+      const confirmed = await api.confirmOtherProfile(selectedProfile.profileId, preview.revisionId, preview.inputFingerprint, Boolean(preview.requiresEnhancedConfirmation));
+      const activeProfile = { ...updatedProfile, state: "ACTIVE" as const, currentRevisionId: confirmed.revisionId };
+      setSelectedProfile(activeProfile);
+      setOtherRevision(confirmed);
+      setOtherFirstLook(null);
+      setProfiles(await api.profiles());
+      setEditingOther(false);
+    } catch (error) { setApiError(apiMessage(error)); }
+    finally { setApiBusy(false); }
+  }
+
+  async function openOtherFirstLook() {
+    const revisionId = otherRevision?.revisionId || selectedProfile?.currentRevisionId;
+    if (!revisionId) return;
+    setOtherFirstLookLoading(true); setApiError("");
+    try {
+      setOtherFirstLook(await api.profileFirstLook(revisionId));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "PROFILE_FIRST_LOOK_NOT_FOUND") {
+        try { setOtherFirstLook(await api.generateProfileFirstLook(revisionId)); }
+        catch (generationError) { setApiError(apiMessage(generationError)); }
+      } else setApiError(apiMessage(error));
+    } finally { setOtherFirstLookLoading(false); }
   }
 
   async function deleteOtherProfile() {
@@ -627,8 +708,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "MY-10" && <NewPersonArchive data={otherData} busy={apiBusy} onChange={setOtherData} onBack={() => setStep(111)} onNext={createOtherProfile} />}
       {id === "MY-11" && <ArchiveConfirm data={otherData} revision={otherRevision} busy={apiBusy} onBack={back} onNext={confirmOtherProfile} />}
       {id === "MY-12" && <ArchiveGenerating name={selectedProfile?.displayName || otherData.name} onBack={() => setStep(111)} onNext={next} />}
-      {id === "MY-13" && <PersonArchive profile={selectedProfile} revision={otherRevision} onBack={() => setStep(111)} onManage={next} />}
-      {id === "MY-14" && <PersonArchiveManage profile={selectedProfile} onBack={back} onDelete={() => setStep(118)} />}
+      {id === "MY-13" && <PersonArchive profile={selectedProfile} revision={otherRevision} firstLook={otherFirstLook} firstLookLoading={otherFirstLookLoading} editing={editingOther} editData={otherData} busy={apiBusy} onEditData={setOtherData} onBack={() => editingOther ? setEditingOther(false) : setStep(111)} onFirstLook={() => void openOtherFirstLook()} onEdit={openOtherEditor} onSave={() => void saveOtherProfile()} onDelete={() => void deleteOtherProfile()} />}
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact name={selectedProfile?.displayName || "这份人物档案"} busy={apiBusy} onBack={() => setStep(116)} onDone={deleteOtherProfile} />}
       {id === "MY-17" && <EditSelfProfile data={data} revision={revision} busy={apiBusy} onChange={setData} onBack={() => {setEditingSelf(false);setStep(22);}} onNext={previewProfile} />}
@@ -762,7 +842,7 @@ function ProfileIntro({ onNext }: { onNext: () => void }) {
   return <div className="profile-intro"><div className="profile-seal" aria-hidden="true"><span>生</span><i /></div><p className="eyebrow">YOUR LIFE PROFILE</p><h1>建立你的<br /><em>生命智慧档案</em></h1><p className="profile-lead">它不是给你贴标签，而是一份陪伴日签、问事、关系与成长报告持续更新的个人起点。</p><div className="benefit-list"><span><b>01</b>需要出生日期和时间</span><span><b>02</b>整个过程会自动保存</span><span><b>03</b>资料默认仅自己可见，可随时管理</span></div><FlowNext onClick={onNext}>开始建立</FlowNext></div>;
 }
 
-function UnifiedProfileForm({ data, onChange, onNext, variant = "self", busy = false }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void; variant?: "self" | "other"; busy?: boolean }) {
+function UnifiedProfileForm({ data, onChange, onNext, variant = "self", mode = "create", busy = false }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void; variant?: "self" | "other"; mode?: "create" | "edit"; busy?: boolean }) {
   const [solarNotice, setSolarNotice] = useState(false);
   const timeOptions = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
   const lunarMonths = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
@@ -770,7 +850,7 @@ function UnifiedProfileForm({ data, onChange, onNext, variant = "self", busy = f
   const relations = [["家人", "FAMILY"], ["朋友", "FRIEND"], ["同事", "COLLEAGUE"], ["其他", "OTHER"]] as const;
   const calendarReady = data.calendarType === "SOLAR" ? Boolean(data.date) : Boolean(data.lunarYear && data.lunarMonth && data.lunarDay);
   return <section className="unified-profile">
-    <header className="unified-profile-intro"><p className="eyebrow">{variant === "other" ? "ONE IMPORTANT PERSON" : "YOUR LIFE PROFILE"}</p><h1>一次写下<br />{variant === "other" ? "理解彼此的起点" : "认识自己的起点"}</h1><p>{variant === "other" ? "这些资料会建立一份仅你可见的人物档案，帮助你更有边界地理解关系。" : "这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。"}</p></header>
+    <header className="unified-profile-intro"><p className="eyebrow">{mode === "edit" ? "EDIT LIFE PROFILE" : variant === "other" ? "ONE IMPORTANT PERSON" : "YOUR LIFE PROFILE"}</p><h1>{mode === "edit" ? <>更新资料<br />让理解保持准确</> : <>一次写下<br />{variant === "other" ? "理解彼此的起点" : "认识自己的起点"}</>}</h1><p>{mode === "edit" ? "修改后会更新四张关系卡牌与后续内容的依据。" : variant === "other" ? "这些资料会建立一份仅你可见的人物档案，帮助你更有边界地理解关系。" : "这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。"}</p></header>
     <div className="unified-form-card">
       <section className="unified-field-group"><span className="unified-field-index">01</span><label className="field-label" htmlFor={`unified-nickname-${variant}`}>{variant === "other" ? "姓名或你熟悉的称呼" : "希望我们怎么称呼你"}</label><div className="field profile-field"><input id={`unified-nickname-${variant}`} autoFocus maxLength={16} placeholder={variant === "other" ? "例如：妈妈、小林" : "例如：小满"} value={data.name} onChange={(e) => onChange({ ...data, name: e.target.value })} /></div><small>{variant === "other" ? "这份称呼只会出现在你的私人档案中" : "不需要填写真实姓名"}</small></section>
       {variant === "other" && <section className="unified-field-group unified-relation-group"><span className="unified-field-index">类</span><label className="field-label">与我的关系</label><div className="relation-picks"><div>{relations.map(([label, value]) => <button type="button" key={value} className={data.relationshipType === value ? "active" : ""} onClick={() => onChange({ ...data, relationshipType: value })}>{label}</button>)}</div></div><small>用于档案分组，之后可以调整</small></section>}
@@ -786,7 +866,7 @@ function UnifiedProfileForm({ data, onChange, onNext, variant = "self", busy = f
     </div>
     <div className="privacy-inline"><span className="lock" /><p>资料仅用于建立你的生命智慧档案，默认只对你可见。</p></div>
     {variant === "other" && <div className="other-profile-consent"><span className="lock"/><p><strong>请确认资料来源正当</strong>档案默认仅自己可见，不代表对方已经授权。</p></div>}
-    <button className="primary unified-profile-submit" type="button" disabled={busy || !data.name.trim() || !calendarReady} onClick={onNext}>{busy ? "正在建立档案…" : variant === "other" ? "确认资料，继续建立档案" : "确认资料，开始建立档案"} <span>→</span></button>
+    <button className="primary unified-profile-submit" type="button" disabled={busy || !data.name.trim() || !calendarReady} onClick={onNext}>{busy ? mode === "edit" ? "正在保存修改…" : "正在建立档案…" : mode === "edit" ? "保存修改" : variant === "other" ? "确认资料，继续建立档案" : "确认资料，开始建立档案"} <span>→</span></button>
   </section>;
 }
 
@@ -1118,15 +1198,12 @@ function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: 
 }
 
 function MySupport({ onBack }: { onBack: () => void }) {
-  const channels = [
-    { title:"官方客服", short:"客服", description:"咨询账号、智慧种子与报告问题", src:"/contact/official-customer-service.png", width:196, height:198 },
-    { title:"官方视频号", short:"视频", description:"关注我们的视频动态", src:"/contact/official-video-channel.png", width:904, height:926 },
-    { title:"官方公众号", short:"公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:1280, height:1280 },
-    { title:"官方小红书", short:"小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:194, height:196 },
+  const media = [
+    { title:"官方公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:1280, height:1280 },
+    { title:"官方视频号", description:"关注我们的视频动态", src:"/contact/official-video-channel.png", width:904, height:926 },
+    { title:"官方小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:194, height:196 },
   ];
-  const [selected,setSelected]=useState(0);
-  const channel=channels[selected];
-  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><header className="contact-intro"><small>OFFICIAL CHANNELS</small><h1>在需要的时候，找到我们</h1><p>选择一个官方渠道，长按识别二维码。</p></header><nav className="contact-tabs" aria-label="官方联系渠道">{channels.map((item,index)=><button type="button" className={selected===index?"active":""} aria-pressed={selected===index} onClick={()=>setSelected(index)} key={item.title}><i>{item.short.slice(0,1)}</i><span>{item.short}</span></button>)}</nav><article className={`contact-focus channel-${selected}`}><div className="contact-focus-title"><span><small>当前选择</small><strong>{channel.title}</strong></span><b>官方</b></div><div className="contact-qr-stage"><div className="contact-focus-qr"><Image src={channel.src} width={channel.width} height={channel.height} alt={`${channel.title}二维码`} unoptimized priority/></div></div><p>{channel.description}</p><small>长按二维码识别 · 或使用另一台设备扫码</small></article><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。涉及账号与交易问题，请优先联系官方客服。</p></div></section>;
+  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><header className="contact-intro"><small>OFFICIAL SUPPORT</small><h1>需要的时候，我们在这里</h1><p>账号、智慧种子或报告问题，请优先联系官方客服。</p></header><article className="support-focus"><div className="support-focus-title"><span><small>优先服务</small><strong>官方客服</strong></span><b>推荐</b></div><div className="support-qr"><Image src="/contact/official-customer-service.png" width={196} height={198} alt="官方客服二维码" unoptimized priority/></div><p>长按识别二维码，与客服取得联系</p></article><section className="official-media"><header><small>FOLLOW US</small><strong>关注官方媒体</strong></header>{media.map(item=><article key={item.title}><div><Image src={item.src} width={item.width} height={item.height} alt={`${item.title}二维码`} unoptimized/></div><span><strong>{item.title}</strong><small>{item.description}</small><em>长按识别</em></span></article>)}</section><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。</p></div></section>;
 }
 
 function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:LifeProfile[];self:LifeProfile|null;onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:(profile:LifeProfile)=>void}){
@@ -1134,7 +1211,7 @@ function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:Li
   const relationLabel:Record<string,string>={FAMILY:"家人",FRIEND:"朋友",COLLEAGUE:"同事",OTHER:"其他"};
   const people=profiles.filter((profile)=>profile.subjectType==="OTHER").map((profile)=>({profile,label:relationLabel[profile.relationshipType || "OTHER"] || "其他"}));
   const shown=people.filter((item)=>group==="全部"||item.label===group);
-  return <section className="my-page archive-page"><MyHeader title="生命智慧档案库" onBack={onBack}/><div className="archive-owner" onClick={onSelf} role="button" tabIndex={0}><span>{(self?.displayName||"我").slice(0,1)}</span><p><small>我的主档案 · 唯一</small><strong>{self?.displayName||"我的生命智慧档案"}</strong><b>{self?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</b></p><i>›</i></div><div className="archive-tools"><label>⌕<input aria-label="搜索档案" placeholder="搜索姓名、称呼或关系"/></label><button onClick={onAdd}>＋ 添加人物</button></div><div className="archive-groups">{["全部","家人","朋友","同事","其他"].map(x=><button key={x} className={group===x?"active":""} onClick={()=>setGroup(x)}>{x}</button>)}</div><div className="people-title"><strong>{group}档案</strong><small>共 {shown.length} 人</small></div><div className="people-list">{shown.map(({profile,label})=><button key={profile.profileId} onClick={()=>onPerson(profile)}><span>{profile.displayName.slice(0,1)}</span><p><strong>{profile.displayName}<em>{label}</em></strong><small>{profile.state==="ACTIVE"?"四张卡牌已生成":"出生资料待完善"}</small></p><i>{profile.state==="ACTIVE"?"私人记录":"待完善"}</i><b>›</b></button>)}</div>{shown.length===0&&<div className="prototype-empty">这一分组暂无人物档案</div>}</section>
+  return <section className="my-page archive-page"><MyHeader title="生命智慧档案库" onBack={onBack}/><div className="archive-owner" onClick={onSelf} role="button" tabIndex={0}><span>{(self?.displayName||"我").slice(0,1)}</span><p><small>我的主档案 · 唯一</small><strong>{self?.displayName||"我的生命智慧档案"}</strong><b>{self?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</b></p><i>›</i></div><div className="archive-tools"><label>⌕<input aria-label="搜索档案" placeholder="搜索姓名、称呼或关系"/></label><button onClick={onAdd}>＋ 添加人物</button></div><div className="archive-groups">{["全部","家人","朋友","同事","其他"].map(x=><button key={x} className={group===x?"active":""} onClick={()=>setGroup(x)}>{x}</button>)}</div><div className="people-title"><strong>{group}档案</strong><small>共 {shown.length} 人</small></div><div className="people-list">{shown.map(({profile,label})=><button key={profile.profileId} onClick={()=>onPerson(profile)}><span>{profile.displayName.slice(0,1)}</span><p><strong>{profile.displayName}<em>{label}</em></strong><small>{profile.state==="ACTIVE"?"四张卡牌已生成":"出生资料待完善"}</small></p><i>{profile.state==="ACTIVE"?"进入详情":"待完善"}</i><b>›</b></button>)}</div>{shown.length===0&&<div className="prototype-empty">这一分组暂无人物档案</div>}</section>
 }
 
 function NewPersonArchive({data,busy,onChange,onBack,onNext}:{data:ProfileData;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page new-person-unified"><MyHeader title="新建人物档案" onBack={onBack}/><UnifiedProfileForm data={data} busy={busy} variant="other" onChange={onChange} onNext={onNext}/></section>}
@@ -1143,9 +1220,16 @@ function ArchiveConfirm({data,revision,busy,onBack,onNext}:{data:ProfileData;rev
 
 function ArchiveGenerating({name,onBack,onNext}:{name:string;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page generating-archive"><MyHeader title="档案生成完成" onBack={onBack}/><div className="archive-grow"><span>{name.slice(0,1)}</span><i/><i/><b/><b/></div><p className="eyebrow">WISDOM IS READY</p><h1>四张关系卡牌<br/>已经生成</h1><p>{name}的档案已由后端确认并保存到生命智慧档案库。</p><div className="life-progress"><i><b style={{width:"100%"}}/></i><span>生成完成 · 100%</span></div><button className="primary" onClick={onNext}>查看生成后的档案 <span>→</span></button></section>}
 
-function PersonArchive({profile,revision,onBack,onManage}:{profile:LifeProfile|null;revision:ProfileRevision|null;onBack:()=>void;onManage:()=>void}){return <section className="my-page archive-page"><MyHeader title="人物生命智慧档案" onBack={onBack}/><div className="person-cover"><span>{(profile?.displayName||"人").slice(0,1)}</span><small>私人关系记录</small><h1>{profile?.displayName||"人物"}的生命智慧档案</h1><p>{profile?.state==="ACTIVE"?"资料完整":"资料待完善"} · 当前为私人记录</p></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><div className="person-feeling"><small>档案状态</small><p>该人物档案与卡牌版本均来自后端，默认仅当前账号可见。</p></div><button className="outline-button" onClick={onManage}>管理人物资料与授权</button></section>}
-
-function PersonArchiveManage({profile,onBack,onDelete}:{profile:LifeProfile|null;onBack:()=>void;onDelete:()=>void}){return <section className="my-page archive-page"><MyHeader title="人物档案管理" onBack={onBack}/><div className="confirm-person"><span>{(profile?.displayName||"人").slice(0,1)}</span><p><small>当前档案</small><strong>{profile?.displayName||"人物档案"}</strong><b>私人记录 · {profile?.state==="ACTIVE"?"资料完整":"待完善"}</b></p></div><div className="manage-entry"><button disabled><span><strong>编辑出生信息</strong><small>后续版本开放，当前请重新创建档案</small></span><b>›</b></button><button disabled><span><strong>授权与共享状态</strong><small>当前档案默认仅自己可见</small></span><b>›</b></button></div><button className="outline-button" onClick={onBack}>返回人物档案</button><button className="danger-action" onClick={onDelete}>删除这份人物档案</button></section>}
+function PersonArchive({profile,revision,firstLook,firstLookLoading,editing,editData,busy,onEditData,onBack,onFirstLook,onEdit,onSave,onDelete}:{profile:LifeProfile|null;revision:ProfileRevision|null;firstLook:ProfileFirstLook|null;firstLookLoading:boolean;editing:boolean;editData:ProfileData;busy:boolean;onEditData:(data:ProfileData)=>void;onBack:()=>void;onFirstLook:()=>void;onEdit:()=>void;onSave:()=>void;onDelete:()=>void}){
+  const [confirmingDelete,setConfirmingDelete]=useState(false);
+  const birth=revision?.originalInput;
+  const date=birth?`${birth.date.year}-${String(birth.date.month).padStart(2,"0")}-${String(birth.date.day).padStart(2,"0")}`:"未提供";
+  const precision=birth?.timePrecision==="EXACT_MINUTE"?"准确到分钟":birth?.timePrecision==="APPROXIMATE"?"大致时间":"未提供具体时间";
+  const content=firstLook?.status==="READY"?firstLook.content:null;
+  const firstLookPending=firstLookLoading||firstLook?.status==="GENERATING";
+  if(editing)return <section className="my-page archive-page other-profile-editor"><MyHeader title="编辑生命智慧档案" onBack={onBack}/><UnifiedProfileForm data={editData} busy={busy} variant="other" mode="edit" onChange={onEditData} onNext={onSave}/></section>;
+  return <section className="my-page archive-page person-archive-detail"><MyHeader title="生命智慧档案" onBack={onBack}/><div className="profile-owner"><span>{(profile?.displayName||"人").slice(0,1)}</span><div><h1>{profile?.displayName||"人物档案"}</h1><p>{profile?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</p></div></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook} disabled={firstLookPending}><i>初</i><span><small>生命智慧初识</small><strong>{firstLookPending?"正在整理生命底色…":content?"查看生命底色与四个短画像":"生成并查看这份档案的初识"}</strong></span><b>›</b></button>{content&&<section className="other-first-look"><small>{content.profileSummary.keywords.join(" · ")}</small><h2>{content.profileSummary.title}</h2><p>{content.profileSummary.description}</p><div>{content.cards.map(card=><article key={card.position}><strong>{card.title}</strong><span>{card.summary}</span></article>)}</div></section>}<section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{date} · {birth?.calendarType==="LUNAR"?"农历":"公历"}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime||"未提供"} · {precision}</strong></p></section><div className="person-archive-actions"><button className="outline-button" type="button" onClick={onEdit} disabled={!revision}>编辑生命智慧档案</button><button className="danger-action" type="button" onClick={()=>setConfirmingDelete(true)}>删除这份人物档案</button></div>{confirmingDelete&&<div className="confirm-backdrop" role="presentation" onClick={()=>setConfirmingDelete(false)}><section className="logout-confirm person-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="person-delete-title" onClick={event=>event.stopPropagation()}><span>删</span><h2 id="person-delete-title">确认删除这份档案？</h2><p>“{profile?.displayName||"人物"}”的出生资料与四张卡牌会被移除，删除后无法恢复。</p><button className="danger-primary" type="button" disabled={busy} onClick={onDelete}>{busy?"正在删除…":"确认删除"}</button><button className="outline-button" type="button" onClick={()=>setConfirmingDelete(false)}>暂不删除</button></section></div>}</section>
+}
 
 function ArchivePicker({onBack,onAdd,onNext}:{onBack:()=>void;onAdd:()=>void;onNext:()=>void}){const [picked,setPicked]=useState(["小满"]);const people=[["小","小满","我的主档案"],["妈","妈妈","家人 · 已授权"],["言","周言","朋友 · 私人记录"],["林","林远","同事 · 待完善"]];return <section className="my-page archive-page"><MyHeader title="选择关系中的两个人" onBack={onBack}/><p className="eyebrow">TWO PEOPLE, ONE RELATIONSHIP</p><h1>从生命智慧档案库<br/>选择想理解的两个人</h1><div className="picker-slots"><span className={picked[0]?"filled":""}><i>{picked[0]?.slice(0,1)||"A"}</i><small>{picked[0]||"人物 A"}</small></span><b>∞</b><span className={picked[1]?"filled":""}><i>{picked[1]?.slice(0,1)||"B"}</i><small>{picked[1]||"人物 B"}</small></span></div><label className="picker-search">⌕<input placeholder="搜索档案"/></label><div className="picker-list">{people.map(x=><button key={x[1]} className={picked.includes(x[1])?"active":""} onClick={()=>setPicked(p=>p.includes(x[1])?p.filter(v=>v!==x[1]):p.length<2?[...p,x[1]]:[p[0],x[1]])}><span>{x[0]}</span><p><strong>{x[1]}</strong><small>{x[2]}</small></p><i>{picked.includes(x[1])?"✓":""}</i></button>)}</div><button className="archive-add-inline" onClick={onAdd}>＋ 新建一个人物档案</button><div className="task-rule">私人记录可用于你自己的关系理解；涉及对方查看、互动或共享时，会单独发起授权。</div><button className="primary" disabled={picked.length<2} onClick={onNext}>选择匹配类型 <span>→</span></button></section>}
 

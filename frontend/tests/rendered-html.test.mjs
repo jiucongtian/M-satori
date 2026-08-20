@@ -328,7 +328,7 @@ test("R1.0 我的页面收口账户、联系入口并使用通栏智慧种子卡
   assert.match(css, /\.my-assets\{grid-template-columns:1fr\}/);
 });
 
-test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维码", async () => {
+test("R1.0 退出登录二次确认且联系我们突出客服、官媒依次下沉", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const settings = page.match(/function MySettings[\s\S]*?\n}\n/)?.[0] ?? "";
   const support = page.match(/function MySupport[\s\S]*?\n}\n/)?.[0] ?? "";
@@ -337,9 +337,34 @@ test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维
   assert.doesNotMatch(settings, /账号安全|隐私中心|数据管理|通知设置|通用设置/);
   for (const channel of ["官方视频号", "官方公众号", "官方小红书", "官方客服"]) assert.match(support, new RegExp(channel));
   for (const asset of ["official-video-channel.png", "official-wechat-account.jpeg", "official-xiaohongshu.png", "official-customer-service.png"]) assert.match(support, new RegExp(asset));
-  assert.match(support, /contact-tabs/);
-  assert.match(support, /contact-focus/);
-  assert.ok(support.indexOf("官方客服") < support.indexOf("官方视频号"));
+  assert.match(support, /support-focus/);
+  assert.match(support, /official-media/);
+  assert.doesNotMatch(support, /contact-tabs/);
+  assert.ok(support.indexOf("官方公众号") < support.indexOf("官方视频号"));
+  assert.ok(support.indexOf("官方视频号") < support.indexOf("官方小红书"));
+  assert.match(support, /className="support-focus"[\s\S]*className="official-media"/);
+});
+
+test("MY-09 人物档案使用进入详情文案", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const archive = page.match(/function WisdomArchive[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(archive, /进入详情/);
+  assert.doesNotMatch(archive, /\?"私人记录":"待完善"/);
+});
+
+test("MY-13 复用档案结构并只保留编辑和一次删除确认", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const archive = page.match(/function PersonArchive[\s\S]*?\n}\n/)?.[0] ?? "";
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(archive, /生命智慧初识/);
+  assert.match(archive, /编辑生命智慧档案/);
+  assert.match(archive, /删除这份人物档案/);
+  assert.match(archive, /<UnifiedProfileForm/);
+  assert.match(archive, /mode="edit"/);
+  assert.match(archive, /确认删除这份档案/);
+  assert.doesNotMatch(archive, /管理人物资料与授权|授权与共享状态/);
+  assert.match(client, /method: "PATCH"/);
+  assert.match(page, /api\.deleteProfile\(selectedProfile\.profileId\)/);
 });
 
 test("PROFILE-11 与 GIFT-01 不展示返回和保存退出操作", async () => {
