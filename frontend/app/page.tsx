@@ -196,9 +196,8 @@ export default function WelcomePage() {
               <label className="consent-row">
                 <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setMessage(""); }} />
                 <span className="checkmark" aria-hidden="true">✓</span>
-                <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并知晓出生资料的用途</span>
+                <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并知晓相关资料的用途</span>
               </label>
-              <span className="rule-id">AUTH-05 · 协议与隐私确认</span>
 
               <div className={`form-message ${message.startsWith("登录成功") ? "success" : ""}`} aria-live="polite">{message || "验证码仅用于身份验证，我们不会用它向你营销"}</div>
 

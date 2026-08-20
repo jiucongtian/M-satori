@@ -31,6 +31,13 @@ test("AUTH-02 不展示已有档案快捷入口，新用户礼物按后端额度
   assert.doesNotMatch(gift, /收下 3 颗智慧种子|<span>3<\/span>|<strong>3 颗<\/strong>/);
 });
 
+test("AUTH-04 使用统一资料用途文案且不展示内部协议规则编号", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const login = page.match(/view === "login" \? \([\s\S]*?\) : view === "recovery"/)?.[0] ?? "";
+  assert.match(login, /并知晓相关资料的用途/);
+  assert.doesNotMatch(login, /并知晓出生资料的用途|AUTH-05 · 协议与隐私确认/);
+});
+
 test("页面编号仅在显式开启的研发与测试构建中显示", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = page.match(/const showPageDebugLabels[\s\S]*?function PageDebugLabel[\s\S]*?\n}/)?.[0] ?? "";

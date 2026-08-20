@@ -1354,8 +1354,8 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
         challengeId,
         verificationCode: code,
         consentAcceptances: [
-          { documentId: 'legal_privacy_20260809', version: '1.0' },
-          { documentId: 'legal_terms_20260809', version: '1.0' },
+          { documentId: 'legal_privacy_20260820', version: '1.1' },
+          { documentId: 'legal_terms_20260820', version: '1.1' },
           { documentId: 'legal_ai_notice_20260809', version: '1.0' },
         ],
         device: { deviceId: 'concurrent-device-final', timezone: 'Asia/Shanghai' },
