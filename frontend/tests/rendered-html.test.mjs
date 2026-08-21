@@ -163,7 +163,9 @@ test("PROFILE-08 自动生成预览，点击开启后跳过 PROFILE-10 进入初
   assert.match(flow, /setCalculationStage\(4\)/);
   assert.doesNotMatch(flow, /setStep\(7\)/);
   assert.match(flow, /onDone=\{\(\) => void confirmProfile\(\)\}/);
-  assert.match(flow, /setFirstLookLoading\(true\);\s*setStep\(8\)/);
+  assert.match(flow, /const cardsComplete = hasCompleteFirstLookCards\(revisionToConfirm\)/);
+  assert.match(flow, /setFirstLookLoading\(cardsComplete\);\s*setStep\(8\)/);
+  assert.match(flow, /if \(cardsComplete\) await generateFirstLook/);
   assert.match(calculating, /index < stage/);
   assert.match(calculating, /done \? "✓" : active \? "●" : "○"/);
   assert.match(calculating, /开启后会自动生成并打开详情/);
@@ -182,6 +184,27 @@ test("PROFILE-11 请求失败后回读后端持久化失败状态", async () => 
   assert.match(generation, /await api\.generateProfileFirstLook\(revisionId\)/);
   assert.match(generation, /setFirstLook\(await api\.profileFirstLook\(revisionId\)\)/);
   assert.match(generation, /setApiError\(apiMessage\(error\)\)/);
+});
+
+test("PROFILE-11 四卡不完整时不发起生成并允许修改或跳过", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const firstLook = page.match(/function RelationshipFirstLook[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(page, /function hasCompleteFirstLookCards/);
+  assert.match(page, /card\.cardCode !== "UNKNOWN" && card\.ganzhi/);
+  assert.match(firstLook, /补充出生时间后/);
+  assert.match(firstLook, />修改资料</);
+  assert.match(firstLook, />暂时跳过</);
+  assert.match(page, /onEdit=\{\(\) => setStep\(1\)\}/);
+});
+
+test("出生时间精度正确映射 DATE_ONLY 与 HOUR_RANGE", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const mapping = page.match(/function birthTimeFromProfileData[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(mapping, /accuracy === "完全不知道"/);
+  assert.match(mapping, /timePrecision: "DATE_ONLY"/);
+  assert.match(mapping, /accuracy === "只知道时辰"/);
+  assert.match(mapping, /timePrecision: "HOUR_RANGE"/);
+  assert.match(mapping, /hourBranchCode/);
 });
 
 test("PROFILE-08 开启初见时防止并发重复确认并恢复已激活的档案版本", async () => {
@@ -398,7 +421,8 @@ test("MY-10 复用统一建档组件并真实提交历法与时间精度", async
   assert.match(newPerson, /variant="other"/);
   assert.match(page, /calendarType: otherData\.calendarType/);
   assert.match(page, /isLeapMonth: otherData\.calendarType === "LUNAR" && otherData\.isLeapMonth/);
-  assert.match(page, /otherData\.accuracy === "准确到分钟" \? "EXACT_MINUTE"/);
+  assert.match(page, /birthTimeFromProfileData\(otherData\.accuracy, otherData\.time\)/);
+  assert.match(page, /timePrecision: "HOUR_RANGE"/);
   assert.match(page, /与我的关系/);
   assert.match(page, /资料来源正当/);
 });

@@ -759,6 +759,13 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
   }
 }
 
+.first-look-pending .primary {
+  margin-top: 14px;
+}
+.first-look-pending .text-action {
+  margin-top: 8px;
+}
+
 @media (min-width: 960px) {
   .phone {
     width: min(calc(100vw - 80px), 760px);
