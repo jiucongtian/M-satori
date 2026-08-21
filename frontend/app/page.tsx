@@ -6,7 +6,7 @@ import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
 import { api, ApiError } from "@/src/api/client";
 import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
-type View = "welcome" | "login" | "recovery" | "profile";
+type View = "welcome" | "login" | "consent" | "recovery" | "profile";
 type LoginIntent = "new" | "existing";
 type EnergyLevel = "高" | "中" | "低";
 const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true";
@@ -21,6 +21,16 @@ function apiMessage(error: unknown) {
   return "网络连接失败，请稍后重试";
 }
 
+function requiredConsentAcceptances(bootstrap: Bootstrap) {
+  return bootstrap.requiredLegalDocuments
+    .filter((document) => document.required)
+    .map(({ documentId, version }) => ({ documentId, version }));
+}
+
+function isConsentRequired(error: unknown) {
+  return error instanceof ApiError && error.code === "CONSENT_REQUIRED";
+}
+
 function stepForAction(action: string) {
   // Any existing profile enters the Today home. Profile confirmation remains an
   // explicit action inside profile management, never a login-time detour.
@@ -31,6 +41,27 @@ function stepForAction(action: string) {
 
 function SessionRestoring() {
   return <section className="session-restoring" aria-live="polite" aria-label="正在恢复登录状态"><Brand /><div className="restoring-seed" aria-hidden="true"><i /><span>芽</span></div><p>正在回到属于你的今日</p></section>;
+}
+
+function ConsentUpdate({ agreed, busy, message, legalHref, onAgreed, onConfirm }: { agreed: boolean; busy: boolean; message: string; legalHref: (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY" | "AI_CONTENT_NOTICE") => string; onAgreed: (agreed: boolean) => void; onConfirm: () => void }) {
+  return <div className="login-page consent-update-page">
+    <header className="brand-row login-header"><Brand /></header>
+    <div className="login-symbol" aria-hidden="true"><i /><span>阅</span></div>
+    <div className="login-copy">
+      <p className="eyebrow">AGREEMENT UPDATED</p>
+      <h1>协议已经更新</h1>
+      <p>继续使用前，请阅读并确认最新的用户协议、隐私政策与 AI 内容说明。</p>
+    </div>
+    <div className="login-form consent-update-form">
+      <label className="consent-row">
+        <input type="checkbox" checked={agreed} onChange={(event) => onAgreed(event.target.checked)} />
+        <span className="checkmark" aria-hidden="true">✓</span>
+        <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并确认 <a href={legalHref("AI_CONTENT_NOTICE")} target="_blank">AI 内容说明</a></span>
+      </label>
+      <div className="form-message" aria-live="polite">{message || "确认后即可继续使用当前账号，无需重新验证手机号"}</div>
+      <button className="primary login-submit" type="button" disabled={!agreed || busy} onClick={onConfirm}>{busy ? "正在确认…" : "同意并继续"} <span>→</span></button>
+    </div>
+  </div>;
 }
 
 export default function WelcomePage() {
@@ -56,13 +87,42 @@ export default function WelcomePage() {
     api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
     api.refresh().then(async (restored) => {
       if (!active || !restored) return;
-      const me = await api.me();
-      if (!active) return;
-      setResumeStep(stepForAction(me.nextAction));
-      setView("profile");
+      try {
+        const me = await api.me();
+        if (!active) return;
+        setResumeStep(stepForAction(me.nextAction));
+        setView("profile");
+      } catch (error) {
+        if (!active || !isConsentRequired(error)) throw error;
+        setAgreed(false);
+        setMessage("");
+        setView("consent");
+      }
     }).catch(() => undefined).finally(() => active && setSessionReady(true));
     return () => { active = false; };
   }, []);
+
+  async function loadCurrentConsentAcceptances() {
+    const currentBootstrap = await api.bootstrap();
+    setBootstrap(currentBootstrap);
+    return requiredConsentAcceptances(currentBootstrap);
+  }
+
+  async function acceptCurrentConsents() {
+    const acceptances = await loadCurrentConsentAcceptances();
+    if (acceptances.length > 0) await api.acceptConsents(acceptances);
+  }
+
+  async function createSessionWithCurrentConsents() {
+    let consentAcceptances = await loadCurrentConsentAcceptances();
+    try {
+      return await api.createSession(challengeId, code, consentAcceptances);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== "LEGAL_DOCUMENT_VERSION_INVALID") throw error;
+      consentAcceptances = await loadCurrentConsentAcceptances();
+      return api.createSession(challengeId, code, consentAcceptances);
+    }
+  }
 
   function enterLogin(intent: LoginIntent = "new") {
     void intent;
@@ -94,10 +154,10 @@ export default function WelcomePage() {
     if (!challengeId) return void sendCode();
     setBusy(true);
     try {
-      const consentAcceptances = (bootstrap?.requiredLegalDocuments || [])
-        .filter((document) => document.required)
-        .map(({ documentId, version }) => ({ documentId, version }));
-      const session = await api.createSession(challengeId, code, consentAcceptances);
+      const session = await createSessionWithCurrentConsents();
+      if (session.user.requiresConsent || session.nextAction === "ACCEPT_CONSENTS") {
+        await acceptCurrentConsents();
+      }
       // The session establishes authentication; `/me` is the authoritative routing state
       // for both first-time and returning users.
       const me = await api.me();
@@ -111,14 +171,30 @@ export default function WelcomePage() {
     }
   }
 
-  const legalHref = (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY") => {
+  async function confirmUpdatedConsents() {
+    if (!agreed) return setMessage("请先阅读并同意最新协议");
+    setBusy(true);
+    setMessage("");
+    try {
+      await acceptCurrentConsents();
+      const me = await api.me();
+      setResumeStep(stepForAction(me.nextAction));
+      setView("profile");
+    } catch (error) {
+      setMessage(apiMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const legalHref = (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY" | "AI_CONTENT_NOTICE") => {
     const document = bootstrap?.requiredLegalDocuments.find((item) => item.type === type);
     return document ? `/legal.html?documentId=${encodeURIComponent(document.documentId)}` : "#";
   };
 
   return (
     <main className="stage">
-      <section className={`phone ${view === "login" ? "login-mode" : ""} ${view === "profile" || view === "recovery" ? "profile-mode" : ""}`} aria-label={view === "welcome" ? "初见欢迎页" : view === "login" ? "手机号登录与注册" : view === "recovery" ? "继续未完成的生命智慧档案" : "建立生命智慧档案"}>
+      <section className={`phone ${view === "login" || view === "consent" ? "login-mode" : ""} ${view === "profile" || view === "recovery" ? "profile-mode" : ""}`} aria-label={view === "welcome" ? "初见欢迎页" : view === "login" ? "手机号登录与注册" : view === "consent" ? "确认最新协议" : view === "recovery" ? "继续未完成的生命智慧档案" : "建立生命智慧档案"}>
         <div className="ambient ambient-one" />
         <div className="ambient ambient-two" />
 
@@ -203,6 +279,8 @@ export default function WelcomePage() {
 
             <div className="login-footer"><span className="lock" aria-hidden="true" />账号与生命智慧档案会安全绑定，不会公开展示手机号</div>
           </div>
+        ) : view === "consent" ? (
+          <ConsentUpdate agreed={agreed} busy={busy} message={message} legalHref={legalHref} onAgreed={(nextAgreed) => { setAgreed(nextAgreed); setMessage(""); }} onConfirm={confirmUpdatedConsents} />
         ) : view === "recovery" ? (
           <ProfileRecovery onBack={() => setView("login")} onContinue={() => { setResumeStep(3); setView("profile"); }} onRestart={() => { setResumeStep(0); setView("profile"); }} />
         ) : (

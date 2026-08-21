@@ -327,7 +327,8 @@ test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access T
 
 test("手机号登录后按后端真实档案状态分流，老用户直接进入 HOME-01", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /const session = await api\.createSession/);
+  assert.match(page, /const session = await createSessionWithCurrentConsents\(\)/);
+  assert.match(page, /session\.user\.requiresConsent \|\| session\.nextAction === "ACCEPT_CONSENTS"/);
   assert.match(page, /const me = await api\.me\(\)/);
   assert.match(page, /stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
   assert.match(page, /if \(action === "CREATE_TODAY_DAILY_INSIGHT" \|\| action === "VIEW_HOME"\) return 10/);
@@ -338,7 +339,8 @@ test("R1 核心页面调用真实后端能力", async () => {
   for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.previewProfile", "api.confirmProfile", "api.generateProfileFirstLook", "api.profileFirstLook", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
     assert.match(page, new RegExp(call.replace(".", "\\.")));
   }
-  assert.match(page, /await api\.createSession\(challengeId, code, consentAcceptances\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
+  assert.match(page, /api\.createSession\(challengeId, code, consentAcceptances\)/);
+  assert.match(page, /const session = await createSessionWithCurrentConsents\(\);[\s\S]*?session\.user\.requiresConsent \|\| session\.nextAction === "ACCEPT_CONSENTS"[\s\S]*?await acceptCurrentConsents\(\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
   assert.match(page, /action === "CONFIRM_PROFILE" \|\| action === "CLAIM_REGISTRATION_REWARD"\) return 10/);
   assert.doesNotMatch(page, /验证码已发送，原型中/);
   assert.doesNotMatch(page, /原型中直接查看结果/);
@@ -349,6 +351,18 @@ test("老用户恢复 Session 前使用中性恢复态，不渲染 AUTH-02", asy
   assert.match(page, /const \[sessionReady, setSessionReady\] = useState\(false\)/);
   assert.match(page, /!sessionReady \? <SessionRestoring \/> : view === "welcome"/);
   assert.match(page, /finally\(\(\) => active && setSessionReady\(true\)\)/);
+});
+
+test("协议版本更新时阻止空接受列表并为新旧 Session 完成补充确认", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(page, /const currentBootstrap = await api\.bootstrap\(\)/);
+  assert.match(page, /requiredConsentAcceptances\(currentBootstrap\)/);
+  assert.match(page, /error\.code !== "LEGAL_DOCUMENT_VERSION_INVALID"/);
+  assert.match(page, /isConsentRequired\(error\)[\s\S]*?setView\("consent"\)/);
+  assert.match(page, /function ConsentUpdate/);
+  assert.match(page, /await api\.acceptConsents\(acceptances\)/);
+  assert.match(client, /acceptConsents\(acceptances:[\s\S]*?"\/me\/consents"/);
 });
 
 test("MY-04 打开的每日指引详情返回 MY-01", async () => {

@@ -163,6 +163,13 @@ class SatoriApiClient {
     });
   }
 
+  acceptConsents(acceptances: Schemas["ConsentAcceptance"][]) {
+    return this.command<Schemas["ConsentEnvelope"]>("/me/consents", {
+      method: "POST",
+      body: JSON.stringify({ acceptances }),
+    }).then((x) => x.data);
+  }
+
   me() { return this.request<Schemas["MeEnvelope"]>("/me").then((x) => x.data); }
   home() { return this.request<Schemas["HomeOverviewEnvelope"]>("/me/home-overview").then((x) => x.data); }
   selfProfile() { return this.request<Schemas["LifeProfileEnvelope"]>("/me/life-profile").then((x) => x.data); }
