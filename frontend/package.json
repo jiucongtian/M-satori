@@ -19,6 +19,8 @@
     "api:check": "npm run api:lint && npm run api:generate && git diff --exit-code -- src/api/contracts/generated.ts"
   },
   "dependencies": {
+    "@fontsource/noto-sans-sc": "5.2.7",
+    "@fontsource/noto-serif-sc": "5.2.7",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
     "react": "19.2.6",

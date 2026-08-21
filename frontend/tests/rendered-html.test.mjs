@@ -79,6 +79,32 @@ test("R1.0 使用统一字体令牌并明确区分品牌与功能文字", async 
   assert.match(css, /\.home-energy-card \.guide-tips strong,[\s\S]*?font-size:var\(--type-caption\)/);
 });
 
+test("R1.0 字体随构建交付并保留 OFL 授权证据", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const sansLicense = await readFile(new URL("../public/fonts/licenses/Noto-Sans-SC-OFL-1.1.txt", import.meta.url), "utf8");
+  const serifLicense = await readFile(new URL("../public/fonts/licenses/Noto-Serif-SC-OFL-1.1.txt", import.meta.url), "utf8");
+
+  assert.equal(packageJson.dependencies["@fontsource/noto-sans-sc"], "5.2.7");
+  assert.equal(packageJson.dependencies["@fontsource/noto-serif-sc"], "5.2.7");
+  for (const family of ["noto-sans-sc", "noto-serif-sc"]) {
+    for (const weight of [400, 500, 600]) {
+      const path = `/fonts/${family}/${family}-${weight}.woff2`;
+      assert.match(css, new RegExp(path.replaceAll("/", "\\/")));
+      const binary = await readFile(new URL(`../public${path}`, import.meta.url));
+      assert.ok(binary.byteLength > 10_000);
+    }
+  }
+  for (const license of [sansLicense, serifLicense]) assert.match(license, /SIL OPEN FONT LICENSE Version 1\.1/);
+});
+
+test("R1.0 业务样式不直接指定未经规范批准的具名字体", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /--font-brand: "Noto Serif SC", serif/);
+  assert.match(css, /--font-ui: "Noto Sans SC", sans-serif/);
+  assert.doesNotMatch(css, /PingFang|Microsoft YaHei|Songti|STSong|Arial|Helvetica|Source Han/);
+});
+
 test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const nav = page.match(/function MainNav[\s\S]*?\n}\n/)?.[0] ?? "";
