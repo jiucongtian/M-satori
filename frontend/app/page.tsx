@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
-import { api, ApiError } from "@/src/api/client";
+import { api, ApiError, CONSENT_REQUIRED_EVENT } from "@/src/api/client";
 import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
 type View = "welcome" | "login" | "consent" | "recovery" | "profile";
@@ -84,6 +84,15 @@ export default function WelcomePage() {
 
   useEffect(() => {
     let active = true;
+    const handleConsentRequired = () => {
+      if (!active) return;
+      setAgreed(false);
+      setMessage("");
+      setView("consent");
+      setSessionReady(true);
+      void api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
+    };
+    window.addEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
     api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
     api.refresh().then(async (restored) => {
       if (!active || !restored) return;
@@ -99,7 +108,10 @@ export default function WelcomePage() {
         setView("consent");
       }
     }).catch(() => undefined).finally(() => active && setSessionReady(true));
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.removeEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
+    };
   }, []);
 
   async function loadCurrentConsentAcceptances() {

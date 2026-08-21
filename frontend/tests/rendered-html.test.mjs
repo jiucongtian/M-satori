@@ -365,6 +365,16 @@ test("协议版本更新时阻止空接受列表并为新旧 Session 完成补�
   assert.match(client, /acceptConsents\(acceptances:[\s\S]*?"\/me\/consents"/);
 });
 
+test("任意受保护接口返回 CONSENT_REQUIRED 时全局进入协议确认页", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(client, /export const CONSENT_REQUIRED_EVENT = "satori:consent-required"/);
+  assert.match(client, /failure\?\.code === "CONSENT_REQUIRED"[\s\S]*?window\.dispatchEvent\(new CustomEvent\(CONSENT_REQUIRED_EVENT/);
+  assert.match(page, /window\.addEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
+  assert.match(page, /handleConsentRequired[\s\S]*?setView\("consent"\)[\s\S]*?setSessionReady\(true\)/);
+  assert.match(page, /window\.removeEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
+});
+
 test("MY-04 打开的每日指引详情返回 MY-01", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /setDailyReturnStep\(21\); setStep\(14\)/);
