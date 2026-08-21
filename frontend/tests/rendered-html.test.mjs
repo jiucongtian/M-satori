@@ -137,13 +137,12 @@ test("R1.0 我的页面不展示后续版本入口", async () => {
   assert.doesNotMatch(myHome, /商城|助学童子|生命之光|月运|年运|关系匹配/);
 });
 
-test("R1.0 智慧种子统一为不可交易的 AI 体验额度", async () => {
+test("R1.0 智慧种子统一为不可交易的 AI 体验额度，赠送页不重复展示说明", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const gift = page.match(/function SeedGift[\s\S]*?\n}\n/)?.[0] ?? "";
   const daily = page.match(/function SeedPayment[\s\S]*?\n}\n/)?.[0] ?? "";
   const seeds = page.match(/function MySeeds[\s\S]*?\n}\n/)?.[0] ?? "";
-  assert.match(gift, /AI 体验额度/);
-  assert.match(gift, /不可购买、充值、提现、转赠或交易/);
+  assert.doesNotMatch(gift, /智慧种子是平台免费赠送、会员附赠或学院配置的 AI 体验额度/);
   assert.match(daily, /确认后将预留体验额度/);
   assert.match(daily, /未形成有效内容会自动恢复/);
   assert.match(daily, /AI 体验额度不足/);

@@ -1043,7 +1043,6 @@ function SeedGift({ name, amount, claimed = false, busy, onClaim, onNext }: { na
     <p className="gift-lead">{claimed ? "从今天开始，让每一次指引都成为一次生长。" : "完成生命智慧档案的新用户，都可以领取一份启程礼。"}</p>
     <div className="seed-value"><span>新手启程礼</span><strong>{amount} 颗</strong><span>智慧种子</span></div>
     <div className="growth-path" aria-label="智慧种子的成长路径"><span className="active"><i>●</i>种下</span><b /><span><i>♧</i>发芽</span><b /><span><i>❧</i>枝叶</span><b /><span><i>✦</i>结果</span></div>
-    <p className="seed-rule">智慧种子是平台免费赠送、会员附赠或学院配置的 AI 体验额度，不可购买、充值、提现、转赠或交易。</p>
     {!claimed ? <button className="primary" type="button" disabled={busy} onClick={onClaim}>{busy ? "领取中…" : `收下 ${amount} 颗智慧种子`} <span>＋</span></button> : <button className="primary" type="button" onClick={onNext}>进入今日首页 <span>→</span></button>}
   </section>;
 }
