@@ -67,6 +67,18 @@ test("正式工程包含完整原型基础样式", async () => {
   assert.ok(formalCss.length > 50_000);
 });
 
+test("R1.0 使用统一字体令牌并明确区分品牌与功能文字", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  for (const token of [
+    "--font-brand:", "--font-ui:", "--type-display: 32px", "--type-page-title: 24px",
+    "--type-body: 14px", "--type-secondary: 13px", "--type-caption: 12px",
+  ]) assert.match(css, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(css, /\.phone\{font-family:var\(--font-ui\)/);
+  assert.match(css, /\.phone h1,[\s\S]*?font-family:var\(--font-brand\)/);
+  assert.match(css, /\.report-opening p,[\s\S]*?font-size:var\(--type-body\);line-height:1\.85/);
+  assert.match(css, /\.home-energy-card \.guide-tips strong,[\s\S]*?font-size:var\(--type-caption\)/);
+});
+
 test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const nav = page.match(/function MainNav[\s\S]*?\n}\n/)?.[0] ?? "";

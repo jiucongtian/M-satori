@@ -6,6 +6,19 @@
   --sage: #456b5b;
   --cream: #f6f2e8;
   --gold: #d7a35a;
+  /* R1.0 typography trial: feeling uses serif, interaction uses sans-serif. */
+  --font-brand: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --type-display: 32px;
+  --type-hero: 28px;
+  --type-page-title: 24px;
+  --type-section-title: 18px;
+  --type-card-title: 16px;
+  --type-body-strong: 15px;
+  --type-body: 14px;
+  --type-secondary: 13px;
+  --type-caption: 12px;
+  --type-label: 10px;
 }
 
 * { box-sizing: border-box; }
@@ -16,7 +29,7 @@ button { font: inherit; }
 body {
   color: var(--ink);
   background: #d8ddd7;
-  font-family: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+  font-family: var(--font-brand);
 }
 
 .legal-page { min-height: 100svh; padding: max(18px, env(safe-area-inset-top)) 16px max(40px, env(safe-area-inset-bottom)); background: radial-gradient(circle at 86% 8%, rgba(215,163,90,.13), transparent 27%), radial-gradient(circle at 0 48%, rgba(69,107,91,.1), transparent 25%), #f6f2e8; }
@@ -611,3 +624,48 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 /* R1.0 MY-08/09/13 · service-first contact and short archive actions. */
 .contact-page{padding-bottom:20px;overflow-y:auto;scrollbar-width:none}.contact-page::-webkit-scrollbar{display:none}.support-focus{padding:14px 16px 15px;border:1px solid rgba(69,107,91,.1);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.8),rgba(239,226,199,.4));box-shadow:0 13px 30px rgba(50,78,65,.08);text-align:center}.support-focus-title{display:flex;align-items:center;justify-content:space-between;text-align:left}.support-focus-title span{display:grid;gap:3px}.support-focus-title small{color:#9aa29d;font-size:6px}.support-focus-title strong{color:#304f43;font-size:12px;font-weight:500}.support-focus-title b{padding:4px 9px;border-radius:10px;color:#80623f;background:#f0dfbf;font-size:6px;font-weight:400}.support-qr{width:148px;height:148px;margin:10px auto 7px;padding:7px;display:grid;place-items:center;border-radius:16px;background:#fff;box-shadow:0 9px 23px rgba(52,77,65,.09)}.support-qr img{width:100%;height:100%;display:block;object-fit:contain;border-radius:7px}.support-focus>p{margin:0;color:#66776e;font-size:7px}.official-media{margin-top:13px}.official-media>header{margin-bottom:8px;display:flex;align-items:end;justify-content:space-between}.official-media>header small{color:#a27b4d;font:6px Arial,sans-serif;letter-spacing:.14em}.official-media>header strong{color:#52675c;font-size:9px;font-weight:500}.official-media>article{margin-top:7px;padding:9px 12px;display:grid;grid-template-columns:70px 1fr;gap:12px;align-items:center;border:1px solid rgba(69,107,91,.08);border-radius:17px;background:rgba(255,255,255,.62)}.official-media>article>div{width:70px;height:70px;padding:4px;display:grid;place-items:center;border-radius:11px;background:#fff}.official-media img{width:100%;height:100%;display:block;object-fit:contain;border-radius:5px}.official-media article>span{display:grid;gap:4px;text-align:left}.official-media article strong{color:#375448;font-size:10px;font-weight:500}.official-media article small{color:#87928c;font-size:7px}.official-media article em{color:#a37b49;font-size:6px;font-style:normal}
 .person-archive-detail{overflow-y:auto;scrollbar-width:none}.person-archive-detail::-webkit-scrollbar{display:none}.person-archive-detail .profile-owner{margin-top:14px}.person-archive-detail .first-look-entry{margin-top:13px}.other-first-look{margin-top:10px;padding:15px;border-radius:18px;background:rgba(255,255,255,.58)}.other-first-look>small{color:#a07849;font-size:6px}.other-first-look h2{margin:7px 0 5px;color:#355247;font-size:13px;font-weight:500}.other-first-look>p{margin:0;color:#718078;font-size:8px;line-height:1.7}.other-first-look article{padding:8px 0;display:grid;gap:3px;border-bottom:1px solid rgba(69,107,91,.07)}.other-first-look article:last-child{border:0}.other-first-look article strong{color:#52675c;font-size:8px}.other-first-look article span{color:#7c8982;font-size:7px;line-height:1.55}.person-archive-actions{padding-bottom:12px}.person-archive-actions .outline-button,.person-archive-actions .danger-action{width:100%;margin-top:9px}.person-delete-confirm{margin-bottom:0}.other-profile-editor{overflow-y:auto;scrollbar-width:none}.other-profile-editor::-webkit-scrollbar{display:none}.other-profile-editor .unified-profile{padding-bottom:22px}.other-profile-editor .unified-profile-intro{padding-top:12px}
+
+/* R1.0 typography trial: serif carries feeling; sans-serif carries interaction. */
+.phone{font-family:var(--font-ui);font-size:var(--type-body);line-height:1.7}
+.phone h1,.phone h2,.phone h3,.phone blockquote,.phone .brand strong,.phone .sun strong,.phone .daily-sun>span,.phone .daily-seed-scene span,.phone .pay-seed>span,.phone .seed-visual>span,.phone .coming-growth span{font-family:var(--font-brand)}
+.phone h1,.phone h2,.phone h3{font-weight:500}.phone button,.phone input,.phone select,.phone textarea{font-family:var(--font-ui)}
+.phone .primary{min-height:52px;font-size:var(--type-body-strong);font-weight:600}.phone .outline-button,.phone .text-action,.phone .quiet-link{font-size:var(--type-caption)}.phone .eyebrow{font-family:var(--font-ui);font-size:var(--type-label)}
+
+/* AUTH-02—04 */
+.hero-copy h1{font-size:var(--type-display);line-height:1.42}.intro{font-size:var(--type-body);line-height:1.85}.trust-note,.agreement{font-size:var(--type-caption)}
+.login-copy h1{font-size:var(--type-hero);line-height:1.4}.login-copy>p:last-child,.field-label,.login-message{font-size:var(--type-secondary)}.field input{font-family:var(--font-ui);font-size:var(--type-body)}.send-code{font-size:var(--type-caption)}
+
+/* PROFILE-01—11 and profile editors */
+.profile-intro h1,.flow-step h1,.calculating h1,.profile-result h1,.unified-profile-intro h1{font-size:var(--type-page-title);line-height:1.5}
+.profile-lead,.flow-note,.unified-profile-intro>p:last-child,.input-helper,.privacy-inline{font-size:var(--type-secondary);line-height:1.75}
+.benefit-list span,.soft-card p,.choice>span,.summary-row>span,.summary-row strong,.place-result strong,.place-result small{font-size:var(--type-caption)}
+.unified-field-group small,.solar-time-copy p,.solar-time-notice p,.other-profile-consent,.other-profile-consent strong{font-size:var(--type-caption);line-height:1.65}.unified-field-index{font-size:var(--type-label)}
+.calendar-switch button{font-size:var(--type-caption)}.lunar-date-row select,.unified-time-row select{font-size:var(--type-secondary)}.solar-time-copy strong{font-size:var(--type-secondary)}.solar-time-copy b{font-size:var(--type-label)}
+.calc-stages,.calculating>p:last-of-type{font-size:var(--type-caption)}.result-card small,.result-card p,.wisdom-card-panel>small,.wisdom-card-panel>p{font-size:var(--type-caption)}
+.life-wisdom-card footer{font-size:var(--type-caption);white-space:normal}
+
+/* PROFILE-11 and registration gift */
+.first-look h1,.seed-gift h1{font-size:var(--type-page-title)}.season-summary h2{font-size:var(--type-card-title)}
+.season-summary p,.insight-list p,.growth-hint p,.growth-hint strong,.gift-lead,.seed-value,.growth-path span,.seed-rule{font-size:var(--type-caption);line-height:1.65}
+.season-summary small,.insight-list b,.insight-list small,.seed-visual>small{font-size:var(--type-label)}
+
+/* HOME-01 */
+.seed-balance{font-family:var(--font-ui);font-size:var(--type-caption)}.seed-balance strong{font-size:var(--type-body-strong)}.today-home h1{font-size:var(--type-hero);line-height:1.45}.home-note{font-size:var(--type-secondary);line-height:1.75}
+.home-energy-card>small,.home-energy-card .daily-sun>small{font-size:var(--type-label)}.home-energy-card h2{font-size:var(--type-section-title)}
+.home-energy-card .guide-tips strong,.home-energy-card .guide-tips span{font-size:var(--type-caption);line-height:1.65}.home-energy-card button{font-size:var(--type-body)}.home-nav{font-family:var(--font-ui);font-size:11px}
+
+/* DAILY-01—05, PAY-01 and reports */
+.daily-page>h1,.report-scroll>h1{font-size:var(--type-page-title);line-height:1.5}.daily-lead{font-size:var(--type-secondary);line-height:1.8}
+.will-get>small,.will-get span,.cost-preview small,.cost-preview strong,.payment-card>div,.payment-card strong,.payment-note,.generation-list,.quiet-wait{font-size:var(--type-caption)}
+.energy-header small,.report-opening b,.report-columns small{font-size:var(--type-label)}.energy-header p strong{font-size:var(--type-body)}.report-opening h2{font-size:var(--type-section-title)}
+.report-opening p,.report-columns p,.report-scroll blockquote{font-size:var(--type-body);line-height:1.85}.report-columns h3{font-size:var(--type-card-title)}
+.action-options button,.timeline-note p,.timeline-note strong{font-size:var(--type-caption)}
+
+/* MY-01—18 */
+.my-home,.my-page,.contact-page,.person-archive-detail,.other-profile-editor{font-family:var(--font-ui)}.my-home h1,.my-page h1,.contact-intro h1{font-family:var(--font-brand)}.contact-intro h1{font-size:var(--type-section-title)}
+.contact-intro p,.contact-tabs button,.contact-focus-title strong,.contact-focus>p,.contact-focus>small,.contact-note strong,.contact-note p,.support-focus-title strong,.support-focus>p,.official-media>header strong,.official-media article strong,.official-media article small,.official-media article em{font-size:var(--type-caption);line-height:1.6}
+.first-look-entry small,.first-look-entry strong,.edit-profile-notice,.edit-profile-lead,.edit-version-note strong,.edit-version-note small,.other-first-look>small,.other-first-look>p,.other-first-look article strong,.other-first-look article span{font-size:var(--type-caption);line-height:1.65}
+.first-look-cover>small{font-size:var(--type-label)}.first-look-cover h1{font-size:var(--type-section-title)}.first-look-cover p,.first-look-voices p{font-size:var(--type-secondary);line-height:1.8}.first-look-voices h2{font-size:var(--type-card-title)}.first-look-voices small,.first-look-notice,.ai-content-notice{font-size:var(--type-caption)}
+
+/* R1.0 unavailable-module previews */
+.coming-soon-page h1{font-size:var(--type-page-title)}.coming-lead{font-size:var(--type-secondary);line-height:1.75}.coming-state strong,.coming-state small,.coming-features p{font-size:var(--type-caption)}.coming-features>small,.coming-features b{font-size:var(--type-label)}
