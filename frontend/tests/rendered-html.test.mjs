@@ -418,3 +418,13 @@ test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底",
   assert.doesNotMatch(component, /card\.ganzhi/);
   assert.match(css, /\.life-card-visual/);
 });
+
+test("H5 阅读正文、底部导航与多端断点保持可读", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.main-nav button \{[^}]*min-height: 44px;[^}]*font-size: clamp\(12px, 3\.2vw, 14px\)/s);
+  assert.match(css, /\.first-look-cover p \{[^}]*font-size: clamp\(14px, 3\.8vw, 16px\)[^}]*line-height: 1\.9/s);
+  assert.match(css, /\.first-look-voices p \{[^}]*font-size: clamp\(14px, 3\.8vw, 16px\)[^}]*line-height: 1\.85/s);
+  assert.match(css, /@media \(max-width: 520px\) \{[\s\S]*?height: 100dvh;[\s\S]*?min-height: 0;/);
+  assert.match(css, /@media \(min-width: 521px\) \{[\s\S]*?width: min\(calc\(100vw - 48px\), 680px\)/);
+  assert.match(css, /@media \(min-width: 960px\) \{[\s\S]*?width: min\(calc\(100vw - 80px\), 760px\)/);
+});
