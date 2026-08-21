@@ -35,6 +35,7 @@ export type {
   WisdomSeedTransaction,
 };
 export type BirthInput = Schemas["BirthInput"];
+export const CONSENT_REQUIRED_EVENT = "satori:consent-required";
 
 export class ApiError extends Error {
   constructor(
@@ -97,6 +98,11 @@ class SatoriApiClient {
     const payload = response.status === 204 ? null : await response.json().catch(() => null);
     if (!response.ok) {
       const failure = payload?.error;
+      if (failure?.code === "CONSENT_REQUIRED" && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(CONSENT_REQUIRED_EVENT, {
+          detail: { requestId: failure.requestId },
+        }));
+      }
       throw new ApiError(
         failure?.message || `请求失败（HTTP ${response.status}）`,
         response.status,
@@ -161,6 +167,13 @@ class SatoriApiClient {
       this.accessToken = data.accessToken;
       return data;
     });
+  }
+
+  acceptConsents(acceptances: Schemas["ConsentAcceptance"][]) {
+    return this.command<Schemas["ConsentEnvelope"]>("/me/consents", {
+      method: "POST",
+      body: JSON.stringify({ acceptances }),
+    }).then((x) => x.data);
   }
 
   me() { return this.request<Schemas["MeEnvelope"]>("/me").then((x) => x.data); }

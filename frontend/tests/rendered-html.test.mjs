@@ -214,7 +214,9 @@ test("PROFILE-08 自动生成预览，点击开启后跳过 PROFILE-10 进入初
   assert.match(flow, /setCalculationStage\(4\)/);
   assert.doesNotMatch(flow, /setStep\(7\)/);
   assert.match(flow, /onDone=\{\(\) => void confirmProfile\(\)\}/);
-  assert.match(flow, /setFirstLookLoading\(true\);\s*setStep\(8\)/);
+  assert.match(flow, /const cardsComplete = hasCompleteFirstLookCards\(revisionToConfirm\)/);
+  assert.match(flow, /setFirstLookLoading\(cardsComplete\);\s*setStep\(8\)/);
+  assert.match(flow, /if \(cardsComplete\) await generateFirstLook/);
   assert.match(calculating, /index < stage/);
   assert.match(calculating, /done \? "✓" : active \? "●" : "○"/);
   assert.match(calculating, /开启后会自动生成并打开详情/);
@@ -233,6 +235,27 @@ test("PROFILE-11 请求失败后回读后端持久化失败状态", async () => 
   assert.match(generation, /await api\.generateProfileFirstLook\(revisionId\)/);
   assert.match(generation, /setFirstLook\(await api\.profileFirstLook\(revisionId\)\)/);
   assert.match(generation, /setApiError\(apiMessage\(error\)\)/);
+});
+
+test("PROFILE-11 四卡不完整时不发起生成并允许修改或跳过", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const firstLook = page.match(/function RelationshipFirstLook[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(page, /function hasCompleteFirstLookCards/);
+  assert.match(page, /card\.cardCode !== "UNKNOWN" && card\.ganzhi/);
+  assert.match(firstLook, /补充出生时间后/);
+  assert.match(firstLook, />修改资料</);
+  assert.match(firstLook, />暂时跳过</);
+  assert.match(page, /onEdit=\{\(\) => setStep\(1\)\}/);
+});
+
+test("出生时间精度正确映射 DATE_ONLY 与 HOUR_RANGE", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const mapping = page.match(/function birthTimeFromProfileData[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(mapping, /accuracy === "完全不知道"/);
+  assert.match(mapping, /timePrecision: "DATE_ONLY"/);
+  assert.match(mapping, /accuracy === "只知道时辰"/);
+  assert.match(mapping, /timePrecision: "HOUR_RANGE"/);
+  assert.match(mapping, /hourBranchCode/);
 });
 
 test("PROFILE-08 开启初见时防止并发重复确认并恢复已激活的档案版本", async () => {
@@ -339,7 +362,8 @@ test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access T
 
 test("手机号登录后按后端真实档案状态分流，老用户直接进入 HOME-01", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /const session = await api\.createSession/);
+  assert.match(page, /const session = await createSessionWithCurrentConsents\(\)/);
+  assert.match(page, /session\.user\.requiresConsent \|\| session\.nextAction === "ACCEPT_CONSENTS"/);
   assert.match(page, /const me = await api\.me\(\)/);
   assert.match(page, /stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
   assert.match(page, /if \(action === "CREATE_TODAY_DAILY_INSIGHT" \|\| action === "VIEW_HOME"\) return 10/);
@@ -350,7 +374,8 @@ test("R1 核心页面调用真实后端能力", async () => {
   for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.previewProfile", "api.confirmProfile", "api.generateProfileFirstLook", "api.profileFirstLook", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
     assert.match(page, new RegExp(call.replace(".", "\\.")));
   }
-  assert.match(page, /await api\.createSession\(challengeId, code, consentAcceptances\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
+  assert.match(page, /api\.createSession\(challengeId, code, consentAcceptances\)/);
+  assert.match(page, /const session = await createSessionWithCurrentConsents\(\);[\s\S]*?session\.user\.requiresConsent \|\| session\.nextAction === "ACCEPT_CONSENTS"[\s\S]*?await acceptCurrentConsents\(\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
   assert.match(page, /action === "CONFIRM_PROFILE" \|\| action === "CLAIM_REGISTRATION_REWARD"\) return 10/);
   assert.doesNotMatch(page, /验证码已发送，原型中/);
   assert.doesNotMatch(page, /原型中直接查看结果/);
@@ -361,6 +386,28 @@ test("老用户恢复 Session 前使用中性恢复态，不渲染 AUTH-02", asy
   assert.match(page, /const \[sessionReady, setSessionReady\] = useState\(false\)/);
   assert.match(page, /!sessionReady \? <SessionRestoring \/> : view === "welcome"/);
   assert.match(page, /finally\(\(\) => active && setSessionReady\(true\)\)/);
+});
+
+test("协议版本更新时阻止空接受列表并为新旧 Session 完成补充确认", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(page, /const currentBootstrap = await api\.bootstrap\(\)/);
+  assert.match(page, /requiredConsentAcceptances\(currentBootstrap\)/);
+  assert.match(page, /error\.code !== "LEGAL_DOCUMENT_VERSION_INVALID"/);
+  assert.match(page, /isConsentRequired\(error\)[\s\S]*?setView\("consent"\)/);
+  assert.match(page, /function ConsentUpdate/);
+  assert.match(page, /await api\.acceptConsents\(acceptances\)/);
+  assert.match(client, /acceptConsents\(acceptances:[\s\S]*?"\/me\/consents"/);
+});
+
+test("任意受保护接口返回 CONSENT_REQUIRED 时全局进入协议确认页", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(client, /export const CONSENT_REQUIRED_EVENT = "satori:consent-required"/);
+  assert.match(client, /failure\?\.code === "CONSENT_REQUIRED"[\s\S]*?window\.dispatchEvent\(new CustomEvent\(CONSENT_REQUIRED_EVENT/);
+  assert.match(page, /window\.addEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
+  assert.match(page, /handleConsentRequired[\s\S]*?setView\("consent"\)[\s\S]*?setSessionReady\(true\)/);
+  assert.match(page, /window\.removeEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
 });
 
 test("MY-04 打开的每日指引详情返回 MY-01", async () => {
@@ -474,7 +521,8 @@ test("MY-10 复用统一建档组件并真实提交历法与时间精度", async
   assert.match(newPerson, /variant="other"/);
   assert.match(page, /calendarType: otherData\.calendarType/);
   assert.match(page, /isLeapMonth: otherData\.calendarType === "LUNAR" && otherData\.isLeapMonth/);
-  assert.match(page, /otherData\.accuracy === "准确到分钟" \? "EXACT_MINUTE"/);
+  assert.match(page, /birthTimeFromProfileData\(otherData\.accuracy, otherData\.time\)/);
+  assert.match(page, /timePrecision: "HOUR_RANGE"/);
   assert.match(page, /与我的关系/);
   assert.match(page, /资料来源正当/);
 });
@@ -595,4 +643,14 @@ test("HOME-01 完整展示生长动画且不出现底部横向滚动条", async 
   assert.match(css, /\.home-flow \.today-home\{[^}]*overflow-x:hidden[^}]*overflow-y:auto[^}]*scrollbar-width:none/);
   assert.match(css, /\.home-flow \.today-home::-webkit-scrollbar\{display:none\}/);
   assert.doesNotMatch(css, /\.home-flow \.today-home\{[^}]*scrollbar-width:thin/);
+});
+
+test("H5 阅读正文、底部导航与多端断点保持可读", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.main-nav button \{[^}]*min-height: 44px;[^}]*font-size: clamp\(12px, 3\.2vw, 14px\)/s);
+  assert.match(css, /\.first-look-cover p \{[^}]*font-size: clamp\(14px, 3\.8vw, 16px\)[^}]*line-height: 1\.9/s);
+  assert.match(css, /\.first-look-voices p \{[^}]*font-size: clamp\(14px, 3\.8vw, 16px\)[^}]*line-height: 1\.85/s);
+  assert.match(css, /@media \(max-width: 520px\) \{[\s\S]*?height: 100dvh;[\s\S]*?min-height: 0;/);
+  assert.match(css, /@media \(min-width: 521px\) \{[\s\S]*?width: min\(calc\(100vw - 48px\), 680px\)/);
+  assert.match(css, /@media \(min-width: 960px\) \{[\s\S]*?width: min\(calc\(100vw - 80px\), 760px\)/);
 });

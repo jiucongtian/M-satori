@@ -3,10 +3,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
-import { api, ApiError } from "@/src/api/client";
-import type { Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
+import { api, ApiError, CONSENT_REQUIRED_EVENT } from "@/src/api/client";
+import type { BirthInput, Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
-type View = "welcome" | "login" | "recovery" | "profile";
+type View = "welcome" | "login" | "consent" | "recovery" | "profile";
 type LoginIntent = "new" | "existing";
 type EnergyLevel = "高" | "中" | "低";
 const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true";
@@ -21,6 +21,16 @@ function apiMessage(error: unknown) {
   return "网络连接失败，请稍后重试";
 }
 
+function requiredConsentAcceptances(bootstrap: Bootstrap) {
+  return bootstrap.requiredLegalDocuments
+    .filter((document) => document.required)
+    .map(({ documentId, version }) => ({ documentId, version }));
+}
+
+function isConsentRequired(error: unknown) {
+  return error instanceof ApiError && error.code === "CONSENT_REQUIRED";
+}
+
 function stepForAction(action: string) {
   // Any existing profile enters the Today home. Profile confirmation remains an
   // explicit action inside profile management, never a login-time detour.
@@ -31,6 +41,27 @@ function stepForAction(action: string) {
 
 function SessionRestoring() {
   return <section className="session-restoring" aria-live="polite" aria-label="正在恢复登录状态"><Brand /><div className="restoring-seed" aria-hidden="true"><i /><span>芽</span></div><p>正在回到属于你的今日</p></section>;
+}
+
+function ConsentUpdate({ agreed, busy, message, legalHref, onAgreed, onConfirm }: { agreed: boolean; busy: boolean; message: string; legalHref: (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY" | "AI_CONTENT_NOTICE") => string; onAgreed: (agreed: boolean) => void; onConfirm: () => void }) {
+  return <div className="login-page consent-update-page">
+    <header className="brand-row login-header"><Brand /></header>
+    <div className="login-symbol" aria-hidden="true"><i /><span>阅</span></div>
+    <div className="login-copy">
+      <p className="eyebrow">AGREEMENT UPDATED</p>
+      <h1>协议已经更新</h1>
+      <p>继续使用前，请阅读并确认最新的用户协议、隐私政策与 AI 内容说明。</p>
+    </div>
+    <div className="login-form consent-update-form">
+      <label className="consent-row">
+        <input type="checkbox" checked={agreed} onChange={(event) => onAgreed(event.target.checked)} />
+        <span className="checkmark" aria-hidden="true">✓</span>
+        <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并确认 <a href={legalHref("AI_CONTENT_NOTICE")} target="_blank">AI 内容说明</a></span>
+      </label>
+      <div className="form-message" aria-live="polite">{message || "确认后即可继续使用当前账号，无需重新验证手机号"}</div>
+      <button className="primary login-submit" type="button" disabled={!agreed || busy} onClick={onConfirm}>{busy ? "正在确认…" : "同意并继续"} <span>→</span></button>
+    </div>
+  </div>;
 }
 
 export default function WelcomePage() {
@@ -53,16 +84,57 @@ export default function WelcomePage() {
 
   useEffect(() => {
     let active = true;
+    const handleConsentRequired = () => {
+      if (!active) return;
+      setAgreed(false);
+      setMessage("");
+      setView("consent");
+      setSessionReady(true);
+      void api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
+    };
+    window.addEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
     api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
     api.refresh().then(async (restored) => {
       if (!active || !restored) return;
-      const me = await api.me();
-      if (!active) return;
-      setResumeStep(stepForAction(me.nextAction));
-      setView("profile");
+      try {
+        const me = await api.me();
+        if (!active) return;
+        setResumeStep(stepForAction(me.nextAction));
+        setView("profile");
+      } catch (error) {
+        if (!active || !isConsentRequired(error)) throw error;
+        setAgreed(false);
+        setMessage("");
+        setView("consent");
+      }
     }).catch(() => undefined).finally(() => active && setSessionReady(true));
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.removeEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
+    };
   }, []);
+
+  async function loadCurrentConsentAcceptances() {
+    const currentBootstrap = await api.bootstrap();
+    setBootstrap(currentBootstrap);
+    return requiredConsentAcceptances(currentBootstrap);
+  }
+
+  async function acceptCurrentConsents() {
+    const acceptances = await loadCurrentConsentAcceptances();
+    if (acceptances.length > 0) await api.acceptConsents(acceptances);
+  }
+
+  async function createSessionWithCurrentConsents() {
+    let consentAcceptances = await loadCurrentConsentAcceptances();
+    try {
+      return await api.createSession(challengeId, code, consentAcceptances);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== "LEGAL_DOCUMENT_VERSION_INVALID") throw error;
+      consentAcceptances = await loadCurrentConsentAcceptances();
+      return api.createSession(challengeId, code, consentAcceptances);
+    }
+  }
 
   function enterLogin(intent: LoginIntent = "new") {
     void intent;
@@ -94,10 +166,10 @@ export default function WelcomePage() {
     if (!challengeId) return void sendCode();
     setBusy(true);
     try {
-      const consentAcceptances = (bootstrap?.requiredLegalDocuments || [])
-        .filter((document) => document.required)
-        .map(({ documentId, version }) => ({ documentId, version }));
-      const session = await api.createSession(challengeId, code, consentAcceptances);
+      const session = await createSessionWithCurrentConsents();
+      if (session.user.requiresConsent || session.nextAction === "ACCEPT_CONSENTS") {
+        await acceptCurrentConsents();
+      }
       // The session establishes authentication; `/me` is the authoritative routing state
       // for both first-time and returning users.
       const me = await api.me();
@@ -111,14 +183,30 @@ export default function WelcomePage() {
     }
   }
 
-  const legalHref = (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY") => {
+  async function confirmUpdatedConsents() {
+    if (!agreed) return setMessage("请先阅读并同意最新协议");
+    setBusy(true);
+    setMessage("");
+    try {
+      await acceptCurrentConsents();
+      const me = await api.me();
+      setResumeStep(stepForAction(me.nextAction));
+      setView("profile");
+    } catch (error) {
+      setMessage(apiMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const legalHref = (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY" | "AI_CONTENT_NOTICE") => {
     const document = bootstrap?.requiredLegalDocuments.find((item) => item.type === type);
     return document ? `/legal.html?documentId=${encodeURIComponent(document.documentId)}` : "#";
   };
 
   return (
     <main className="stage">
-      <section className={`phone ${view === "login" ? "login-mode" : ""} ${view === "profile" || view === "recovery" ? "profile-mode" : ""}`} aria-label={view === "welcome" ? "初见欢迎页" : view === "login" ? "手机号登录与注册" : view === "recovery" ? "继续未完成的生命智慧档案" : "建立生命智慧档案"}>
+      <section className={`phone ${view === "login" || view === "consent" ? "login-mode" : ""} ${view === "profile" || view === "recovery" ? "profile-mode" : ""}`} aria-label={view === "welcome" ? "初见欢迎页" : view === "login" ? "手机号登录与注册" : view === "consent" ? "确认最新协议" : view === "recovery" ? "继续未完成的生命智慧档案" : "建立生命智慧档案"}>
         <div className="ambient ambient-one" />
         <div className="ambient ambient-two" />
 
@@ -203,6 +291,8 @@ export default function WelcomePage() {
 
             <div className="login-footer"><span className="lock" aria-hidden="true" />账号与生命智慧档案会安全绑定，不会公开展示手机号</div>
           </div>
+        ) : view === "consent" ? (
+          <ConsentUpdate agreed={agreed} busy={busy} message={message} legalHref={legalHref} onAgreed={(nextAgreed) => { setAgreed(nextAgreed); setMessage(""); }} onConfirm={confirmUpdatedConsents} />
         ) : view === "recovery" ? (
           <ProfileRecovery onBack={() => setView("login")} onContinue={() => { setResumeStep(3); setView("profile"); }} onRestart={() => { setResumeStep(0); setView("profile"); }} />
         ) : (
@@ -213,7 +303,35 @@ export default function WelcomePage() {
   );
 }
 
-type ProfileData = { name: string; date: string; calendarType: "SOLAR" | "LUNAR"; lunarYear: number; lunarMonth: number; lunarDay: number; isLeapMonth: boolean; time: string; accuracy: string; place: string; locationId: string; gender: "MALE" | "FEMALE"; relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER" };
+type TimeAccuracy = "准确到分钟" | "大致时间" | "只知道时辰" | "完全不知道";
+type HourBranchCode = NonNullable<BirthInput["time"]["hourBranchCode"]>;
+type ProfileData = { name: string; date: string; calendarType: "SOLAR" | "LUNAR"; lunarYear: number; lunarMonth: number; lunarDay: number; isLeapMonth: boolean; time: string; accuracy: TimeAccuracy; place: string; locationId: string; gender: "MALE" | "FEMALE"; relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER" };
+const hourBranches: HourBranchCode[] = ["ZI", "CHOU", "YIN", "MAO", "CHEN", "SI", "WU", "WEI", "SHEN", "YOU", "XU", "HAI"];
+const hourBranchTimes: Record<HourBranchCode, string> = { ZI: "23:00", CHOU: "01:00", YIN: "03:00", MAO: "05:00", CHEN: "07:00", SI: "09:00", WU: "11:00", WEI: "13:00", SHEN: "15:00", YOU: "17:00", XU: "19:00", HAI: "21:00" };
+const timeAccuracyOptions: TimeAccuracy[] = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
+
+function birthTimeFromProfileData(accuracy: TimeAccuracy, time: string): Pick<BirthInput, "timePrecision" | "time"> {
+  if (accuracy === "完全不知道") return { timePrecision: "DATE_ONLY", time: { localTime: null, hourBranchCode: null } };
+  if (accuracy === "只知道时辰") {
+    const hour = Number(time.split(":")[0]);
+    const hourBranchCode = Number.isInteger(hour) ? hourBranches[Math.floor((hour + 1) / 2) % 12] : null;
+    return { timePrecision: "HOUR_RANGE", time: { localTime: null, hourBranchCode } };
+  }
+  return {
+    timePrecision: accuracy === "准确到分钟" ? "EXACT_MINUTE" : "APPROXIMATE",
+    time: { localTime: time, hourBranchCode: null },
+  };
+}
+
+function timeFromBirthInput(input: BirthInput): string {
+  if (input.time.localTime) return input.time.localTime;
+  if (input.timePrecision === "HOUR_RANGE" && input.time.hourBranchCode) return hourBranchTimes[input.time.hourBranchCode];
+  return "08:30";
+}
+
+function hasCompleteFirstLookCards(value: ProfileRevision | null): boolean {
+  return Boolean(value?.cards?.length === 4 && value.cards.every((card) => card.cardCode !== "UNKNOWN" && card.ganzhi));
+}
 const R1_UNSELECTED_LOCATION_ID = "loc_cn_330100";
 const R1_UNSELECTED_LOCATION_LABEL = "当前版本暂不启用地区校正";
 const profileSteps = ["PROFILE-01", "PROFILE-02", "PROFILE-03", "PROFILE-04", "PROFILE-05", "PROFILE-07", "PROFILE-08", "PROFILE-10", "PROFILE-11", "GIFT-01", "HOME-01", "DAILY-01", "PAY-01", "DAILY-02", "DAILY-03", "DAILY-04", "DAILY-05", "SHARE-01", "SHARE-02", "SHARE-03", "SHARE-04", "MY-01", "MY-02", "MY-03", "MY-04", "MY-05", "MY-06", "MY-07", "MY-08", "READ-01", "READ-02", "READ-03", "READ-04", "READ-05", "READ-06", "READ-09", "READ-10", "READ-11", "READ-12", "READ-13", "READ-14", "READ-15", "READ-18", "GRW-01", "REL-01", "READ-19", "READ-20", "READ-21", "READ-22", "READ-23", "READ-24", "READ-25", "GRW-02", "GRW-03", "GRW-06", "LIFE-01", "PER-01", "PER-03", "PER-14", "LIFE-02", "LIFE-03", "LIFE-04", "LIFE-05", "LIFE-06", "LIFE-07", "LIFE-08", "PER-04", "PER-05", "PER-06", "PER-07", "PER-08", "PER-09", "PER-10", "PER-11", "PER-12", "PER-13", "PER-35", "PER-36", "PER-37", "PER-38", "PER-39", "PER-40", "PER-15", "PER-16", "PER-17", "PER-18", "PER-19", "PER-20", "PER-21", "PER-22", "PER-23", "PER-24", "PER-25", "PER-26", "PER-27", "GRW-10", "GRW-11", "GRW-12", "GRW-13", "GRW-14", "GRW-15", "GRW-16", "GRW-17", "GRW-18", "GRW-19", "GRW-20", "GRW-21", "GRW-22", "GRW-23", "GRW-24", "GRW-25", "MY-09", "MY-10", "MY-11", "MY-12", "MY-13", "MY-14", "MY-15", "MY-16", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06", "REL-07", "REL-08", "REL-09", "REL-10", "REL-11", "REL-12", "REL-13", "REL-14", "REL-15", "SHOP-01", "SHOP-02", "SHOP-03", "SHOP-04", "SEED-01", "SEED-02", "SEED-03", "SEED-04", "SEED-05", "SEED-06", "SEED-07", "SEED-08", "SEED-09", "GOODS-01", "GOODS-02", "GOODS-03", "GOODS-04", "GOODS-05", "GOODS-06", "GOODS-07", "GOODS-08", "GOODS-09", "GOODS-10", "ORDER-01", "ORDER-02", "ORDER-03", "ORDER-04", "ORDER-05", "PREVIEW-READ", "PREVIEW-GROWTH", "PREVIEW-RELATIONSHIP"];
@@ -306,12 +424,11 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     const year = data.calendarType === "LUNAR" ? data.lunarYear : solarYear;
     const month = data.calendarType === "LUNAR" ? data.lunarMonth : solarMonth;
     const day = data.calendarType === "LUNAR" ? data.lunarDay : solarDay;
-    const exact = data.accuracy === "准确到分钟" || data.accuracy === "大致时间";
+    const birthTime = birthTimeFromProfileData(data.accuracy, data.time);
     const request = api.previewProfile({
       calendarType: data.calendarType,
       date: { year, month, day, isLeapMonth: data.calendarType === "LUNAR" && data.isLeapMonth },
-      timePrecision: data.accuracy === "准确到分钟" ? "EXACT_MINUTE" : data.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
-      time: { localTime: exact ? data.time : null, hourBranchCode: null },
+      ...birthTime,
       locationId: data.locationId,
       calculationGender: data.gender,
     });
@@ -347,8 +464,8 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       lunarMonth: birth.date.month,
       lunarDay: birth.date.day,
       isLeapMonth: birth.date.isLeapMonth,
-      time: birth.time.localTime || "08:30",
-      accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : "完全不知道",
+      time: timeFromBirthInput(birth),
+      accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : birth.timePrecision === "HOUR_RANGE" ? "只知道时辰" : "完全不知道",
       locationId: birth.locationId,
       gender: birth.calculationGender,
     }));
@@ -424,12 +541,15 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   }
 
   async function openFirstLookArchive() {
-    const revisionId = revision?.revisionId || home?.profile.currentRevisionId;
+    const revisionId = home?.profile.currentRevisionId || revision?.revisionId;
     setStep(profileSteps.indexOf("MY-18"));
     if (!revisionId) return;
     if (firstLook?.profileRevisionId !== revisionId) setFirstLook(null);
     setFirstLookLoading(true); setApiError("");
     try {
+      const targetRevision = revision?.revisionId === revisionId ? revision : await api.profileRevision(revisionId);
+      if (targetRevision !== revision) setRevision(targetRevision);
+      if (!hasCompleteFirstLookCards(targetRevision)) return;
       setFirstLook(await api.profileFirstLook(revisionId));
     } catch (error) {
       if (error instanceof ApiError && error.code === "PROFILE_FIRST_LOOK_NOT_FOUND") {
@@ -471,11 +591,12 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
         setEditingSelf(false);
         setStep(22);
       } else {
+        const cardsComplete = hasCompleteFirstLookCards(revisionToConfirm);
         setFirstLook(null);
-        setFirstLookLoading(true);
+        setFirstLookLoading(cardsComplete);
         setStep(8);
         void loadOverview();
-        await generateFirstLook(revisionToConfirm.revisionId);
+        if (cardsComplete) await generateFirstLook(revisionToConfirm.revisionId);
       }
     } catch (error) { setApiError(apiMessage(error)); }
     finally {
@@ -511,12 +632,11 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       const year = otherData.calendarType === "LUNAR" ? otherData.lunarYear : solarYear;
       const month = otherData.calendarType === "LUNAR" ? otherData.lunarMonth : solarMonth;
       const day = otherData.calendarType === "LUNAR" ? otherData.lunarDay : solarDay;
-      const exact = otherData.accuracy === "准确到分钟" || otherData.accuracy === "大致时间";
+      const birthTime = birthTimeFromProfileData(otherData.accuracy, otherData.time);
       const profile = await api.createProfile(otherData.name.trim(), otherData.relationshipType);
       const preview = await api.previewOtherProfile(profile.profileId, {
         calendarType: otherData.calendarType, date: { year, month, day, isLeapMonth: otherData.calendarType === "LUNAR" && otherData.isLeapMonth },
-        timePrecision: otherData.accuracy === "准确到分钟" ? "EXACT_MINUTE" : otherData.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
-        time: { localTime: exact ? otherData.time : null, hourBranchCode: null },
+        ...birthTime,
         locationId: otherData.locationId, calculationGender: otherData.gender,
       });
       setSelectedProfile(profile); setOtherRevision(preview); setStep(113);
@@ -667,7 +787,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "PROFILE-04" && (
         <FlowStep eyebrow="BIRTH TIME" title="你知道出生时间吗？" note="不知道也没关系。诚实的不确定，比看起来精确更重要。">
           <div className="choice-grid">
-            {["准确到分钟", "大致时间", "只知道时辰", "完全不知道"].map((item) => <button key={item} type="button" className={data.accuracy === item ? "choice active" : "choice"} onClick={() => setData({ ...data, accuracy: item })}><i />{item}<span>{item === "准确到分钟" ? "推荐保留原始分钟" : item === "大致时间" ? "可以填写误差范围" : item === "只知道时辰" ? "按传统时辰保存" : "建立时间不完整档案"}</span></button>)}
+            {timeAccuracyOptions.map((item) => <button key={item} type="button" className={data.accuracy === item ? "choice active" : "choice"} onClick={() => setData({ ...data, accuracy: item })}><i />{item}<span>{item === "准确到分钟" ? "推荐保留原始分钟" : item === "大致时间" ? "可以填写误差范围" : item === "只知道时辰" ? "按传统时辰保存" : "建立时间不完整档案"}</span></button>)}
           </div>
           {data.accuracy === "准确到分钟" && <div className="field profile-field time-input"><input aria-label="出生时间" type="time" value={data.time} onChange={(e) => setData({ ...data, time: e.target.value })} /></div>}
           <FlowNext onClick={next}>继续</FlowNext>
@@ -686,7 +806,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
         </FlowStep>
       )}
       {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} busy={apiBusy} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => void confirmProfile()} />}
-      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onNext={next} />}
+      {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onEdit={() => setStep(1)} onSkip={next} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} amount={home?.registrationReward.wisdomSeedAmount ?? 18} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
       {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
       {id === "DAILY-01" && <DailyStart name={data.name} energyLevel={dailyEnergyLevel} balance={availableBalance} onBack={back} onNext={next} />}
@@ -715,7 +835,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact name={selectedProfile?.displayName || "这份人物档案"} busy={apiBusy} onBack={() => setStep(116)} onDone={deleteOtherProfile} />}
       {id === "MY-17" && <EditSelfProfile data={data} revision={revision} busy={apiBusy} onChange={setData} onBack={() => {setEditingSelf(false);setStep(22);}} onNext={previewProfile} />}
-      {id === "MY-18" && <FirstLookArchive name={home?.profile.displayName||data.name||"你"} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onBack={() => setStep(22)} />}
+      {id === "MY-18" && <FirstLookArchive name={home?.profile.displayName||data.name||"你"} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||home?.profile.currentRevisionId||revision?.revisionId; if(revisionId) void generateFirstLook(revisionId); }} onEdit={openSelfEditor} onBack={() => setStep(22)} />}
       {id === "PREVIEW-READ" && <ComingSoonPage kind="问事" navigate={navigateR1} />}
       {id === "PREVIEW-GROWTH" && <ComingSoonPage kind="成长" navigate={navigateR1} />}
       {id === "PREVIEW-RELATIONSHIP" && <ComingSoonPage kind="关系" navigate={navigateR1} />}
@@ -847,11 +967,11 @@ function ProfileIntro({ onNext }: { onNext: () => void }) {
 
 function UnifiedProfileForm({ data, onChange, onNext, variant = "self", mode = "create", busy = false }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void; variant?: "self" | "other"; mode?: "create" | "edit"; busy?: boolean }) {
   const [solarNotice, setSolarNotice] = useState(false);
-  const timeOptions = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
   const lunarMonths = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
   const lunarDays = ["初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十", "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"];
   const relations = [["家人", "FAMILY"], ["朋友", "FRIEND"], ["同事", "COLLEAGUE"], ["其他", "OTHER"]] as const;
   const calendarReady = data.calendarType === "SOLAR" ? Boolean(data.date) : Boolean(data.lunarYear && data.lunarMonth && data.lunarDay);
+  const timeReady = data.accuracy === "完全不知道" || /^\d{2}:\d{2}$/.test(data.time);
   return <section className="unified-profile">
     <header className="unified-profile-intro"><p className="eyebrow">{mode === "edit" ? "EDIT LIFE PROFILE" : variant === "other" ? "ONE IMPORTANT PERSON" : "YOUR LIFE PROFILE"}</p><h1>{mode === "edit" ? <>更新资料<br />让理解保持准确</> : <>一次写下<br />{variant === "other" ? "理解彼此的起点" : "认识自己的起点"}</>}</h1><p>{mode === "edit" ? "修改后会更新四张关系卡牌与后续内容的依据。" : variant === "other" ? "这些资料会建立一份仅你可见的人物档案，帮助你更有边界地理解关系。" : "这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。"}</p></header>
     <div className="unified-form-card">
@@ -863,13 +983,13 @@ function UnifiedProfileForm({ data, onChange, onNext, variant = "self", mode = "
         {data.calendarType === "SOLAR" ? <div className="field profile-field"><input id="unified-birth-date" type="date" value={data.date} max="2026-08-19" onChange={(e) => onChange({ ...data, date: e.target.value })} /></div> : <div className="lunar-date-row"><label><select id="lunar-year" aria-label="农历年份" value={data.lunarYear} onChange={(e) => onChange({ ...data, lunarYear: Number(e.target.value) })}>{Array.from({ length: 127 }, (_, index) => 2026 - index).map((year) => <option key={year} value={year}>{year}年</option>)}</select></label><label><select aria-label="农历月份" value={`${data.lunarMonth}-${data.isLeapMonth ? "leap" : "normal"}`} onChange={(e) => { const [month, mode] = e.target.value.split("-"); onChange({ ...data, lunarMonth: Number(month), isLeapMonth: mode === "leap" }); }}>{lunarMonths.flatMap((month, index) => [<option key={`${index + 1}-normal`} value={`${index + 1}-normal`}>{month}</option>, <option key={`${index + 1}-leap`} value={`${index + 1}-leap`}>闰{month}</option>])}</select></label><label><select aria-label="农历日期" value={data.lunarDay} onChange={(e) => onChange({ ...data, lunarDay: Number(e.target.value) })}>{lunarDays.map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label></div>}
         <small>{data.calendarType === "SOLAR" ? "按公历记录出生日期" : "支持闰月；系统会保留农历原始日期并统一换算"}</small>
       </section>
-      <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="unified-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="unified-birth-time" type="time" value={data.time} onChange={(e) => onChange({ ...data, time: e.target.value })} /></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={(e) => onChange({ ...data, accuracy: e.target.value })}>{timeOptions.map((item) => <option key={item}>{item}</option>)}</select></div><small>不知道准确时间也没关系，如实选择即可</small></section>
+      <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="unified-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="unified-birth-time" type="time" value={data.time} disabled={data.accuracy === "完全不知道"} onChange={(e) => onChange({ ...data, time: e.target.value })} /></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={(e) => onChange({ ...data, accuracy: e.target.value as TimeAccuracy })}>{timeAccuracyOptions.map((item) => <option key={item}>{item}</option>)}</select></div><small>{data.accuracy === "只知道时辰" ? "将按当前时间所在的传统时辰保存，不保留具体分钟" : data.accuracy === "完全不知道" ? "可以先完成基础档案，补充时间后再生成生命智慧初识" : "不知道准确时间也没关系，如实选择即可"}</small></section>
       <section className="solar-time-option"><div className="solar-time-symbol" aria-hidden="true">日</div><div className="solar-time-copy"><span><strong>真太阳时校正</strong><b>后续开放</b></span><p>根据出生城市，让时间更贴近当地真实的太阳节律。</p></div><button type="button" role="switch" aria-checked="false" aria-label="真太阳时校正，后续开放" onClick={() => setSolarNotice(true)}><i /></button></section>
       {solarNotice && <div className="solar-time-notice" role="status"><span>芽</span><p><strong>真太阳时校正正在准备</strong>当前先按出生时间建档，开放后再补充城市。</p><button type="button" aria-label="关闭提示" onClick={() => setSolarNotice(false)}>×</button></div>}
     </div>
     <div className="privacy-inline"><span className="lock" /><p>资料仅用于建立你的生命智慧档案，默认只对你可见。</p></div>
     {variant === "other" && <div className="other-profile-consent"><span className="lock"/><p><strong>请确认资料来源正当</strong>档案默认仅自己可见，不代表对方已经授权。</p></div>}
-    <button className="primary unified-profile-submit" type="button" disabled={busy || !data.name.trim() || !calendarReady} onClick={onNext}>{busy ? mode === "edit" ? "正在保存修改…" : "正在建立档案…" : mode === "edit" ? "保存修改" : variant === "other" ? "确认资料，继续建立档案" : "确认资料，开始建立档案"} <span>→</span></button>
+    <button className="primary unified-profile-submit" type="button" disabled={busy || !data.name.trim() || !calendarReady || !timeReady} onClick={onNext}>{busy ? mode === "edit" ? "正在保存修改…" : "正在建立档案…" : mode === "edit" ? "保存修改" : variant === "other" ? "确认资料，继续建立档案" : "确认资料，开始建立档案"} <span>→</span></button>
   </section>;
 }
 
@@ -894,9 +1014,10 @@ function FirstLookCardPanel({ revision }: { revision: ProfileRevision | null }) 
   return <div className="wisdom-card-panel first-look-card-panel"><small>你的四张关系卡牌</small><LifeWisdomCardRow cards={revision?.cards || []} size="medium" />{revision?.warnings?.map((warning) => <p key={warning}>{warning}</p>)}</div>;
 }
 
-function RelationshipFirstLook({ name, revision, report, loading, onRetry, onNext }: { name: string; revision: ProfileRevision | null; report: ProfileFirstLook | null; loading: boolean; onRetry: () => void; onNext: () => void }) {
+function RelationshipFirstLook({ name, revision, report, loading, onRetry, onEdit, onSkip, onNext }: { name: string; revision: ProfileRevision | null; report: ProfileFirstLook | null; loading: boolean; onRetry: () => void; onEdit: () => void; onSkip: () => void; onNext: () => void }) {
   const content = report?.status === "READY" ? report.content : null;
   if (loading || report?.status === "GENERATING") return <section className="first-look"><div className="first-look-pending"><i>芽</i><h1>正在读懂你的四张卡牌</h1><p>正在依据已确认的四张卡牌整理你的生命智慧初识。</p></div><ProfileReferenceNotice /></section>;
+  if (revision && !hasCompleteFirstLookCards(revision)) return <section className="first-look"><div className="first-look-pending"><i>时</i><h1>补充出生时间后<br />再生成生命智慧初识</h1><p>当前档案还不能确定完整的四张关系卡牌。你可以补充出生时间后继续，也可以暂时跳过，稍后从档案中完善。</p><button className="primary" type="button" onClick={onEdit}>修改资料</button><button className="text-action" type="button" onClick={onSkip}>暂时跳过</button></div><ProfileReferenceNotice /></section>;
   if (!content) return <section className="first-look"><div className="first-look-pending"><i>!</i><h1>生命智慧初识暂未生成</h1><p>{report?.failure?.message || "本次没有使用占位内容，你可以手动重新发起同一业务请求。"}</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></div><ProfileReferenceNotice /></section>;
   return <section className="first-look">
     <p className="eyebrow">YOUR INNER SEASONS</p>
@@ -1142,14 +1263,14 @@ function MyProfile({ home, revision, onBack,onEdit,onFirstLook }: { home: HomeOv
   return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook}><i>初</i><span><small>生命智慧初识</small><strong>回看你的生命底色与四个短画像</strong></span><b>›</b></button><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {precisionLabel}</strong></p></section><button className="outline-button" type="button" onClick={onEdit}>编辑生命智慧档案</button></section>;
 }
 
-function FirstLookArchive({name,revision,report,loading,onRetry,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/>{content?<><FirstLookCardPanel revision={revision}/><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"正在依据当前档案版本整理生命智慧初识。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<ProfileReferenceNotice /></section>}
+function FirstLookArchive({name,revision,report,loading,onRetry,onEdit,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onEdit:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;const cardsIncomplete=Boolean(revision&&!hasCompleteFirstLookCards(revision));return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/>{content?<><FirstLookCardPanel revision={revision}/><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":cardsIncomplete?"时":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":cardsIncomplete?"补充出生时间后再生成初识":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"正在依据当前档案版本整理生命智慧初识。":cardsIncomplete?"当前档案还不能确定完整的四张关系卡牌。补充出生时间后即可继续生成。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&(cardsIncomplete?<><button className="primary" type="button" onClick={onEdit}>修改资料</button><button className="text-action" type="button" onClick={onBack}>暂时返回</button></>:<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>)}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<ProfileReferenceNotice /></section>}
 
 function EditSelfProfile({data,revision,busy,onChange,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}) {
   const [solarNotice, setSolarNotice] = useState(false);
-  const timeOptions = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
   const lunarMonths = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
   const lunarDays = ["初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十", "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"];
   const calendarReady = data.calendarType === "SOLAR" ? Boolean(data.date) : Boolean(data.lunarYear && data.lunarMonth && data.lunarDay);
+  const timeReady = data.accuracy === "完全不知道" || /^\d{2}:\d{2}$/.test(data.time);
   return <section className="my-page edit-self-profile">
     <MyHeader title="编辑生命智慧档案" onBack={onBack}/>
     <div className="edit-profile-scroll unified-profile">
@@ -1162,14 +1283,14 @@ function EditSelfProfile({data,revision,busy,onChange,onBack,onNext}:{data:Profi
           {data.calendarType === "SOLAR" ? <div className="field profile-field"><input id="edit-profile-birth-date" type="date" value={data.date} max="2026-08-19" onChange={e=>onChange({...data,date:e.target.value})}/></div> : <div className="lunar-date-row"><label><select id="edit-lunar-year" aria-label="农历年份" value={data.lunarYear} onChange={e=>onChange({...data,lunarYear:Number(e.target.value)})}>{Array.from({length:127},(_,index)=>2026-index).map(year=><option key={year} value={year}>{year}年</option>)}</select></label><label><select aria-label="农历月份" value={`${data.lunarMonth}-${data.isLeapMonth?"leap":"normal"}`} onChange={e=>{const [month,mode]=e.target.value.split("-");onChange({...data,lunarMonth:Number(month),isLeapMonth:mode==="leap"});}}>{lunarMonths.flatMap((month,index)=>[<option key={`${index+1}-normal`} value={`${index+1}-normal`}>{month}</option>,<option key={`${index+1}-leap`} value={`${index+1}-leap`}>闰{month}</option>])}</select></label><label><select aria-label="农历日期" value={data.lunarDay} onChange={e=>onChange({...data,lunarDay:Number(e.target.value)})}>{lunarDays.map((day,index)=><option key={day} value={index+1}>{day}</option>)}</select></label></div>}
           <small>{data.calendarType === "SOLAR" ? "按公历记录出生日期" : "支持闰月；系统会保留农历原始日期并统一换算"}</small>
         </section>
-        <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="edit-profile-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="edit-profile-birth-time" type="time" value={data.time} onChange={e=>onChange({...data,time:e.target.value})}/></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={e=>onChange({...data,accuracy:e.target.value})}>{timeOptions.map(item=><option key={item}>{item}</option>)}</select></div><small>不知道准确时间也没关系，如实选择即可</small></section>
+        <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="edit-profile-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="edit-profile-birth-time" type="time" value={data.time} disabled={data.accuracy==="完全不知道"} onChange={e=>onChange({...data,time:e.target.value})}/></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={e=>onChange({...data,accuracy:e.target.value as TimeAccuracy})}>{timeAccuracyOptions.map(item=><option key={item}>{item}</option>)}</select></div><small>{data.accuracy==="只知道时辰"?"将按当前时间所在的传统时辰保存，不保留具体分钟":data.accuracy==="完全不知道"?"可以先保留基础档案，补充时间后再生成生命智慧初识":"不知道准确时间也没关系，如实选择即可"}</small></section>
         <section className="unified-field-group edit-gender-group"><span className="unified-field-index">04</span><span className="field-label">计算性别</span><div className="edit-gender-options">{([['FEMALE','女'],['MALE','男']] as const).map(([value,label])=><button type="button" key={value} className={data.gender===value?'active':''} onClick={()=>onChange({...data,gender:value})}>{label}</button>)}</div><small>用于传统排盘规则计算</small></section>
         <section className="solar-time-option"><div className="solar-time-symbol" aria-hidden="true">日</div><div className="solar-time-copy"><span><strong>真太阳时校正</strong><b>后续开放</b></span><p>当前版本先按出生时间更新档案，暂不启用该功能。</p></div><button type="button" role="switch" aria-checked="false" aria-label="真太阳时校正，后续开放" onClick={()=>setSolarNotice(true)}><i/></button></section>
         {solarNotice&&<div className="solar-time-notice" role="status"><span>芽</span><p><strong>真太阳时校正正在准备</strong>当前先按出生时间更新档案，开放后再补充城市。</p><button type="button" aria-label="关闭提示" onClick={()=>setSolarNotice(false)}>×</button></div>}
         <div className="edit-version-note"><i>V{(revision?.revisionNumber||1)+1}</i><span><strong>本次修改将创建新版本</strong><small>不会覆盖当前版本，也不会改变历史报告的计算依据</small></span></div>
       </div>
       <div className="privacy-inline"><span className="lock"/><p>资料仅用于建立你的生命智慧档案，默认只对你可见。</p></div>
-      <button className="primary unified-profile-submit" type="button" disabled={busy||!data.name.trim()||!calendarReady} onClick={onNext}>{busy?'正在重新计算…':'确认修改并重新计算'} <span>→</span></button>
+      <button className="primary unified-profile-submit" type="button" disabled={busy||!data.name.trim()||!calendarReady||!timeReady} onClick={onNext}>{busy?'正在重新计算…':'确认修改并重新计算'} <span>→</span></button>
       <button className="text-action" type="button" onClick={onBack}>取消编辑</button>
     </div>
   </section>;

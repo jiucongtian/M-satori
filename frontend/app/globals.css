@@ -669,3 +669,221 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 
 /* R1.0 unavailable-module previews */
 .coming-soon-page h1{font-size:var(--type-page-title)}.coming-lead{font-size:var(--type-secondary);line-height:1.75}.coming-state strong,.coming-state small,.coming-features p{font-size:var(--type-caption)}.coming-features>small,.coming-features b{font-size:var(--type-label)}
+
+/* Responsive readability layer
+ * Keep compact decorative labels small, while ensuring navigation and reading
+ * content stay legible on real phones, tablets, and desktop browsers.
+ */
+.main-nav {
+  min-height: 68px;
+  padding-top: 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.main-nav button {
+  min-width: 44px;
+  min-height: 44px;
+  gap: 5px;
+  font-size: clamp(12px, 3.2vw, 14px);
+  line-height: 1.2;
+}
+.main-nav i {
+  height: 20px;
+  font-size: 18px;
+}
+.today-home,
+.my-home,
+.coming-soon-page {
+  padding-bottom: 72px;
+}
+.today-home > .main-nav,
+.my-home > .main-nav,
+.coming-soon-page > .main-nav,
+.home-flow .today-home > .main-nav {
+  height: 68px;
+}
+.growth-home,
+.relationship-home {
+  padding-bottom: 76px;
+}
+
+.wisdom-card-panel > small,
+.life-wisdom-card footer {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.life-wisdom-card footer {
+  padding-top: 9px;
+}
+.first-look-entry small {
+  font-size: 11px;
+}
+.first-look-entry strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.first-look-cover {
+  margin-top: 16px;
+  padding: clamp(22px, 6vw, 34px);
+}
+.first-look-cover > small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.first-look-cover h1 {
+  margin: 18px 0 12px;
+  font-size: clamp(24px, 7vw, 32px);
+  line-height: 1.45;
+}
+.first-look-cover p {
+  font-size: clamp(14px, 3.8vw, 16px);
+  line-height: 1.9;
+}
+.first-look-cover > div {
+  margin-top: 18px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.first-look-cover span {
+  padding: 7px 11px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.first-look-voices {
+  margin-top: 14px;
+  gap: 11px;
+}
+.first-look-voices article {
+  padding: clamp(16px, 4.6vw, 24px);
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.first-look-voices article > b {
+  padding-top: 2px;
+  font-size: 12px;
+}
+.first-look-voices small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.first-look-voices h2 {
+  margin: 7px 0 8px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+.first-look-voices p {
+  font-size: clamp(14px, 3.8vw, 16px);
+  line-height: 1.85;
+}
+.first-look-notice,
+.first-look-pending p,
+.ai-content-notice {
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+/* The same text hierarchy is used by the onboarding version of 初识. */
+.season-summary small,
+.insight-list small,
+.insight-list b {
+  font-size: 11px;
+}
+.season-summary h2,
+.insight-list h2 {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.season-summary p,
+.insight-list p {
+  font-size: 14px;
+  line-height: 1.75;
+}
+.insight-list article {
+  padding: 14px 15px;
+  grid-template-columns: 30px 1fr;
+  gap: 11px;
+}
+.growth-hint p,
+.growth-hint strong {
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* Common supporting copy across the five root sections. */
+:is(.home-note, .daily-lead, .share-lead, .reading-lead, .commerce-lead, .coming-lead, .gift-lead) {
+  font-size: 14px;
+  line-height: 1.75;
+}
+:is(.my-menu, .benefit-menu) strong,
+.coming-state strong,
+.coming-features p {
+  font-size: 13px;
+}
+:is(.my-menu, .benefit-menu) small,
+.coming-state small {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .stage {
+    min-height: 100dvh;
+  }
+  .phone {
+    height: 100dvh;
+    min-height: 0;
+    padding-right: clamp(18px, 6vw, 26px);
+    padding-left: clamp(18px, 6vw, 26px);
+  }
+  .first-look-card-panel {
+    padding: clamp(12px, 4vw, 16px);
+  }
+  .life-wisdom-card-row {
+    gap: clamp(5px, 1.8vw, 9px);
+  }
+}
+
+@media (min-width: 521px) {
+  .stage {
+    padding: 24px;
+  }
+  .phone {
+    width: min(calc(100vw - 48px), 680px);
+    height: min(920px, calc(100dvh - 48px));
+    min-height: min(680px, calc(100dvh - 48px));
+    padding-right: clamp(34px, 6vw, 52px);
+    padding-left: clamp(34px, 6vw, 52px);
+  }
+  .life-wisdom-card-row {
+    gap: clamp(9px, 2vw, 16px);
+  }
+  .first-look-archive,
+  .first-look {
+    width: 100%;
+    max-width: 600px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
+
+.first-look-pending .primary {
+  margin-top: 14px;
+}
+.first-look-pending .text-action {
+  margin-top: 8px;
+}
+
+@media (min-width: 960px) {
+  .phone {
+    width: min(calc(100vw - 80px), 760px);
+    padding-right: 58px;
+    padding-left: 58px;
+  }
+  .first-look-card-panel {
+    padding: 22px;
+  }
+  .first-look-cover,
+  .first-look-voices article {
+    border-radius: 24px;
+  }
+}
