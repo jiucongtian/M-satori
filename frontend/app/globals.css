@@ -611,3 +611,214 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 /* R1.0 MY-08/09/13 · service-first contact and short archive actions. */
 .contact-page{padding-bottom:20px;overflow-y:auto;scrollbar-width:none}.contact-page::-webkit-scrollbar{display:none}.support-focus{padding:14px 16px 15px;border:1px solid rgba(69,107,91,.1);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.8),rgba(239,226,199,.4));box-shadow:0 13px 30px rgba(50,78,65,.08);text-align:center}.support-focus-title{display:flex;align-items:center;justify-content:space-between;text-align:left}.support-focus-title span{display:grid;gap:3px}.support-focus-title small{color:#9aa29d;font-size:6px}.support-focus-title strong{color:#304f43;font-size:12px;font-weight:500}.support-focus-title b{padding:4px 9px;border-radius:10px;color:#80623f;background:#f0dfbf;font-size:6px;font-weight:400}.support-qr{width:148px;height:148px;margin:10px auto 7px;padding:7px;display:grid;place-items:center;border-radius:16px;background:#fff;box-shadow:0 9px 23px rgba(52,77,65,.09)}.support-qr img{width:100%;height:100%;display:block;object-fit:contain;border-radius:7px}.support-focus>p{margin:0;color:#66776e;font-size:7px}.official-media{margin-top:13px}.official-media>header{margin-bottom:8px;display:flex;align-items:end;justify-content:space-between}.official-media>header small{color:#a27b4d;font:6px Arial,sans-serif;letter-spacing:.14em}.official-media>header strong{color:#52675c;font-size:9px;font-weight:500}.official-media>article{margin-top:7px;padding:9px 12px;display:grid;grid-template-columns:70px 1fr;gap:12px;align-items:center;border:1px solid rgba(69,107,91,.08);border-radius:17px;background:rgba(255,255,255,.62)}.official-media>article>div{width:70px;height:70px;padding:4px;display:grid;place-items:center;border-radius:11px;background:#fff}.official-media img{width:100%;height:100%;display:block;object-fit:contain;border-radius:5px}.official-media article>span{display:grid;gap:4px;text-align:left}.official-media article strong{color:#375448;font-size:10px;font-weight:500}.official-media article small{color:#87928c;font-size:7px}.official-media article em{color:#a37b49;font-size:6px;font-style:normal}
 .person-archive-detail{overflow-y:auto;scrollbar-width:none}.person-archive-detail::-webkit-scrollbar{display:none}.person-archive-detail .profile-owner{margin-top:14px}.person-archive-detail .first-look-entry{margin-top:13px}.other-first-look{margin-top:10px;padding:15px;border-radius:18px;background:rgba(255,255,255,.58)}.other-first-look>small{color:#a07849;font-size:6px}.other-first-look h2{margin:7px 0 5px;color:#355247;font-size:13px;font-weight:500}.other-first-look>p{margin:0;color:#718078;font-size:8px;line-height:1.7}.other-first-look article{padding:8px 0;display:grid;gap:3px;border-bottom:1px solid rgba(69,107,91,.07)}.other-first-look article:last-child{border:0}.other-first-look article strong{color:#52675c;font-size:8px}.other-first-look article span{color:#7c8982;font-size:7px;line-height:1.55}.person-archive-actions{padding-bottom:12px}.person-archive-actions .outline-button,.person-archive-actions .danger-action{width:100%;margin-top:9px}.person-delete-confirm{margin-bottom:0}.other-profile-editor{overflow-y:auto;scrollbar-width:none}.other-profile-editor::-webkit-scrollbar{display:none}.other-profile-editor .unified-profile{padding-bottom:22px}.other-profile-editor .unified-profile-intro{padding-top:12px}
+
+/* Responsive readability layer
+ * Keep compact decorative labels small, while ensuring navigation and reading
+ * content stay legible on real phones, tablets, and desktop browsers.
+ */
+.main-nav {
+  min-height: 68px;
+  padding-top: 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.main-nav button {
+  min-width: 44px;
+  min-height: 44px;
+  gap: 5px;
+  font-size: clamp(12px, 3.2vw, 14px);
+  line-height: 1.2;
+}
+.main-nav i {
+  height: 20px;
+  font-size: 18px;
+}
+.today-home,
+.my-home,
+.coming-soon-page {
+  padding-bottom: 72px;
+}
+.today-home > .main-nav,
+.my-home > .main-nav,
+.coming-soon-page > .main-nav,
+.home-flow .today-home > .main-nav {
+  height: 68px;
+}
+.growth-home,
+.relationship-home {
+  padding-bottom: 76px;
+}
+
+.wisdom-card-panel > small,
+.life-wisdom-card footer {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.life-wisdom-card footer {
+  padding-top: 9px;
+}
+.first-look-entry small {
+  font-size: 11px;
+}
+.first-look-entry strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.first-look-cover {
+  margin-top: 16px;
+  padding: clamp(22px, 6vw, 34px);
+}
+.first-look-cover > small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.first-look-cover h1 {
+  margin: 18px 0 12px;
+  font-size: clamp(24px, 7vw, 32px);
+  line-height: 1.45;
+}
+.first-look-cover p {
+  font-size: clamp(14px, 3.8vw, 16px);
+  line-height: 1.9;
+}
+.first-look-cover > div {
+  margin-top: 18px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.first-look-cover span {
+  padding: 7px 11px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.first-look-voices {
+  margin-top: 14px;
+  gap: 11px;
+}
+.first-look-voices article {
+  padding: clamp(16px, 4.6vw, 24px);
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.first-look-voices article > b {
+  padding-top: 2px;
+  font-size: 12px;
+}
+.first-look-voices small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.first-look-voices h2 {
+  margin: 7px 0 8px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+.first-look-voices p {
+  font-size: clamp(14px, 3.8vw, 16px);
+  line-height: 1.85;
+}
+.first-look-notice,
+.first-look-pending p,
+.ai-content-notice {
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+/* The same text hierarchy is used by the onboarding version of 初识. */
+.season-summary small,
+.insight-list small,
+.insight-list b {
+  font-size: 11px;
+}
+.season-summary h2,
+.insight-list h2 {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.season-summary p,
+.insight-list p {
+  font-size: 14px;
+  line-height: 1.75;
+}
+.insight-list article {
+  padding: 14px 15px;
+  grid-template-columns: 30px 1fr;
+  gap: 11px;
+}
+.growth-hint p,
+.growth-hint strong {
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* Common supporting copy across the five root sections. */
+:is(.home-note, .daily-lead, .share-lead, .reading-lead, .commerce-lead, .coming-lead, .gift-lead) {
+  font-size: 14px;
+  line-height: 1.75;
+}
+:is(.my-menu, .benefit-menu) strong,
+.coming-state strong,
+.coming-features p {
+  font-size: 13px;
+}
+:is(.my-menu, .benefit-menu) small,
+.coming-state small {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .stage {
+    min-height: 100dvh;
+  }
+  .phone {
+    height: 100dvh;
+    min-height: 0;
+    padding-right: clamp(18px, 6vw, 26px);
+    padding-left: clamp(18px, 6vw, 26px);
+  }
+  .first-look-card-panel {
+    padding: clamp(12px, 4vw, 16px);
+  }
+  .life-wisdom-card-row {
+    gap: clamp(5px, 1.8vw, 9px);
+  }
+}
+
+@media (min-width: 521px) {
+  .stage {
+    padding: 24px;
+  }
+  .phone {
+    width: min(calc(100vw - 48px), 680px);
+    height: min(920px, calc(100dvh - 48px));
+    min-height: min(680px, calc(100dvh - 48px));
+    padding-right: clamp(34px, 6vw, 52px);
+    padding-left: clamp(34px, 6vw, 52px);
+  }
+  .life-wisdom-card-row {
+    gap: clamp(9px, 2vw, 16px);
+  }
+  .first-look-archive,
+  .first-look {
+    width: 100%;
+    max-width: 600px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
+
+@media (min-width: 960px) {
+  .phone {
+    width: min(calc(100vw - 80px), 760px);
+    padding-right: 58px;
+    padding-left: 58px;
+  }
+  .first-look-card-panel {
+    padding: 22px;
+  }
+  .first-look-cover,
+  .first-look-voices article {
+    border-radius: 24px;
+  }
+}

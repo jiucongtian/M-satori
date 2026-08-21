@@ -584,3 +584,13 @@ test("HOME-01 完整展示生长动画且不出现底部横向滚动条", async 
   assert.match(css, /\.home-flow \.today-home::-webkit-scrollbar\{display:none\}/);
   assert.doesNotMatch(css, /\.home-flow \.today-home\{[^}]*scrollbar-width:thin/);
 });
+
+test("H5 阅读正文、底部导航与多端断点保持可读", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.main-nav button \{[^}]*min-height: 44px;[^}]*font-size: clamp\(12px, 3\.2vw, 14px\)/s);
+  assert.match(css, /\.first-look-cover p \{[^}]*font-size: clamp\(14px, 3\.8vw, 16px\)[^}]*line-height: 1\.9/s);
+  assert.match(css, /\.first-look-voices p \{[^}]*font-size: clamp\(14px, 3\.8vw, 16px\)[^}]*line-height: 1\.85/s);
+  assert.match(css, /@media \(max-width: 520px\) \{[\s\S]*?height: 100dvh;[\s\S]*?min-height: 0;/);
+  assert.match(css, /@media \(min-width: 521px\) \{[\s\S]*?width: min\(calc\(100vw - 48px\), 680px\)/);
+  assert.match(css, /@media \(min-width: 960px\) \{[\s\S]*?width: min\(calc\(100vw - 80px\), 760px\)/);
+});
