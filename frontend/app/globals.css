@@ -8,6 +8,56 @@
 @font-face { font-family: "Noto Serif SC"; font-style: normal; font-display: swap; font-weight: 600; src: url("/fonts/noto-serif-sc/noto-serif-sc-600.woff2") format("woff2"); }
 
 :root {
+  /* 初见·FRESH project-level foundation tokens */
+  --fresh-green-900: #283b34;
+  --fresh-green-700: #456b5b;
+  --fresh-green-500: #718178;
+  --fresh-green-100: #d8ddd7;
+  --fresh-cream-050: #faf8f0;
+  --fresh-cream-100: #f6f2e8;
+  --fresh-cream-200: #f1eedd;
+  --fresh-gold-500: #d7a35a;
+  --fresh-gold-700: #a27a43;
+  --fresh-white: #ffffff;
+  --color-bg-page: var(--fresh-cream-100);
+  --color-bg-stage: var(--fresh-green-100);
+  --color-surface-primary: rgba(255,255,255,.62);
+  --color-surface-secondary: rgba(255,255,255,.46);
+  --color-brand-primary: var(--fresh-green-700);
+  --color-brand-accent: var(--fresh-gold-500);
+  --color-text-primary: var(--fresh-green-900);
+  --color-text-secondary: var(--fresh-green-500);
+  --color-text-on-dark: #fffdf6;
+  --color-border-subtle: rgba(69,107,91,.12);
+  --color-border-strong: rgba(69,107,91,.28);
+  --color-state-success: #557b65;
+  --color-state-warning: #b3834d;
+  --color-state-error: #a85d50;
+  --color-state-disabled: #aab5af;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-shell: 34px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 8px 20px rgba(40,59,52,.08);
+  --shadow-card: 0 16px 36px rgba(40,59,52,.12);
+  --shadow-floating: 0 22px 60px rgba(40,59,52,.16);
+  --shadow-focus: 0 0 0 3px rgba(215,163,90,.22);
+  --motion-fast: 120ms;
+  --motion-normal: 240ms;
+  --motion-slow: 600ms;
+  --motion-life: 3500ms;
   --ink: #283b34;
   --muted: #718178;
   --sage: #456b5b;
@@ -28,10 +78,31 @@
   --type-label: 10px;
 }
 
+/* Compatibility aliases stay until every R1.0 page has migrated. */
+:root {
+  --ink: var(--color-text-primary);
+  --muted: var(--color-text-secondary);
+  --sage: var(--color-brand-primary);
+  --cream: var(--color-bg-page);
+  --gold: var(--color-brand-accent);
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { font: inherit; }
+
+.fresh-button{min-height:48px;padding:0 var(--space-4);display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);border-radius:var(--radius-md);font-family:var(--font-ui);font-size:var(--type-body-strong);font-weight:600;transition:opacity var(--motion-fast) ease-out,transform var(--motion-fast) ease-out,box-shadow var(--motion-fast) ease-out;cursor:pointer}
+.fresh-button:active:not(:disabled){opacity:.88;transform:scale(.99)}
+.fresh-button:focus-visible,.fresh-icon-button:focus-visible{outline:0;box-shadow:var(--shadow-focus)}
+.fresh-button:disabled{cursor:not-allowed;color:rgba(255,255,255,.82);background:var(--color-state-disabled)}
+.fresh-button--primary{border:0;color:var(--color-text-on-dark);background:var(--color-brand-primary)}
+.fresh-button--secondary{border:1px solid var(--color-border-strong);color:var(--color-brand-primary);background:var(--color-surface-primary)}
+.fresh-button--text{min-width:44px;min-height:44px;padding:var(--space-2);border:0;border-radius:0;color:var(--color-brand-primary);background:transparent;background-image:none;box-shadow:none;filter:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.fresh-button--danger{border:0;color:var(--color-text-on-dark);background:var(--color-state-error)}
+.fresh-icon-button{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--color-border-subtle);border-radius:15px;color:var(--color-brand-primary);background:var(--color-surface-secondary);font-family:var(--font-ui);font-size:22px;transition:opacity var(--motion-fast) ease-out,box-shadow var(--motion-fast) ease-out;cursor:pointer}
+.fresh-icon-button:active{opacity:.78}
+.fresh-surface{border:1px solid var(--color-border-subtle);border-radius:var(--radius-lg);background:var(--color-surface-primary);box-shadow:var(--shadow-soft)}
 
 body {
   color: var(--ink);

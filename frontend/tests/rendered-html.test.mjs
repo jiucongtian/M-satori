@@ -598,6 +598,26 @@ test("R1.0 用户可见品牌统一为横排初见 · FRESH", async () => {
   assert.doesNotMatch(`${page}\n${layout}\n${card}`, /身心游|SATORI/);
 });
 
+test("初见视觉规范、设计令牌与公共基础组件已经固化", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const primitives = await readFile(new URL("../src/components/FreshPrimitives.tsx", import.meta.url), "utf8");
+  const spec = await readFile(new URL("../../docs/初见·FRESH-视觉与组件设计规范.md", import.meta.url), "utf8");
+
+  for (const token of ["--color-brand-primary", "--color-text-primary", "--space-4", "--radius-md", "--shadow-focus", "--motion-normal"]) {
+    assert.match(css, new RegExp(token));
+  }
+  assert.match(css, /\.fresh-button--primary/);
+  assert.match(css, /\.fresh-icon-button/);
+  assert.match(primitives, /export function FreshButton/);
+  assert.match(primitives, /export function BackButton/);
+  assert.match(primitives, /export function FreshSurface/);
+  assert.match(page, /import \{ BackButton, FreshButton \} from "@\/src\/components\/FreshPrimitives"/);
+  assert.equal((page.match(/<BackButton/g) || []).length >= 5, true);
+  assert.match(spec, /状态：已固化/);
+  assert.match(spec, /H5 原型、R1\.0 及后续 Release/);
+});
+
 test("R1.0 DAILY-01—03 始终展示真实智慧种子余额", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const dailyHeader = page.match(/function DailyHeader[\s\S]*?\n}/)?.[0] ?? "";

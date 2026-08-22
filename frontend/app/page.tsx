@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
+import { BackButton, FreshButton } from "@/src/components/FreshPrimitives";
 import { api, ApiError, CONSENT_REQUIRED_EVENT } from "@/src/api/client";
 import type { BirthInput, Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
@@ -998,7 +999,7 @@ function FlowStep({ eyebrow, title, note, children }: { eyebrow: string; title: 
 }
 
 function FlowNext({ children, onClick, disabled = false }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
-  return <button className="primary flow-next" type="button" disabled={disabled} onClick={onClick}>{children}<span>→</span></button>;
+  return <FreshButton className="primary flow-next" disabled={disabled} onClick={onClick} trailing="→">{children}</FreshButton>;
 }
 
 function SummaryRow({ label, value, edit }: { label: string; value: string; edit?: () => void }) {
@@ -1055,7 +1056,7 @@ function TodayHome({ name, home, onNext, navigate }: { name: string; home: HomeO
 }
 
 function DailyHeader({ onBack, balance }: { onBack: () => void; balance: number | null }) {
-  return <header className="daily-header"><button className="back-button" type="button" onClick={onBack} aria-label="返回上一页">←</button><Brand compact /><div className="mini-balance"><i>●</i>{balance ?? "—"}</div></header>;
+  return <header className="daily-header"><BackButton onClick={onBack} /><Brand compact /><div className="mini-balance"><i>●</i>{balance ?? "—"}</div></header>;
 }
 
 function DailyStart({ name, energyLevel, balance, onBack, onNext }: { name: string; energyLevel?: EnergyLevel; balance: number | null; onBack: () => void; onNext: () => void }) {
@@ -1116,7 +1117,7 @@ function ShareFailure({ onBack, onRetry, onHome }: { onBack: () => void; onRetry
 }
 
 function ReadingHeader({ onBack }: { onBack?: () => void }) {
-  return <header className="reading-header">{onBack ? <button className="back-button" type="button" onClick={onBack}>←</button> : <Brand compact />}<span>问事</span><div className="mini-balance"><i>●</i>2</div></header>;
+  return <header className="reading-header">{onBack ? <BackButton onClick={onBack} /> : <Brand compact />}<span>问事</span><div className="mini-balance"><i>●</i>2</div></header>;
 }
 
 function ReadingHome({ navigate, onNext, onHistory }: { navigate: (step: number) => void; onNext: () => void; onHistory: () => void }) {
@@ -1247,7 +1248,7 @@ function ComingSoonPage({ kind, navigate }: { kind: ComingSoonKind; navigate: (s
 }
 
 function MyHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return <header className="my-header"><button className="back-button" type="button" onClick={onBack}>←</button><strong>{title}</strong><button type="button" className="header-more">•••</button></header>;
+  return <header className="my-header"><BackButton onClick={onBack} /><strong>{title}</strong><button type="button" className="header-more" aria-label="更多操作">•••</button></header>;
 }
 
 function MyHome({ name, balance, open }: { name: string; balance: number | null; open: (step: number) => void }) {
@@ -1360,7 +1361,7 @@ function ArchivePicker({onBack,onAdd,onNext}:{onBack:()=>void;onAdd:()=>void;onN
 
 function ArchiveDeleteImpact({name,busy,onBack,onDone}:{name:string;busy:boolean;onBack:()=>void;onDone:()=>void}){const [confirmed,setConfirmed]=useState(false);return <section className="my-page archive-page delete-impact"><MyHeader title="删除档案" onBack={onBack}/><div className="delete-symbol">删</div><p className="eyebrow">PLEASE REVIEW THE IMPACT</p><h1>删除“{name}”的档案前<br/>请确认这些影响</h1><div className="impact-list"><p><i>档</i><span><strong>四张关系卡牌将被删除</strong><small>出生资料与人物标签也会同时移除</small></span></p><p><i>∞</i><span><strong>历史报告按后端保留规则处理</strong><small>删除请求由服务端执行影响检查</small></span></p></div><label className="delete-confirm"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/><span>我了解删除无法撤销，并确认删除这份人物档案</span></label><button className="danger-primary" disabled={!confirmed||busy} onClick={onDone}>{busy?"正在删除…":"确认永久删除"}</button><button className="outline-button" onClick={onBack}>暂不删除</button></section>}
 
-function RelationshipHeader({title="关系",onBack}:{title?:string;onBack?:()=>void}){return <header className="relationship-header">{onBack?<button className="back-button" onClick={onBack}>←</button>:<Brand compact/>}<strong>{title}</strong><button className="relationship-more">•••</button></header>}
+function RelationshipHeader({title="关系",onBack}:{title?:string;onBack?:()=>void}){return <header className="relationship-header">{onBack?<BackButton onClick={onBack}/>:<Brand compact/>}<strong>{title}</strong><button className="relationship-more" aria-label="更多操作">•••</button></header>}
 
 function RelationshipHome({navigate,onStart,onHistory}:{navigate:(step:number)=>void;onStart:(type:string)=>void;onHistory:()=>void}){return <section className="relationship-page relationship-home"><RelationshipHeader/><div className="relation-hero"><div className="relation-orbit"><span>∞</span><i/><i/></div><small>BETWEEN TWO PEOPLE</small><h1>两个人之间<br/>不只是合不合适</h1><p>看见彼此如何靠近、互补，也看见怎样相处会更舒服。</p></div><div className="relation-entry"><button onClick={()=>onStart("情感伴侣")}><i>情</i><span><small>情感伴侣</small><strong>理解吸引、默契与相处方式</strong></span><b>→</b></button><button onClick={()=>onStart("事业合作伙伴")}><i>业</i><span><small>事业合作伙伴</small><strong>理解分工、互补与合作边界</strong></span><b>→</b></button></div><button className="relation-history-link" onClick={onHistory}><span>册</span><p><strong>我的关系报告</strong><small>3 份报告 · 最近更新于昨天</small></p><b>›</b></button><div className="future-invite"><small>未来玩法</small><p>邀请更多朋友参与，寻找属于你的伴侣与事业搭子</p><span>后续开放</span></div><MainNav active="关系" navigate={navigate}/></section>}
 
@@ -1431,7 +1432,7 @@ function CommercePage({id,navigate,returnAfterSeed,onReturnAfterSeed,onSeedRecha
 }
 
 function GrowthHeader({ title = "成长", onBack }: { title?: string; onBack?: () => void }) {
-  return <header className="growth-header">{onBack ? <button className="back-button" onClick={onBack}>←</button> : <Brand compact />}<strong>{title}</strong><button className="growth-message">信<i/></button></header>;
+  return <header className="growth-header">{onBack ? <BackButton onClick={onBack} /> : <Brand compact />}<strong>{title}</strong><button className="growth-message" aria-label="消息">信<i/></button></header>;
 }
 
 function GrowthHome({ name, navigate }: { name: string; navigate: (step: number) => void }) {
