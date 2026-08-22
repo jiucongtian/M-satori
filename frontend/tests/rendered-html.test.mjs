@@ -313,10 +313,12 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(css, /\.today-home \.home-energy-card\{min-height:clamp\(340px,44svh,390px\)/);
   assert.match(css, /\.home-growth-scene \.life-growth\{top:50%;right:auto;left:50%/);
   assert.match(css, /\.home-energy-card \.guide-tips>div\+div\{padding:3px 4px 7px;border:0;text-align:center\}/);
-  assert.match(home, /summary\?\.dayCard \? ` · \$\{summary\.dayCard\}` : ""/);
+  assert.match(home, /summary\?\.heavenCard \? ` · \$\{summary\.heavenCard\}` : ""/);
+  assert.doesNotMatch(home, /summary\?\.dayCard \? ` · \$\{summary\.dayCard\}`/);
   assert.match(home, /className="home-guidance-link"/);
   assert.match(css, /\.home-energy-card \.home-guidance-link\{-webkit-appearance:none;appearance:none;width:auto;min-width:44px;min-height:44px/);
-  assert.match(css, /\.home-energy-card \.home-guidance-link:hover,\.home-energy-card \.home-guidance-link:active,\.home-energy-card \.home-guidance-link:focus\{border:0;background:transparent;box-shadow:none\}/);
+  assert.match(css, /\.home-energy-card \.home-guidance-link\{[^}]*background-image:none[^}]*filter:none;backdrop-filter:none;-webkit-backdrop-filter:none/);
+  assert.match(css, /\.home-energy-card \.home-guidance-link:hover,\.home-energy-card \.home-guidance-link:active,\.home-energy-card \.home-guidance-link:focus\{[^}]*backdrop-filter:none;-webkit-backdrop-filter:none\}/);
   assert.doesNotMatch(home, /先稳住自己的节奏，再清醒回应外界的变化/);
   assert.match(home, /适合做什么/);
   assert.match(home, /注意什么/);
