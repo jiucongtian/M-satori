@@ -608,8 +608,11 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 .home-energy-card .guide-tips>div,.home-energy-card .guide-tips>div+div{padding:3px 4px 7px;border:0;text-align:center}
 .home-energy-card .guide-tips small,.home-energy-card .guide-tips strong{text-align:center}
 .home-energy-card .guide-tips strong{font-size:9px;line-height:1.65}
-.home-energy-card button{width:auto;min-width:0;height:auto;margin:3px 0 0 auto;padding:8px 1px;border:0;border-radius:0;color:#f0d596;background:transparent;box-shadow:none;font-size:11px;font-weight:500;letter-spacing:.03em}
-.home-energy-card button span{margin-left:5px;color:#f0d596}
+.home-energy-card .home-guidance-link{-webkit-appearance:none;appearance:none;width:auto;min-width:44px;min-height:44px;height:auto;margin:3px 0 0 auto;padding:8px 1px;border:0;border-radius:0;color:#f0d596;background:transparent;box-shadow:none;font-size:11px;font-weight:500;letter-spacing:.03em}
+.home-energy-card .home-guidance-link:hover,.home-energy-card .home-guidance-link:active,.home-energy-card .home-guidance-link:focus{border:0;background:transparent;box-shadow:none}
+.home-energy-card .home-guidance-link:active{opacity:.72}
+.home-energy-card .home-guidance-link:focus-visible{outline:2px solid rgba(240,213,150,.7);outline-offset:3px}
+.home-energy-card .home-guidance-link span{margin-left:5px;color:#f0d596}
 .profile-flow.home-flow{height:100%;min-height:0;overflow:hidden}
 .profile-flow.headerless-flow{height:100%;min-height:0;overflow:hidden}.headerless-flow>.first-look{height:100%;min-height:0}.headerless-flow>.seed-gift{min-height:100%}
 .home-flow .today-home{height:auto;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding-bottom:0;display:flex;flex-direction:column;scrollbar-width:none}
