@@ -968,3 +968,166 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
     border-radius: 24px;
   }
 }
+
+/* R1.0 visual calibration · Fresh specification batches 1–2
+ * This compatibility layer keeps the verified R1.0 information architecture
+ * and behavior intact while aligning its high-frequency controls and surfaces.
+ */
+.phone :is(button, input, select, textarea):focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.phone .primary {
+  min-height: 52px;
+  height: auto;
+  padding: 14px var(--space-5);
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-on-dark);
+  background: var(--color-brand-primary);
+  box-shadow: var(--shadow-soft);
+  font-size: var(--type-body-strong);
+  font-weight: 600;
+  line-height: 1.45;
+  transition: opacity var(--motion-fast) ease-out, transform var(--motion-fast) ease-out, box-shadow var(--motion-fast) ease-out;
+}
+.phone .primary:active:not(:disabled) {
+  opacity: .88;
+  transform: scale(.99);
+  box-shadow: var(--shadow-soft);
+}
+.phone .primary:disabled {
+  color: rgba(255,255,255,.82);
+  background: var(--color-state-disabled);
+  box-shadow: none;
+}
+.phone :is(.outline-button, .secondary-button) {
+  min-height: 48px;
+  height: auto;
+  padding: 12px var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-brand-primary);
+  background: var(--color-surface-primary);
+  box-shadow: none;
+  font-size: var(--type-body-strong);
+  font-weight: 500;
+}
+.phone :is(.text-action, .sheet-close, .restart-link, .leave-link) {
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: 0;
+  color: var(--color-brand-primary);
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.phone .back-button,
+.legal-header button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 15px;
+  color: var(--color-brand-primary);
+  background: var(--color-surface-secondary);
+  box-shadow: none;
+  font-family: var(--font-ui);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.phone :is(.field, .unified-field-group input, .unified-field-group select, .edit-field input, .edit-field textarea, .picker-search, .archive-tools label) {
+  border-color: var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+  box-shadow: var(--shadow-soft);
+}
+.phone :is(.field, .unified-field-group input, .unified-field-group select, .edit-field input) {
+  min-height: 56px;
+}
+.phone :is(.field:focus-within, .unified-field-group input:focus, .unified-field-group select:focus, .edit-field input:focus, .edit-field textarea:focus, .picker-search:focus-within, .archive-tools label:focus-within) {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-focus);
+}
+.phone :is(.choice, .calendar-switch, .edit-gender-options button, .relation-picks button, .action-options button) {
+  border-color: var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-secondary);
+  box-shadow: none;
+}
+.phone :is(.choice.active, .calendar-switch button.active, .edit-gender-options button.active, .relation-picks button.active, .action-options button.active) {
+  border-color: var(--color-border-strong);
+  color: var(--color-brand-primary);
+  background: rgba(69,107,91,.09);
+}
+.phone :is(.solar-time-option, .timeline-switch) button[role="switch"] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.phone :is(.sheet, .support-focus, .will-get, .report-opening, .detail-section, .my-menu, .benefit-menu, .other-first-look, .first-look-card-panel, .archive-facts, .logout-confirm, .credit-help-sheet) {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-primary);
+  box-shadow: var(--shadow-soft);
+}
+.phone :is(.sheet, .logout-confirm, .credit-help-sheet) {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-floating);
+}
+.phone .sheet,
+.phone .credit-help-sheet {
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: rgba(250,248,240,.97);
+}
+.phone .logout-confirm {
+  background: rgba(250,248,240,.97);
+}
+.phone :is(.profile-banner, .energy-header, .seed-wallet) {
+  border-radius: var(--radius-lg);
+  background: linear-gradient(150deg, rgba(98,135,115,.94), rgba(48,81,67,.96));
+  box-shadow: var(--shadow-card);
+}
+.phone :is(.my-menu button, .benefit-menu button) {
+  min-height: 56px;
+}
+.phone :is(.my-menu button, .benefit-menu button, .archive-groups button, .asset-tabs button, .relation-picks button) {
+  font-family: var(--font-ui);
+}
+
+.main-nav {
+  border-top-color: var(--color-border-subtle);
+  background: linear-gradient(to top, var(--color-bg-page) 72%, rgba(246,242,232,.92));
+}
+.main-nav button {
+  color: var(--color-text-secondary);
+}
+.main-nav button.active {
+  color: var(--color-brand-primary);
+}
+.main-nav button.active i {
+  color: var(--color-brand-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone *,
+  .phone *::before,
+  .phone *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
