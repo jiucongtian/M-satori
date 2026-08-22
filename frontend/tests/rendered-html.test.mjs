@@ -45,7 +45,7 @@ test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async 
   assert.doesNotMatch(login, /back-button|返回欢迎页|login-brand|Brand compact/);
 });
 
-test("页面编号仅在显式开启的研发与测试构建中显示", async () => {
+test("页面编号仅在显式开启的研发与调试构建中显示", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = page.match(/const showPageDebugLabels[\s\S]*?function PageDebugLabel[\s\S]*?\n}/)?.[0] ?? "";
   assert.match(component, /process\.env\.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true"/);
@@ -56,7 +56,8 @@ test("页面编号仅在显式开启的研发与测试构建中显示", async ()
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(packageJson.scripts.dev, /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
   assert.doesNotMatch(packageJson.scripts["build:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
-  assert.match(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.doesNotMatch(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.match(packageJson.scripts["build:debug:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
 });
 
 test("正式工程包含完整原型基础样式", async () => {
