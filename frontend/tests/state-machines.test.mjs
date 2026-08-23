@@ -49,6 +49,7 @@ test("流程草稿具有版本、过期和用户边界，写命令具有前端�
   assert.doesNotMatch(storage, /localStorage/);
   assert.match(profile, /confirmLock\.current===revision\.revisionId/);
   assert.match(profile, /previewLock\.current/);
+  assert.match(profile, /writeFlowDraft\("profile",owner,DRAFT_VERSION,data\);dispatch\(\{type:"PREVIEW"\}\)/);
   assert.match(profile, /rewardLock\.current/);
   assert.match(profile, /if\(value\.profile\.pendingRevisionId\)/);
   assert.match(daily, /createLock\.current/);
