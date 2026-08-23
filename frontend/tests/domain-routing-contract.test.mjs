@@ -26,6 +26,19 @@ test("统一 Session 四态和受保护路由守卫已经接入", async () => {
   assert.match(layout, /<Providers>/);
 });
 
+test("受保护路由在业务页面挂载前执行守卫", async () => {
+  const pages = [
+    "../app/home/page.tsx", "../app/profile/create/page.tsx",
+    "../app/daily/page.tsx", "../app/daily/report/page.tsx",
+    "../app/my/page.tsx", "../app/my/profile/page.tsx",
+    "../app/my/seeds/page.tsx", "../app/my/reports/page.tsx",
+    "../app/my/archive/page.tsx",
+  ];
+  for (const page of pages) {
+    assert.match(await source(page), /<ProtectedRoute><[A-Za-z]+Screen\/><\/ProtectedRoute>/, `${page} 必须在入口层守卫业务组件`);
+  }
+});
+
 test("认证和旧业务适配器保留核心写命令与防重复确认", async () => {
   const page = [await source("../src/features/auth/LoginScreen.tsx"), await source("../src/features/auth/ConsentScreen.tsx"), await source("../src/features/legacy/LegacyProfileFlow.tsx")].join("\n");
   for (const command of ["sendSms","createSession","acceptConsents","previewProfile","confirmProfile","generateProfileFirstLook","claimRegistrationReward","createTodayInsight","createProfile","confirmOtherProfile","deleteProfile"]) assert.match(page,new RegExp(`api\\.${command}\\(`));

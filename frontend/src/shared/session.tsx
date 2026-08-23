@@ -28,13 +28,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const resolve = useCallback(async (): Promise<SessionStatus> => {
-    const restored = await api.refresh();
-    if (!restored) {
-      setMe(null);
-      setStatus("anonymous");
-      return "anonymous";
-    }
     try {
+      const restored = await api.refresh();
+      if (!restored) {
+        setMe(null);
+        setStatus("anonymous");
+        return "anonymous";
+      }
       const current = await api.me();
       setMe(current);
       setStatus("authenticated");

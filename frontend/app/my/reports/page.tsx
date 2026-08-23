@@ -1,1 +1,3 @@
-import {MyReportsScreen} from "@/src/features/my/MyScreens"; export default function MyReportsPage(){return <MyReportsScreen/>;}
+import { MyReportsScreen } from "@/src/features/my/MyScreens";
+import { ProtectedRoute } from "@/src/shared/guards";
+export default function MyReportsPage(){return <ProtectedRoute><MyReportsScreen/></ProtectedRoute>;}
