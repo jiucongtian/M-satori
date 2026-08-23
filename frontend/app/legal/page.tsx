@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, type ReactNode, useEffect, useState } from "react";
+import "./legal.css";
 
 type LegalDocument = {
   documentId: string;
