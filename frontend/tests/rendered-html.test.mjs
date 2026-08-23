@@ -11,13 +11,14 @@ async function render() {
   }, { waitUntil() {}, passThroughOnException() {} });
 }
 
-test("服务端首屏渲染中性 Session 恢复态，避免老用户闪现欢迎页", async () => {
+test("服务端首屏直接渲染欢迎页，Session 在后台恢复", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /正在恢复登录状态/);
-  assert.match(html, /正在回到属于你的今日/);
-  assert.doesNotMatch(html, /R1\.0 · AUTH-02/);
+  assert.match(html, /初见欢迎页/);
+  assert.match(html, /每一天/);
+  assert.match(html, /开始认识自己/);
+  assert.doesNotMatch(html, /正在恢复登录状态/);
 });
 
 test("AUTH-02 不展示已有档案快捷入口，新用户礼物按后端额度显示", async () => {
@@ -80,7 +81,7 @@ test("R1.0 使用统一字体令牌并明确区分品牌与功能文字", async 
   assert.match(css, /\.home-energy-card \.guide-tips strong,[\s\S]*?font-size:var\(--type-caption\)/);
 });
 
-test("R1.0 字体随构建交付并保留 OFL 授权证据", async () => {
+test("R1.0 首屏使用平台中文字体并保留字体授权证据", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const sansLicense = await readFile(new URL("../public/fonts/licenses/Noto-Sans-SC-OFL-1.1.txt", import.meta.url), "utf8");
@@ -88,10 +89,10 @@ test("R1.0 字体随构建交付并保留 OFL 授权证据", async () => {
 
   assert.equal(packageJson.dependencies["@fontsource/noto-sans-sc"], "5.2.7");
   assert.equal(packageJson.dependencies["@fontsource/noto-serif-sc"], "5.2.7");
+  assert.doesNotMatch(css, /@font-face|\/fonts\/noto-/);
   for (const family of ["noto-sans-sc", "noto-serif-sc"]) {
     for (const weight of [400, 500, 600]) {
       const path = `/fonts/${family}/${family}-${weight}.woff2`;
-      assert.match(css, new RegExp(path.replaceAll("/", "\\/")));
       const binary = await readFile(new URL(`../public${path}`, import.meta.url));
       assert.ok(binary.byteLength > 10_000);
     }
@@ -99,11 +100,10 @@ test("R1.0 字体随构建交付并保留 OFL 授权证据", async () => {
   for (const license of [sansLicense, serifLicense]) assert.match(license, /SIL OPEN FONT LICENSE Version 1\.1/);
 });
 
-test("R1.0 业务样式不直接指定未经规范批准的具名字体", async () => {
+test("R1.0 字体令牌优先使用系统中文字体，避免首屏字体下载", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(css, /--font-brand: "Noto Serif SC", serif/);
-  assert.match(css, /--font-ui: "Noto Sans SC", sans-serif/);
-  assert.doesNotMatch(css, /PingFang|Microsoft YaHei|Songti|STSong|Arial|Helvetica|Source Han/);
+  assert.match(css, /--font-brand: "Songti SC", "STSong", "Noto Serif CJK SC", serif/);
+  assert.match(css, /--font-ui: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif/);
 });
 
 test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {
@@ -413,11 +413,11 @@ test("R1 核心页面调用真实后端能力", async () => {
   assert.doesNotMatch(page, /原型中直接查看结果/);
 });
 
-test("老用户恢复 Session 前使用中性恢复态，不渲染 AUTH-02", async () => {
+test("Session 恢复不阻塞匿名欢迎页首屏", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /const \[sessionReady, setSessionReady\] = useState\(false\)/);
-  assert.match(page, /!sessionReady \? <SessionRestoring \/> : view === "welcome"/);
-  assert.match(page, /finally\(\(\) => active && setSessionReady\(true\)\)/);
+  assert.match(page, /api\.refresh\(\)\.then\(async \(restored\)/);
+  assert.match(page, /\{view === "welcome" \? \(/);
+  assert.doesNotMatch(page, /sessionReady|SessionRestoring/);
 });
 
 test("协议版本更新时阻止空接受列表并为新旧 Session 完成补充确认", async () => {
@@ -438,7 +438,7 @@ test("任意受保护接口返回 CONSENT_REQUIRED 时全局进入协议确认�
   assert.match(client, /export const CONSENT_REQUIRED_EVENT = "satori:consent-required"/);
   assert.match(client, /failure\?\.code === "CONSENT_REQUIRED"[\s\S]*?window\.dispatchEvent\(new CustomEvent\(CONSENT_REQUIRED_EVENT/);
   assert.match(page, /window\.addEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
-  assert.match(page, /handleConsentRequired[\s\S]*?setView\("consent"\)[\s\S]*?setSessionReady\(true\)/);
+  assert.match(page, /handleConsentRequired[\s\S]*?setView\("consent"\)/);
   assert.match(page, /window\.removeEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
 });
 

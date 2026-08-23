@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
-import { api, ApiError } from "@/src/api/client";
 import { BackButton, FreshButton } from "@/src/components/FreshPrimitives";
 import { api, ApiError, CONSENT_REQUIRED_EVENT } from "@/src/api/client";
 import type { BirthInput, Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
@@ -41,10 +40,6 @@ function stepForAction(action: string) {
   return 0;
 }
 
-function SessionRestoring() {
-  return <section className="session-restoring" aria-live="polite" aria-label="正在恢复登录状态"><Brand /><div className="restoring-seed" aria-hidden="true"><i /><span>芽</span></div><p>正在回到属于你的今日</p></section>;
-}
-
 function ConsentUpdate({ agreed, busy, message, legalHref, onAgreed, onConfirm }: { agreed: boolean; busy: boolean; message: string; legalHref: (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY" | "AI_CONTENT_NOTICE") => string; onAgreed: (agreed: boolean) => void; onConfirm: () => void }) {
   return <div className="login-page consent-update-page">
     <header className="brand-row login-header"><Brand /></header>
@@ -78,7 +73,6 @@ export default function WelcomePage() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [challengeId, setChallengeId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
 
   const normalizedPhone = phone.replace(/\D/g, "").slice(0, 11);
   const phoneReady = /^1\d{10}$/.test(normalizedPhone);
@@ -91,7 +85,6 @@ export default function WelcomePage() {
       setAgreed(false);
       setMessage("");
       setView("consent");
-      setSessionReady(true);
       void api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
     };
     window.addEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
@@ -109,7 +102,7 @@ export default function WelcomePage() {
         setMessage("");
         setView("consent");
       }
-    }).catch(() => undefined).finally(() => active && setSessionReady(true));
+    }).catch(() => undefined);
     return () => {
       active = false;
       window.removeEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
@@ -212,7 +205,7 @@ export default function WelcomePage() {
         <div className="ambient ambient-one" />
         <div className="ambient ambient-two" />
 
-        {!sessionReady ? <SessionRestoring /> : view === "welcome" ? (
+        {view === "welcome" ? (
           <>
             <PageDebugLabel>R1.0 · AUTH-02</PageDebugLabel>
             <header className="brand-row">
@@ -1265,7 +1258,7 @@ function MyProfile({ home, revision, onBack,onEdit,onFirstLook }: { home: HomeOv
   return <section className="my-page my-detail"><MyHeader title="生命智慧档案" onBack={onBack} /><div className="profile-owner"><span>{(home?.profile.displayName || "我").slice(0,1)}</span><div><h1>{home?.profile.displayName || "我的生命智慧档案"}</h1><p>当前版本 V{revision?.revisionNumber || 1} · {home?.profile.state === "ACTIVE" ? "已确认" : "待确认"}</p></div></div><LifeWisdomCardRow cards={cards} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook}><i>初</i><span><small>生命智慧初识</small><strong>回看你的生命底色与四个短画像</strong></span><b>›</b></button><section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{birthDate}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime || "未提供"} · {precisionLabel}</strong></p></section><button className="outline-button" type="button" onClick={onEdit}>编辑生命智慧档案</button></section>;
 }
 
-function FirstLookArchive({name,revision,report,loading,onRetry,onEdit,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onEdit:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;const cardsIncomplete=Boolean(revision&&!hasCompleteFirstLookCards(revision));return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/><p className="eyebrow">R1.0 · MY-18</p>{content?<><FirstLookCardPanel revision={revision}/><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":cardsIncomplete?"时":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":cardsIncomplete?"补充出生时间后再生成初识":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"正在依据当前档案版本整理生命智慧初识。":cardsIncomplete?"当前档案还不能确定完整的四张关系卡牌。补充出生时间后即可继续生成。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&(cardsIncomplete?<><button className="primary" type="button" onClick={onEdit}>修改资料</button><button className="text-action" type="button" onClick={onBack}>暂时返回</button></>:<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>)}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<ProfileReferenceNotice /></section>}
+function FirstLookArchive({name,revision,report,loading,onRetry,onEdit,onBack}:{name:string;revision:ProfileRevision|null;report:ProfileFirstLook|null;loading:boolean;onRetry:()=>void;onEdit:()=>void;onBack:()=>void}){const content=report?.status==="READY"?report.content:null;const cardsIncomplete=Boolean(revision&&!hasCompleteFirstLookCards(revision));return <section className="my-page first-look-archive"><MyHeader title="生命智慧初识" onBack={onBack}/>{content?<><FirstLookCardPanel revision={revision}/><div className="first-look-cover"><small>{name}的生命智慧档案 · V{revision?.revisionNumber||1}</small><h1>{content.profileSummary.title}</h1><p>{content.profileSummary.description}</p><div>{content.profileSummary.keywords.map(keyword=><span key={keyword}>{keyword}</span>)}</div></div><div className="first-look-voices">{content.cards.map((card,index)=><article key={card.position}><b>{String(index+1).padStart(2,"0")}</b><div><small>{card.dimension} · {card.card}</small><h2>{card.title}</h2><p>{card.summary}</p></div></article>)}</div></>:<div className="first-look-pending"><i>{loading||report?.status==="GENERATING"?"芽":cardsIncomplete?"时":"!"}</i><h1>{loading||report?.status==="GENERATING"?"生命智慧初识正在生成":cardsIncomplete?"补充出生时间后再生成初识":"生命智慧初识暂不可用"}</h1><p>{loading||report?.status==="GENERATING"?"正在依据当前档案版本整理生命智慧初识。":cardsIncomplete?"当前档案还不能确定完整的四张关系卡牌。补充出生时间后即可继续生成。":report?.failure?.message||"当前版本还没有初识报告，不会展示 Mock 内容。"}</p>{!loading&&report?.status!=="GENERATING"&&(cardsIncomplete?<><button className="primary" type="button" onClick={onEdit}>修改资料</button><button className="text-action" type="button" onClick={onBack}>暂时返回</button></>:<button className="primary" type="button" onClick={onRetry}>生成初识报告</button>)}</div>}{content&&<p className="first-look-notice">{content.notice}</p>}<ProfileReferenceNotice /></section>}
 
 function EditSelfProfile({data,revision,busy,onChange,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}) {
   const [solarNotice, setSolarNotice] = useState(false);
