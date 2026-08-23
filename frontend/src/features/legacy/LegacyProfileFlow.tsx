@@ -8,6 +8,7 @@ import { api, ApiError } from "@/src/api/client";
 import type { BirthInput, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
 type EnergyLevel = "高" | "中" | "低";
+export type HomeNavTarget = "today" | "reading" | "relationship" | "growth" | "my";
 const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true";
 function PageDebugLabel({ children }: { children: string }) { return showPageDebugLabels ? <span className="screen-id" aria-hidden="true">{children}</span> : null; }
 function apiMessage(error: unknown) { if (error instanceof ApiError) return `${error.message}${error.requestId ? `（请求 ${error.requestId}）` : ""}`; return "网络连接失败，请稍后重试"; }
@@ -465,6 +466,17 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
     if (r1StepIds.has(profileSteps[target])) setStep(target);
   }
 
+  function navigateHome(target: HomeNavTarget) {
+    const stepByTarget: Record<HomeNavTarget, number> = {
+      today: 10,
+      reading: profileSteps.indexOf("PREVIEW-READ"),
+      relationship: profileSteps.indexOf("PREVIEW-RELATIONSHIP"),
+      growth: profileSteps.indexOf("PREVIEW-GROWTH"),
+      my: 21,
+    };
+    navigateR1(stepByTarget[target]);
+  }
+
   function next() {
     if (id === "PROFILE-04") return setStep(5);
     setStep((value) => Math.min(value + 1, profileSteps.length - 1));
@@ -526,7 +538,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} busy={apiBusy} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => void confirmProfile()} />}
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onEdit={() => setStep(1)} onSkip={next} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} amount={home?.registrationReward.wisdomSeedAmount ?? 18} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
-      {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
+      {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateHome} />}
       {id === "DAILY-01" && <DailyStart name={data.name} energyLevel={dailyEnergyLevel} balance={availableBalance} onBack={back} onNext={next} />}
       {id === "PAY-01" && <SeedPayment balance={availableBalance} busy={apiBusy} onBack={back} onNext={startDailyInsight} onSupport={() => setStep(profileSteps.indexOf("MY-08"))} />}
       {id === "DAILY-02" && <DailyGenerating name={data.name} balance={availableBalance} onBack={back} />}
@@ -537,7 +549,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       {id === "SHARE-02" && <ShareGenerating energyLevel={dailyEnergyLevel} onBack={back} onSuccess={next} onFailure={() => setStep(20)} />}
       {id === "SHARE-03" && <ShareSuccess energyLevel={dailyEnergyLevel} onBack={back} onHome={() => setStep(10)} />}
       {id === "SHARE-04" && <ShareFailure onBack={back} onRetry={() => setStep(18)} onHome={() => setStep(10)} />}
-      {id === "MY-01" && <MyHome name={data.name} balance={availableBalance} open={navigateR1} />}
+      {id === "MY-01" && <MyHome name={data.name} balance={availableBalance} open={navigateR1} navigate={navigateHome} />}
       {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} onEdit={openSelfEditor} onFirstLook={() => void openFirstLookArchive()} />}
       {id === "MY-03" && <MySeeds account={account} transactions={transactions} onBack={() => setStep(21)} />}
       {id === "MY-04" && <MyReports home={home} insight={dailyInsight} onBack={() => setStep(21)} onDaily={() => home?.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(21); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : undefined} />}
@@ -554,9 +566,9 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       {id === "MY-16" && <ArchiveDeleteImpact name={selectedProfile?.displayName || "这份人物档案"} busy={apiBusy} onBack={() => setStep(116)} onDone={deleteOtherProfile} />}
       {id === "MY-17" && <EditSelfProfile data={data} revision={revision} busy={apiBusy} onChange={setData} onBack={() => {setEditingSelf(false);setStep(22);}} onNext={previewProfile} />}
       {id === "MY-18" && <FirstLookArchive name={home?.profile.displayName||data.name||"你"} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||home?.profile.currentRevisionId||revision?.revisionId; if(revisionId) void generateFirstLook(revisionId); }} onEdit={openSelfEditor} onBack={() => setStep(22)} />}
-      {id === "PREVIEW-READ" && <ComingSoonPage kind="问事" navigate={navigateR1} />}
-      {id === "PREVIEW-GROWTH" && <ComingSoonPage kind="成长" navigate={navigateR1} />}
-      {id === "PREVIEW-RELATIONSHIP" && <ComingSoonPage kind="关系" navigate={navigateR1} />}
+      {id === "PREVIEW-READ" && <ComingSoonPage kind="问事" navigate={navigateHome} />}
+      {id === "PREVIEW-GROWTH" && <ComingSoonPage kind="成长" navigate={navigateHome} />}
+      {id === "PREVIEW-RELATIONSHIP" && <ComingSoonPage kind="关系" navigate={navigateHome} />}
       {id === "REL-02" && <RelationshipDimension initialType={relationshipType} onBack={() => setStep(121)} onNext={(type) => { setRelationshipType(type); setStep(121); }} />}
       {id === "REL-03" && <RelationshipHistory onBack={() => setStep(44)} onOpen={(type) => { setRelationshipType(type); setStep(129); }} />}
       {id === "REL-04" && <RelationshipSource type={relationshipType} onBack={() => setStep(44)} onDimension={() => setStep(119)} onArchive={() => { setRelationshipSource("archive"); setStep(122); }} onCards={() => { setRelationshipSource("cards"); setStep(123); }} />}
@@ -744,11 +756,11 @@ export function SeedGift({ name, amount, claimed = false, busy, onClaim, onNext 
   </section>;
 }
 
-export function TodayHome({ name, home, onNext, navigate }: { name: string; home: HomeOverview | null; onNext: () => void; navigate: (step: number) => void }) {
+export function TodayHome({ name, home, onNext, navigate }: { name: string; home: HomeOverview | null; onNext: () => void; navigate: (target: HomeNavTarget) => void }) {
   const ready = home?.dailyInsight.state === "READY";
   const summary = home?.dailyEnergySummary.data;
   const localDate = home?.dailyInsight.localDate || new Date().toLocaleDateString("zh-CN");
-  return <section className="today-home"><header><Brand compact /><div className="seed-balance" title="平台附赠的 AI 体验额度"><i>●</i><span>智慧种子</span><strong>{home?.wisdomSeedAccount.available ?? "—"}</strong></div></header><p className="eyebrow">TODAY · {localDate}{summary?.heavenCard ? ` · ${summary.heavenCard}` : ""}</p><h1>{name}，你好</h1><article className="daily-guide home-energy-card"><div className="energy-scale" aria-label={summary ? `今日能量为${summary.energyLevel}` : "今日能量暂不可用"}><small>今日能量</small><div>{(["高", "中", "低"] as const).map((level) => <span key={level} className={summary?.energyLevel === level ? "active" : ""}>{level}</span>)}</div></div><p className="guide-kicker">TODAY&apos;S GUIDANCE</p><h2>{summary?.guidance || "今日能量摘要暂不可用"}</h2><div className="home-growth-scene" aria-hidden="true"><div className="life-growth"><i className="living-seed" /><i className="living-stem" /><i className="living-leaf leaf-left" /><i className="living-leaf leaf-right" /><i className="living-leaf leaf-top" /><span className="growth-ring ring-one" /><span className="growth-ring ring-two" /></div></div>{summary ? <div className="guide-tips"><div><small>适合做什么</small><strong>{summary.suitableActions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div><div><small>注意什么</small><strong>{summary.cautions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div></div> : null}<button className="home-guidance-link" type="button" onClick={onNext}>{ready ? "查看今日能量指引" : "获取今日能量指引"}<span>→</span></button></article><MainNav active="今日" navigate={navigate} /></section>;
+  return <section className="today-home"><header><Brand compact /><div className="seed-balance" title="平台附赠的 AI 体验额度"><i>●</i><span>智慧种子</span><strong>{home?.wisdomSeedAccount.available ?? "—"}</strong></div></header><p className="eyebrow">TODAY · {localDate}{summary?.heavenCard ? ` · ${summary.heavenCard}` : ""}</p><h1>{name}，你好</h1><article className="daily-guide home-energy-card"><div className="energy-scale" aria-label={summary ? `今日能量为${summary.energyLevel}` : "今日能量暂不可用"}><small>今日能量</small><div>{(["高", "中", "低"] as const).map((level) => <span key={level} className={summary?.energyLevel === level ? "active" : ""}>{level}</span>)}</div></div><p className="guide-kicker">TODAY&apos;S GUIDANCE</p><h2>{summary?.guidance || "今日能量摘要暂不可用"}</h2><div className="home-growth-scene" aria-hidden="true"><div className="life-growth"><i className="living-seed" /><i className="living-stem" /><i className="living-leaf leaf-left" /><i className="living-leaf leaf-right" /><i className="living-leaf leaf-top" /><span className="growth-ring ring-one" /><span className="growth-ring ring-two" /></div></div>{summary ? <div className="guide-tips"><div><small>适合做什么</small><strong>{summary.suitableActions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div><div><small>注意什么</small><strong>{summary.cautions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div></div> : null}<button className="home-guidance-link" type="button" onClick={onNext}>{ready ? "查看今日能量指引" : "获取今日能量指引"}<span>→</span></button></article><HomeMainNav active="今日" navigate={navigate} /></section>;
 }
 
 function DailyHeader({ onBack, balance }: { onBack: () => void; balance: number | null }) {
@@ -923,9 +935,14 @@ function MainNav({ active, navigate }: { active: string; navigate: (step: number
   return <nav className="main-nav" aria-label="主导航">{tabs.map(([label, step, icon]) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(step)}><i>{icon}</i><span>{label}</span></button>)}</nav>;
 }
 
+function HomeMainNav({ active, navigate }: { active: string; navigate: (target: HomeNavTarget) => void }) {
+  const tabs = [["今日", "today", "◉"], ["问事", "reading", "◇"], ["关系", "relationship", "∞"], ["成长", "growth", "❧"], ["我的", "my", "○"]] as const;
+  return <nav className="main-nav" aria-label="主导航">{tabs.map(([label, target, icon]) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(target)}><i>{icon}</i><span>{label}</span></button>)}</nav>;
+}
+
 type ComingSoonKind = "问事" | "成长" | "关系";
 
-export function ComingSoonPage({ kind, navigate }: { kind: ComingSoonKind; navigate: (step: number) => void }) {
+export function ComingSoonPage({ kind, navigate }: { kind: ComingSoonKind; navigate: (target: HomeNavTarget) => void }) {
   const content = {
     问事: { eyebrow: "ASK · DRAW · REFLECT", symbol: "问", title: "带着一个问题，\n听见新的角度", lead: "未来你可以围绕此刻关心的事随机抽取卡牌，获得温柔、清晰且可行动的个人指引。", features: ["写下情感、事业或个人状态问题", "随机抽取一至多张关系卡牌", "生成问事报告并保存历史记录"] },
     成长: { eyebrow: "SEE YOUR GROWTH", symbol: "长", title: "让每一次看见，\n慢慢连成成长轨迹", lead: "未来这里会承接更长期的认识与复访，让每日感受、深度报告和阶段变化彼此连接。", features: ["生命之光与长期生命底图", "月运、年运及专项主题报告", "个人成长时间线与阶段回顾"] },
@@ -938,8 +955,8 @@ export function ComingSoonPage({ kind, navigate }: { kind: ComingSoonKind; navig
     <p className="coming-lead">{content.lead}</p>
     <div className="coming-state"><i>芽</i><span><strong>这片新的枝叶正在生长</strong><small>将在后续版本与你见面</small></span></div>
     <div className="coming-features"><small>未来将支持</small>{content.features.map((feature, index) => <p key={feature}><b>{String(index + 1).padStart(2, "0")}</b><span>{feature}</span></p>)}</div>
-    <button className="primary" type="button" onClick={() => navigate(10)}>我知道了，返回今日 <span>→</span></button>
-    <MainNav active={kind} navigate={navigate}/>
+    <button className="primary" type="button" onClick={() => navigate("today")}>我知道了，返回今日 <span>→</span></button>
+    <HomeMainNav active={kind} navigate={navigate}/>
   </section>;
 }
 
@@ -947,9 +964,9 @@ function MyHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return <header className="my-header"><BackButton onClick={onBack} /><strong>{title}</strong><button type="button" className="header-more" aria-label="更多操作">•••</button></header>;
 }
 
-export function MyHome({ name, balance, open }: { name: string; balance: number | null; open: (step: number) => void }) {
+export function MyHome({ name, balance, open, navigate }: { name: string; balance: number | null; open: (step: number) => void; navigate: (target: HomeNavTarget) => void }) {
   const items = [["每日指引记录", "查看已经生成的每日指引", 24, "册"], ["账号与退出", "管理当前账号登录状态", 27, "隐"], ["联系我们", "官方社交媒体与客服渠道", 28, "联"]] as const;
-  return <section className="my-page my-home"><header><Brand compact /></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子 · AI 体验额度</small><strong>{balance ?? "—"}<em> 颗可用</em></strong></div><b>查看明细 ›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
+  return <section className="my-page my-home"><header><Brand compact /></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子 · AI 体验额度</small><strong>{balance ?? "—"}<em> 颗可用</em></strong></div><b>查看明细 ›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><HomeMainNav active="我的" navigate={navigate} /></section>;
 }
 
 export function MyProfile({ home, revision, onBack,onEdit,onFirstLook }: { home: HomeOverview | null; revision: ProfileRevision | null; onBack: () => void;onEdit:()=>void;onFirstLook:()=>void }) {

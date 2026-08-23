@@ -38,3 +38,18 @@ test("真实路由返回目标不会指向会自动恢复的每日入口", async
   assert.match(my, /dailyReportPath\(home\.dailyInsight\.localDate,"my-reports"\)/);
   assert.match(daily, /router\.replace\(dailyReportPath\(/);
 });
+
+test("首页与我的底部导航使用具名目标而非易漂移的数字步骤", async () => {
+  const [legacy, home, my] = await Promise.all([
+    readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/home/HomeScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/my/MyScreens.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(legacy, /export type HomeNavTarget = "today" \| "reading" \| "relationship" \| "growth" \| "my"/);
+  assert.match(legacy, /function HomeMainNav/);
+  assert.match(legacy, /navigate\("today"\)/);
+  assert.match(home, /target==="reading"\?"问事":target==="relationship"\?"关系":"成长"/);
+  assert.doesNotMatch(home, /step===29|step===43|step===44/);
+  assert.match(my, /<MyHome[^>]*navigate=\{navigate\}/);
+  assert.doesNotMatch(my, /step===29|step===43|step===44/);
+});
