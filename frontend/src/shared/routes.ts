@@ -16,6 +16,7 @@ export const ROUTES = {
 
 export type RouteId = keyof typeof ROUTES;
 export type AppPath = (typeof ROUTES)[RouteId];
+export type DailyReportSource = "my-reports";
 
 export const PUBLIC_PATHS = new Set<AppPath>([ROUTES.welcome, ROUTES.login, ROUTES.legal]);
 export const PROTECTED_PATHS = new Set<AppPath>([
@@ -48,6 +49,16 @@ export function isDocumentId(value: string | null): value is string {
   return Boolean(value && DOCUMENT_ID.test(value));
 }
 
+export function dailyReportPath(localDate: string, source?: DailyReportSource): string {
+  const query = new URLSearchParams({ date: localDate });
+  if (source) query.set("from", source);
+  return `${ROUTES.dailyReport}?${query.toString()}`;
+}
+
+export function dailyReportReturnPath(source: string | null | undefined): AppPath {
+  return source === "my-reports" ? ROUTES.myReports : ROUTES.home;
+}
+
 export function safeNextPath(value: string | null | undefined, fallback: AppPath = ROUTES.home): string {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return fallback;
   let parsed: URL;
@@ -59,9 +70,13 @@ export function safeNextPath(value: string | null | undefined, fallback: AppPath
   if (parsed.origin !== "https://fresh.local" || !SAFE_NEXT_PATHS.has(parsed.pathname as AppPath)) return fallback;
   for (const key of parsed.searchParams.keys()) {
     if (SENSITIVE_QUERY_KEYS.has(key)) return fallback;
-    if (parsed.pathname !== ROUTES.dailyReport || key !== "date") return fallback;
+    if (parsed.pathname !== ROUTES.dailyReport || !["date", "from"].includes(key)) return fallback;
   }
-  if (parsed.pathname === ROUTES.dailyReport && parsed.search && !isIsoDate(parsed.searchParams.get("date"))) return fallback;
+  if (parsed.pathname === ROUTES.dailyReport && parsed.search) {
+    if (!isIsoDate(parsed.searchParams.get("date"))) return fallback;
+    const source = parsed.searchParams.get("from");
+    if (source && source !== "my-reports") return fallback;
+  }
   return `${parsed.pathname}${parsed.search}`;
 }
 
