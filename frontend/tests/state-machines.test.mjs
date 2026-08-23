@@ -22,6 +22,12 @@ test("建档失败恢复到明确的安全状态", () => {
   assert.equal(profileReducer(failed, { type: "RETRY" }).state, "calculating");
 });
 
+test("建档依据后端档案事实恢复到待确认、初见或赠礼状态", () => {
+  assert.equal(profileReducer(initialProfileMachine, { type: "RESTORE_CONFIRMING" }).state, "confirming");
+  assert.equal(profileReducer(initialProfileMachine, { type: "RESTORE_FIRST_LOOK" }).state, "first-look");
+  assert.equal(profileReducer(initialProfileMachine, { type: "RESTORE_GIFT" }).state, "gift");
+});
+
 test("每日指引状态机覆盖恢复、确认、生成、完成与失败重试", () => {
   let machine = dailyReducer(initialDailyMachine, { type: "RESTORE_START" });
   machine = dailyReducer(machine, { type: "CONFIRM_COST" });
@@ -42,6 +48,7 @@ test("流程草稿具有版本、过期和用户边界，写命令具有前端�
   assert.match(storage, /window\.sessionStorage/);
   assert.doesNotMatch(storage, /localStorage/);
   assert.match(profile, /confirmLock\.current===revision\.revisionId/);
+  assert.match(profile, /previewLock\.current/);
   assert.match(profile, /rewardLock\.current/);
   assert.match(daily, /createLock\.current/);
 });
