@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "身心游 · 每一天，更懂自己一点",
+  title: "初见 · FRESH · 每一天，重新看见自己",
   description: "从你的出生时刻出发，读懂当下的节律，找到适合自己的下一步。",
   icons: { icon: "/favicon.svg" },
 };

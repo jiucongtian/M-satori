@@ -35,6 +35,7 @@ export type {
   WisdomSeedTransaction,
 };
 export type BirthInput = Schemas["BirthInput"];
+export const CONSENT_REQUIRED_EVENT = "satori:consent-required";
 
 export class ApiError extends Error {
   constructor(
@@ -97,6 +98,11 @@ class SatoriApiClient {
     const payload = response.status === 204 ? null : await response.json().catch(() => null);
     if (!response.ok) {
       const failure = payload?.error;
+      if (failure?.code === "CONSENT_REQUIRED" && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(CONSENT_REQUIRED_EVENT, {
+          detail: { requestId: failure.requestId },
+        }));
+      }
       throw new ApiError(
         failure?.message || `请求失败（HTTP ${response.status}）`,
         response.status,
@@ -163,6 +169,13 @@ class SatoriApiClient {
     });
   }
 
+  acceptConsents(acceptances: Schemas["ConsentAcceptance"][]) {
+    return this.command<Schemas["ConsentEnvelope"]>("/me/consents", {
+      method: "POST",
+      body: JSON.stringify({ acceptances }),
+    }).then((x) => x.data);
+  }
+
   me() { return this.request<Schemas["MeEnvelope"]>("/me").then((x) => x.data); }
   home() { return this.request<Schemas["HomeOverviewEnvelope"]>("/me/home-overview").then((x) => x.data); }
   selfProfile() { return this.request<Schemas["LifeProfileEnvelope"]>("/me/life-profile").then((x) => x.data); }
@@ -214,6 +227,11 @@ class SatoriApiClient {
   createProfile(displayName: string, relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER") {
     return this.command<Schemas["LifeProfileEnvelope"]>("/me/life-profiles", {
       method: "POST", body: JSON.stringify({ displayName, relationshipType, groupId: null }),
+    }).then((x) => x.data);
+  }
+  updateProfile(profileId: string, displayName: string, relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER") {
+    return this.command<Schemas["LifeProfileEnvelope"]>(`/me/life-profiles/${profileId}`, {
+      method: "PATCH", body: JSON.stringify({ displayName, relationshipType }),
     }).then((x) => x.data);
   }
   previewOtherProfile(profileId: string, birthInput: BirthInput) {

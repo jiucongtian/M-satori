@@ -67,7 +67,7 @@ export const environmentSchema = z
     FEATURE_PROFILE_LIBRARY: booleanFromString.default(true),
     FEATURE_WISDOM_SEEDS: booleanFromString.default(true),
     FEATURE_DAILY_INSIGHT: booleanFromString.default(true),
-    REGISTRATION_REWARD_AMOUNT: z.coerce.number().int().positive().default(3),
+    REGISTRATION_REWARD_AMOUNT: z.coerce.number().int().positive().default(18),
     ACCOUNT_DELETION_CANCELLATION_HOURS: z.coerce.number().int().positive().default(168),
   })
   .superRefine((environment, context) => {

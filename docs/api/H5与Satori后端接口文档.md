@@ -370,20 +370,20 @@ GET /api/v1/app/bootstrap
     },
     "requiredLegalDocuments": [
       {
-        "documentId": "legal_privacy_20260809",
+        "documentId": "legal_privacy_20260820",
         "type": "PRIVACY_POLICY",
-        "version": "1.0",
+        "version": "1.1",
         "title": "隐私政策",
         "required": true,
-        "publishedAt": "2026-08-09T00:00:00Z"
+        "publishedAt": "2026-08-20T00:00:00Z"
       },
       {
-        "documentId": "legal_terms_20260809",
+        "documentId": "legal_terms_20260820",
         "type": "TERMS_OF_SERVICE",
-        "version": "1.0",
+        "version": "1.1",
         "title": "用户协议",
         "required": true,
-        "publishedAt": "2026-08-09T00:00:00Z"
+        "publishedAt": "2026-08-20T00:00:00Z"
       },
       {
         "documentId": "legal_ai_notice_20260809",
@@ -409,13 +409,13 @@ GET /api/v1/legal-documents/{documentId}
 ```json
 {
   "data": {
-    "documentId": "legal_privacy_20260809",
+    "documentId": "legal_privacy_20260820",
     "type": "PRIVACY_POLICY",
-    "version": "1.0",
+    "version": "1.1",
     "title": "隐私政策",
     "contentFormat": "MARKDOWN",
     "content": "# 隐私政策\n...",
-    "publishedAt": "2026-08-09T00:00:00Z"
+    "publishedAt": "2026-08-20T00:00:00Z"
   }
 }
 ```
@@ -491,12 +491,12 @@ Idempotency-Key: 4f4e...
   "verificationCode": "123456",
   "consentAcceptances": [
     {
-      "documentId": "legal_privacy_20260809",
-      "version": "1.0"
+      "documentId": "legal_privacy_20260820",
+      "version": "1.1"
     },
     {
-      "documentId": "legal_terms_20260809",
-      "version": "1.0"
+      "documentId": "legal_terms_20260820",
+      "version": "1.1"
     },
     {
       "documentId": "legal_ai_notice_20260809",
@@ -652,8 +652,8 @@ Idempotency-Key: ...
 {
   "acceptances": [
     {
-      "documentId": "legal_privacy_20260809",
-      "version": "1.0"
+      "documentId": "legal_privacy_20260820",
+      "version": "1.1"
     }
   ]
 }

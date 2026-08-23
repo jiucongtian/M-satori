@@ -215,7 +215,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const firstLook = await app.inject({
       method: 'POST',
       url: `/api/v1/me/life-profile/revisions/${previewBody.revisionId}/first-look`,
-      headers: authHeaders('profile-first-look-generate-01'),
+      headers: idempotentAuthHeaders('profile-first-look-generate-01'),
     });
     expect(firstLook.statusCode).toBe(200);
     const firstLookBody = firstLook.json<{
@@ -425,6 +425,21 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       payload: { fingerprint: revision.inputFingerprint, enhancedConfirmationAccepted: true },
     });
     expect(confirmed.statusCode).toBe(200);
+    const otherFirstLook = await app.inject({
+      method: 'POST',
+      url: `/api/v1/me/life-profile/revisions/${revision.revisionId}/first-look`,
+      headers: idempotentAuthHeaders('other-profile-first-look-01'),
+    });
+    expect(otherFirstLook.statusCode, otherFirstLook.body).toBe(200);
+    expect(
+      otherFirstLook.json<{ data: { status: string; profileRevisionId: string } }>().data,
+    ).toMatchObject({ status: 'READY', profileRevisionId: revision.revisionId });
+    const persistedOtherFirstLook = await app.inject({
+      method: 'GET',
+      url: `/api/v1/me/life-profile/revisions/${revision.revisionId}/first-look`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(persistedOtherFirstLook.statusCode).toBe(200);
     const revisionList = await app.inject({
       method: 'GET',
       url: `/api/v1/me/life-profiles/${profile.profileId}/revisions`,
@@ -489,6 +504,15 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     });
     expect(crossOwner.statusCode).toBe(404);
     expect(crossOwner.json<{ error: { code: string } }>().error.code).toBe('LIFE_PROFILE_NOT_FOUND');
+    const crossOwnerFirstLook = await app.inject({
+      method: 'GET',
+      url: `/api/v1/me/life-profile/revisions/${revision.revisionId}/first-look`,
+      headers: { authorization: `Bearer ${otherToken}` },
+    });
+    expect(crossOwnerFirstLook.statusCode).toBe(404);
+    expect(crossOwnerFirstLook.json<{ error: { code: string } }>().error.code).toBe(
+      'PROFILE_REVISION_NOT_FOUND',
+    );
 
     const [historicalInsight] = await infrastructure.database
       .insert(dailyInsights)
@@ -584,7 +608,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(available.statusCode).toBe(200);
     expect(available.json<{ data: { status: string; wisdomSeedAmount: number } }>().data).toMatchObject({
       status: 'AVAILABLE',
-      wisdomSeedAmount: 3,
+      wisdomSeedAmount: 18,
     });
 
     const [firstClaim, concurrentClaim] = await Promise.all([
@@ -1330,8 +1354,8 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
         challengeId,
         verificationCode: code,
         consentAcceptances: [
-          { documentId: 'legal_privacy_20260809', version: '1.0' },
-          { documentId: 'legal_terms_20260809', version: '1.0' },
+          { documentId: 'legal_privacy_20260820', version: '1.1' },
+          { documentId: 'legal_terms_20260820', version: '1.1' },
           { documentId: 'legal_ai_notice_20260809', version: '1.0' },
         ],
         device: { deviceId: 'concurrent-device-final', timezone: 'Asia/Shanghai' },

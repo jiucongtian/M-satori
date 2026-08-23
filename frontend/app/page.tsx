@@ -4,15 +4,33 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
 import { api, ApiError } from "@/src/api/client";
+import { BackButton, FreshButton } from "@/src/components/FreshPrimitives";
+import { api, ApiError, CONSENT_REQUIRED_EVENT } from "@/src/api/client";
 import type { BirthInput, Bootstrap, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
 
-type View = "welcome" | "login" | "recovery" | "profile";
+type View = "welcome" | "login" | "consent" | "recovery" | "profile";
 type LoginIntent = "new" | "existing";
 type EnergyLevel = "高" | "中" | "低";
+const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true";
+
+function PageDebugLabel({ children }: { children: string }) {
+  if (!showPageDebugLabels) return null;
+  return <span className="screen-id" aria-hidden="true">{children}</span>;
+}
 
 function apiMessage(error: unknown) {
   if (error instanceof ApiError) return `${error.message}${error.requestId ? `（请求 ${error.requestId}）` : ""}`;
   return "网络连接失败，请稍后重试";
+}
+
+function requiredConsentAcceptances(bootstrap: Bootstrap) {
+  return bootstrap.requiredLegalDocuments
+    .filter((document) => document.required)
+    .map(({ documentId, version }) => ({ documentId, version }));
+}
+
+function isConsentRequired(error: unknown) {
+  return error instanceof ApiError && error.code === "CONSENT_REQUIRED";
 }
 
 function stepForAction(action: string) {
@@ -25,6 +43,27 @@ function stepForAction(action: string) {
 
 function SessionRestoring() {
   return <section className="session-restoring" aria-live="polite" aria-label="正在恢复登录状态"><Brand /><div className="restoring-seed" aria-hidden="true"><i /><span>芽</span></div><p>正在回到属于你的今日</p></section>;
+}
+
+function ConsentUpdate({ agreed, busy, message, legalHref, onAgreed, onConfirm }: { agreed: boolean; busy: boolean; message: string; legalHref: (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY" | "AI_CONTENT_NOTICE") => string; onAgreed: (agreed: boolean) => void; onConfirm: () => void }) {
+  return <div className="login-page consent-update-page">
+    <header className="brand-row login-header"><Brand /></header>
+    <div className="login-symbol" aria-hidden="true"><i /><span>阅</span></div>
+    <div className="login-copy">
+      <p className="eyebrow">AGREEMENT UPDATED</p>
+      <h1>协议已经更新</h1>
+      <p>继续使用前，请阅读并确认最新的用户协议、隐私政策与 AI 内容说明。</p>
+    </div>
+    <div className="login-form consent-update-form">
+      <label className="consent-row">
+        <input type="checkbox" checked={agreed} onChange={(event) => onAgreed(event.target.checked)} />
+        <span className="checkmark" aria-hidden="true">✓</span>
+        <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并确认 <a href={legalHref("AI_CONTENT_NOTICE")} target="_blank">AI 内容说明</a></span>
+      </label>
+      <div className="form-message" aria-live="polite">{message || "确认后即可继续使用当前账号，无需重新验证手机号"}</div>
+      <button className="primary login-submit" type="button" disabled={!agreed || busy} onClick={onConfirm}>{busy ? "正在确认…" : "同意并继续"} <span>→</span></button>
+    </div>
+  </div>;
 }
 
 export default function WelcomePage() {
@@ -47,16 +86,57 @@ export default function WelcomePage() {
 
   useEffect(() => {
     let active = true;
+    const handleConsentRequired = () => {
+      if (!active) return;
+      setAgreed(false);
+      setMessage("");
+      setView("consent");
+      setSessionReady(true);
+      void api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
+    };
+    window.addEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
     api.bootstrap().then((value) => active && setBootstrap(value)).catch(() => undefined);
     api.refresh().then(async (restored) => {
       if (!active || !restored) return;
-      const me = await api.me();
-      if (!active) return;
-      setResumeStep(stepForAction(me.nextAction));
-      setView("profile");
+      try {
+        const me = await api.me();
+        if (!active) return;
+        setResumeStep(stepForAction(me.nextAction));
+        setView("profile");
+      } catch (error) {
+        if (!active || !isConsentRequired(error)) throw error;
+        setAgreed(false);
+        setMessage("");
+        setView("consent");
+      }
     }).catch(() => undefined).finally(() => active && setSessionReady(true));
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.removeEventListener(CONSENT_REQUIRED_EVENT, handleConsentRequired);
+    };
   }, []);
+
+  async function loadCurrentConsentAcceptances() {
+    const currentBootstrap = await api.bootstrap();
+    setBootstrap(currentBootstrap);
+    return requiredConsentAcceptances(currentBootstrap);
+  }
+
+  async function acceptCurrentConsents() {
+    const acceptances = await loadCurrentConsentAcceptances();
+    if (acceptances.length > 0) await api.acceptConsents(acceptances);
+  }
+
+  async function createSessionWithCurrentConsents() {
+    let consentAcceptances = await loadCurrentConsentAcceptances();
+    try {
+      return await api.createSession(challengeId, code, consentAcceptances);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== "LEGAL_DOCUMENT_VERSION_INVALID") throw error;
+      consentAcceptances = await loadCurrentConsentAcceptances();
+      return api.createSession(challengeId, code, consentAcceptances);
+    }
+  }
 
   function enterLogin(intent: LoginIntent = "new") {
     void intent;
@@ -88,10 +168,10 @@ export default function WelcomePage() {
     if (!challengeId) return void sendCode();
     setBusy(true);
     try {
-      const consentAcceptances = (bootstrap?.requiredLegalDocuments || [])
-        .filter((document) => document.required)
-        .map(({ documentId, version }) => ({ documentId, version }));
-      const session = await api.createSession(challengeId, code, consentAcceptances);
+      const session = await createSessionWithCurrentConsents();
+      if (session.user.requiresConsent || session.nextAction === "ACCEPT_CONSENTS") {
+        await acceptCurrentConsents();
+      }
       // The session establishes authentication; `/me` is the authoritative routing state
       // for both first-time and returning users.
       const me = await api.me();
@@ -105,23 +185,38 @@ export default function WelcomePage() {
     }
   }
 
-  const legalHref = (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY") => {
+  async function confirmUpdatedConsents() {
+    if (!agreed) return setMessage("请先阅读并同意最新协议");
+    setBusy(true);
+    setMessage("");
+    try {
+      await acceptCurrentConsents();
+      const me = await api.me();
+      setResumeStep(stepForAction(me.nextAction));
+      setView("profile");
+    } catch (error) {
+      setMessage(apiMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const legalHref = (type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY" | "AI_CONTENT_NOTICE") => {
     const document = bootstrap?.requiredLegalDocuments.find((item) => item.type === type);
-    return document ? `/api/v1/legal-documents/${encodeURIComponent(document.documentId)}` : "#";
+    return document ? `/legal.html?documentId=${encodeURIComponent(document.documentId)}` : "#";
   };
 
   return (
     <main className="stage">
-      <section className={`phone ${view === "login" ? "login-mode" : ""} ${view === "profile" || view === "recovery" ? "profile-mode" : ""}`} aria-label={view === "welcome" ? "身心游欢迎页" : view === "login" ? "手机号登录与注册" : view === "recovery" ? "继续未完成的生命智慧档案" : "建立生命智慧档案"}>
+      <section className={`phone ${view === "login" || view === "consent" ? "login-mode" : ""} ${view === "profile" || view === "recovery" ? "profile-mode" : ""}`} aria-label={view === "welcome" ? "初见欢迎页" : view === "login" ? "手机号登录与注册" : view === "consent" ? "确认最新协议" : view === "recovery" ? "继续未完成的生命智慧档案" : "建立生命智慧档案"}>
         <div className="ambient ambient-one" />
         <div className="ambient ambient-two" />
 
         {!sessionReady ? <SessionRestoring /> : view === "welcome" ? (
           <>
-            <span className="screen-id">R1.0 · AUTH-02</span>
+            <PageDebugLabel>R1.0 · AUTH-02</PageDebugLabel>
             <header className="brand-row">
               <Brand />
-              <button className="quiet-link" type="button" onClick={() => enterLogin("existing")}>已有档案</button>
             </header>
 
             <div className="hero-copy">
@@ -140,7 +235,6 @@ export default function WelcomePage() {
             <div className="bottom-panel">
               <div className="trust-note"><span className="lock" aria-hidden="true" /><span>你的出生资料默认仅自己可见，也可以随时管理</span></div>
               <button className="primary" type="button" onClick={() => setStarted(true)}>开始认识自己 <span aria-hidden="true">→</span></button>
-              <p className="agreement">继续即表示你已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a> 与 <a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a></p>
             </div>
 
             {started && (
@@ -157,11 +251,9 @@ export default function WelcomePage() {
           </>
         ) : view === "login" ? (
           <div className="login-page">
-            <span className="screen-id">R1.0 · {codeSent ? "AUTH-04" : "AUTH-03"}</span>
-            <header className="login-header">
-              <button className="back-button" type="button" onClick={() => setView("welcome")} aria-label="返回欢迎页">←</button>
-              <Brand compact />
-              <span className="header-spacer" />
+            <PageDebugLabel>{`R1.0 · ${codeSent ? "AUTH-04" : "AUTH-03"}`}</PageDebugLabel>
+            <header className="brand-row login-header">
+              <Brand />
             </header>
 
             <div className="login-symbol" aria-hidden="true"><i /><span>归</span></div>
@@ -191,9 +283,8 @@ export default function WelcomePage() {
               <label className="consent-row">
                 <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setMessage(""); }} />
                 <span className="checkmark" aria-hidden="true">✓</span>
-                <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并知晓出生资料的用途</span>
+                <span>我已阅读并同意 <a href={legalHref("TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref("PRIVACY_POLICY")} target="_blank">隐私政策</a>，并知晓相关资料的用途</span>
               </label>
-              <span className="rule-id">AUTH-05 · 协议与隐私确认</span>
 
               <div className={`form-message ${message.startsWith("登录成功") ? "success" : ""}`} aria-live="polite">{message || "验证码仅用于身份验证，我们不会用它向你营销"}</div>
 
@@ -202,6 +293,8 @@ export default function WelcomePage() {
 
             <div className="login-footer"><span className="lock" aria-hidden="true" />账号与生命智慧档案会安全绑定，不会公开展示手机号</div>
           </div>
+        ) : view === "consent" ? (
+          <ConsentUpdate agreed={agreed} busy={busy} message={message} legalHref={legalHref} onAgreed={(nextAgreed) => { setAgreed(nextAgreed); setMessage(""); }} onConfirm={confirmUpdatedConsents} />
         ) : view === "recovery" ? (
           <ProfileRecovery onBack={() => setView("login")} onContinue={() => { setResumeStep(3); setView("profile"); }} onRestart={() => { setResumeStep(0); setView("profile"); }} />
         ) : (
@@ -268,6 +361,9 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const [profiles, setProfiles] = useState<LifeProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<LifeProfile | null>(null);
   const [otherRevision, setOtherRevision] = useState<ProfileRevision | null>(null);
+  const [otherFirstLook, setOtherFirstLook] = useState<ProfileFirstLook | null>(null);
+  const [otherFirstLookLoading, setOtherFirstLookLoading] = useState(false);
+  const [editingOther, setEditingOther] = useState(false);
   const [otherData, setOtherData] = useState<ProfileData>({ name: "", date: "1964-03-12", calendarType: "SOLAR", lunarYear: 1964, lunarMonth: 3, lunarDay: 12, isLeapMonth: false, time: "06:30", accuracy: "准确到分钟", place: R1_UNSELECTED_LOCATION_LABEL, locationId: R1_UNSELECTED_LOCATION_ID, gender: "FEMALE", relationshipType: "FAMILY" });
   const [taskId, setTaskId] = useState<string | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
@@ -286,6 +382,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
   const effectiveStep = step === 4 ? 5 : step;
   const id = profileSteps[effectiveStep];
   const progress = Math.min(100, (step / 6) * 100);
+  const availableBalance = account?.available ?? null;
 
   async function loadOverview() {
     const [homeResult, accountResult, transactionResult] = await Promise.allSettled([
@@ -416,6 +513,17 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     return () => window.clearInterval(timer);
   }, [firstLook?.status, firstLook?.profileRevisionId]);
 
+  useEffect(() => {
+    if (otherFirstLook?.status !== "GENERATING") return;
+    const timer = window.setInterval(() => {
+      api.profileFirstLook(otherFirstLook.profileRevisionId).then((value) => {
+        setOtherFirstLook(value);
+        if (value.status !== "GENERATING") setOtherFirstLookLoading(false);
+      }).catch(() => undefined);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [otherFirstLook?.status, otherFirstLook?.profileRevisionId]);
+
   async function generateFirstLook(revisionId: string) {
     setFirstLookLoading(true); setApiError("");
     try {
@@ -511,7 +619,8 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     try {
       const result = await api.createTodayInsight();
       setDailyInsight(result.dailyInsight);
-      if (result.dailyInsight.status === "READY") { await loadOverview(); setStep(14); }
+      await loadOverview();
+      if (result.dailyInsight.status === "READY") setStep(14);
       else { setTaskId(result.task?.taskId || null); setStep(13); }
     } catch (error) { setApiError(apiMessage(error)); }
     finally { setApiBusy(false); }
@@ -543,15 +652,82 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
     try {
       const confirmed = await api.confirmOtherProfile(selectedProfile.profileId, otherRevision.revisionId, otherRevision.inputFingerprint, Boolean(otherRevision.requiresEnhancedConfirmation));
       setOtherRevision(confirmed); setSelectedProfile({ ...selectedProfile, state: "ACTIVE", currentRevisionId: confirmed.revisionId });
-      setProfiles(await api.profiles()); setStep(114);
+      setProfiles(await api.profiles()); setStep(111);
     } catch (error) { setApiError(apiMessage(error)); }
     finally { setApiBusy(false); }
   }
 
   function openOtherProfile(profile: LifeProfile) {
     setSelectedProfile(profile);
+    setOtherFirstLook(null);
+    setEditingOther(false);
     if (profile.currentRevisionId) api.profileRevision(profile.currentRevisionId).then(setOtherRevision).catch(() => undefined);
     setStep(115);
+  }
+
+  function openOtherEditor() {
+    if (!selectedProfile || !otherRevision?.originalInput) return;
+    const birth = otherRevision.originalInput;
+    setOtherData((current) => ({
+      ...current,
+      name: selectedProfile.displayName,
+      relationshipType: selectedProfile.relationshipType === "SELF" || !selectedProfile.relationshipType ? "OTHER" : selectedProfile.relationshipType,
+      date: `${birth.date.year}-${String(birth.date.month).padStart(2,"0")}-${String(birth.date.day).padStart(2,"0")}`,
+      calendarType: birth.calendarType,
+      lunarYear: birth.date.year,
+      lunarMonth: birth.date.month,
+      lunarDay: birth.date.day,
+      isLeapMonth: birth.date.isLeapMonth,
+      time: birth.time.localTime || "08:30",
+      accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : "完全不知道",
+      locationId: birth.locationId,
+      gender: birth.calculationGender,
+    }));
+    setEditingOther(true);
+  }
+
+  async function saveOtherProfile() {
+    if (!selectedProfile || !otherData.name.trim()) return;
+    setApiBusy(true); setApiError("");
+    try {
+      const [solarYear, solarMonth, solarDay] = otherData.date.split("-").map(Number);
+      const year = otherData.calendarType === "LUNAR" ? otherData.lunarYear : solarYear;
+      const month = otherData.calendarType === "LUNAR" ? otherData.lunarMonth : solarMonth;
+      const day = otherData.calendarType === "LUNAR" ? otherData.lunarDay : solarDay;
+      const exact = otherData.accuracy === "准确到分钟" || otherData.accuracy === "大致时间";
+      const updatedProfile = await api.updateProfile(selectedProfile.profileId, otherData.name.trim(), otherData.relationshipType);
+      const preview = await api.previewOtherProfile(selectedProfile.profileId, {
+        calendarType: otherData.calendarType,
+        date: { year, month, day, isLeapMonth: otherData.calendarType === "LUNAR" && otherData.isLeapMonth },
+        timePrecision: otherData.accuracy === "准确到分钟" ? "EXACT_MINUTE" : otherData.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
+        time: { localTime: exact ? otherData.time : null, hourBranchCode: null },
+        locationId: otherData.locationId,
+        calculationGender: otherData.gender,
+      });
+      if (!preview.inputFingerprint) throw new Error("人物档案预览缺少校验指纹");
+      const confirmed = await api.confirmOtherProfile(selectedProfile.profileId, preview.revisionId, preview.inputFingerprint, Boolean(preview.requiresEnhancedConfirmation));
+      const activeProfile = { ...updatedProfile, state: "ACTIVE" as const, currentRevisionId: confirmed.revisionId };
+      setSelectedProfile(activeProfile);
+      setOtherRevision(confirmed);
+      setOtherFirstLook(null);
+      setProfiles(await api.profiles());
+      setEditingOther(false);
+    } catch (error) { setApiError(apiMessage(error)); }
+    finally { setApiBusy(false); }
+  }
+
+  async function openOtherFirstLook() {
+    const revisionId = otherRevision?.revisionId || selectedProfile?.currentRevisionId;
+    if (!revisionId) return;
+    setOtherFirstLookLoading(true); setApiError("");
+    try {
+      setOtherFirstLook(await api.profileFirstLook(revisionId));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "PROFILE_FIRST_LOOK_NOT_FOUND") {
+        try { setOtherFirstLook(await api.generateProfileFirstLook(revisionId)); }
+        catch (generationError) { setApiError(apiMessage(generationError)); }
+      } else setApiError(apiMessage(error));
+    } finally { setOtherFirstLookLoading(false); }
   }
 
   async function deleteOtherProfile() {
@@ -588,7 +764,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
   return (
     <div className={`profile-flow${id === "HOME-01" ? " home-flow" : ""}${headerlessSteps.has(id) ? " headerless-flow" : ""}`}>
-      <span className="screen-id">R1.0 · {id === "PROFILE-02" ? "PROFILE-02—07" : id}</span>
+      <PageDebugLabel>{`R1.0 · ${id === "PROFILE-02" ? "PROFILE-02—07" : id}`}</PageDebugLabel>
       {!headerlessSteps.has(id) && <header className="flow-header">
         <button className="back-button" type="button" onClick={back} aria-label="返回上一步">←</button>
         <div className="flow-progress" aria-label={`建档进度 ${Math.round(progress)}%`}><i style={{ width: `${progress}%` }} /></div>
@@ -633,19 +809,19 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       )}
       {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} busy={apiBusy} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => void confirmProfile()} />}
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onEdit={() => setStep(1)} onSkip={next} onNext={next} />}
-      {id === "GIFT-01" && <SeedGift name={data.name} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
+      {id === "GIFT-01" && <SeedGift name={data.name} amount={home?.registrationReward.wisdomSeedAmount ?? 18} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
       {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateR1} />}
-      {id === "DAILY-01" && <DailyStart name={data.name} energyLevel={dailyEnergyLevel} onBack={back} onNext={next} />}
-      {id === "PAY-01" && <SeedPayment balance={account?.available || 0} busy={apiBusy} onBack={back} onNext={startDailyInsight} onSupport={() => setStep(profileSteps.indexOf("MY-08"))} />}
-      {id === "DAILY-02" && <DailyGenerating name={data.name} balance={account?.available || 0} onBack={back} />}
-      {id === "DAILY-03" && <DailyReport name={data.name} insight={dailyInsight} energyLevel={dailyEnergyLevel} balance={account?.available || 0} onBack={() => setStep(dailyReturnStep)} onNext={() => setStep(10)} />}
+      {id === "DAILY-01" && <DailyStart name={data.name} energyLevel={dailyEnergyLevel} balance={availableBalance} onBack={back} onNext={next} />}
+      {id === "PAY-01" && <SeedPayment balance={availableBalance} busy={apiBusy} onBack={back} onNext={startDailyInsight} onSupport={() => setStep(profileSteps.indexOf("MY-08"))} />}
+      {id === "DAILY-02" && <DailyGenerating name={data.name} balance={availableBalance} onBack={back} />}
+      {id === "DAILY-03" && <DailyReport name={data.name} insight={dailyInsight} energyLevel={dailyEnergyLevel} balance={availableBalance} onBack={() => setStep(dailyReturnStep)} onNext={() => setStep(10)} />}
       {id === "DAILY-04" && <DailyAction onBack={back} onNext={next} />}
       {id === "DAILY-05" && <DailyShare name={data.name} energyLevel={dailyEnergyLevel} onBack={back} onGenerate={next} onHome={() => setStep(10)} />}
       {id === "SHARE-01" && <ShareOptions energyLevel={dailyEnergyLevel} onBack={back} onNext={next} />}
       {id === "SHARE-02" && <ShareGenerating energyLevel={dailyEnergyLevel} onBack={back} onSuccess={next} onFailure={() => setStep(20)} />}
       {id === "SHARE-03" && <ShareSuccess energyLevel={dailyEnergyLevel} onBack={back} onHome={() => setStep(10)} />}
       {id === "SHARE-04" && <ShareFailure onBack={back} onRetry={() => setStep(18)} onHome={() => setStep(10)} />}
-      {id === "MY-01" && <MyHome name={data.name} balance={account?.available || 0} open={navigateR1} />}
+      {id === "MY-01" && <MyHome name={data.name} balance={availableBalance} open={navigateR1} />}
       {id === "MY-02" && <MyProfile home={home} revision={revision} onBack={() => setStep(21)} onEdit={openSelfEditor} onFirstLook={() => void openFirstLookArchive()} />}
       {id === "MY-03" && <MySeeds account={account} transactions={transactions} onBack={() => setStep(21)} />}
       {id === "MY-04" && <MyReports home={home} insight={dailyInsight} onBack={() => setStep(21)} onDaily={() => home?.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(21); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : undefined} />}
@@ -657,8 +833,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
       {id === "MY-10" && <NewPersonArchive data={otherData} busy={apiBusy} onChange={setOtherData} onBack={() => setStep(111)} onNext={createOtherProfile} />}
       {id === "MY-11" && <ArchiveConfirm data={otherData} revision={otherRevision} busy={apiBusy} onBack={back} onNext={confirmOtherProfile} />}
       {id === "MY-12" && <ArchiveGenerating name={selectedProfile?.displayName || otherData.name} onBack={() => setStep(111)} onNext={next} />}
-      {id === "MY-13" && <PersonArchive profile={selectedProfile} revision={otherRevision} onBack={() => setStep(111)} onManage={next} />}
-      {id === "MY-14" && <PersonArchiveManage profile={selectedProfile} onBack={back} onDelete={() => setStep(118)} />}
+      {id === "MY-13" && <PersonArchive profile={selectedProfile} revision={otherRevision} firstLook={otherFirstLook} firstLookLoading={otherFirstLookLoading} editing={editingOther} editData={otherData} busy={apiBusy} onEditData={setOtherData} onBack={() => editingOther ? setEditingOther(false) : setStep(111)} onFirstLook={() => void openOtherFirstLook()} onEdit={openOtherEditor} onSave={() => void saveOtherProfile()} onDelete={() => void deleteOtherProfile()} />}
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact name={selectedProfile?.displayName || "这份人物档案"} busy={apiBusy} onBack={() => setStep(116)} onDone={deleteOtherProfile} />}
       {id === "MY-17" && <EditSelfProfile data={data} revision={revision} busy={apiBusy} onChange={setData} onBack={() => {setEditingSelf(false);setStep(22);}} onNext={previewProfile} />}
@@ -769,7 +944,7 @@ function ProfileFlow({ onExit, onLogout, initialStep = 0 }: { onExit: () => void
 
 function ProfileRecovery({ onBack, onContinue, onRestart }: { onBack: () => void; onContinue: () => void; onRestart: () => void }) {
   return <section className="profile-recovery">
-    <span className="screen-id">R1.0 · AUTH-08</span>
+    <PageDebugLabel>R1.0 · AUTH-08</PageDebugLabel>
     <header className="recovery-header"><button className="back-button" type="button" onClick={onBack} aria-label="返回登录页">←</button><Brand compact /><span /></header>
     <div className="remembered-life" aria-hidden="true"><div className="saved-seed"><i /><i /></div><span className="memory-ring ring-a" /><span className="memory-ring ring-b" /></div>
     <p className="eyebrow">WELCOME BACK</p>
@@ -792,7 +967,7 @@ function ProfileIntro({ onNext }: { onNext: () => void }) {
   return <div className="profile-intro"><div className="profile-seal" aria-hidden="true"><span>生</span><i /></div><p className="eyebrow">YOUR LIFE PROFILE</p><h1>建立你的<br /><em>生命智慧档案</em></h1><p className="profile-lead">它不是给你贴标签，而是一份陪伴日签、问事、关系与成长报告持续更新的个人起点。</p><div className="benefit-list"><span><b>01</b>需要出生日期和时间</span><span><b>02</b>整个过程会自动保存</span><span><b>03</b>资料默认仅自己可见，可随时管理</span></div><FlowNext onClick={onNext}>开始建立</FlowNext></div>;
 }
 
-function UnifiedProfileForm({ data, onChange, onNext, variant = "self", busy = false }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void; variant?: "self" | "other"; busy?: boolean }) {
+function UnifiedProfileForm({ data, onChange, onNext, variant = "self", mode = "create", busy = false }: { data: ProfileData; onChange: (data: ProfileData) => void; onNext: () => void; variant?: "self" | "other"; mode?: "create" | "edit"; busy?: boolean }) {
   const [solarNotice, setSolarNotice] = useState(false);
   const lunarMonths = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
   const lunarDays = ["初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十", "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"];
@@ -800,7 +975,7 @@ function UnifiedProfileForm({ data, onChange, onNext, variant = "self", busy = f
   const calendarReady = data.calendarType === "SOLAR" ? Boolean(data.date) : Boolean(data.lunarYear && data.lunarMonth && data.lunarDay);
   const timeReady = data.accuracy === "完全不知道" || /^\d{2}:\d{2}$/.test(data.time);
   return <section className="unified-profile">
-    <header className="unified-profile-intro"><p className="eyebrow">{variant === "other" ? "ONE IMPORTANT PERSON" : "YOUR LIFE PROFILE"}</p><h1>一次写下<br />{variant === "other" ? "理解彼此的起点" : "认识自己的起点"}</h1><p>{variant === "other" ? "这些资料会建立一份仅你可见的人物档案，帮助你更有边界地理解关系。" : "这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。"}</p></header>
+    <header className="unified-profile-intro"><p className="eyebrow">{mode === "edit" ? "EDIT LIFE PROFILE" : variant === "other" ? "ONE IMPORTANT PERSON" : "YOUR LIFE PROFILE"}</p><h1>{mode === "edit" ? <>更新资料<br />让理解保持准确</> : <>一次写下<br />{variant === "other" ? "理解彼此的起点" : "认识自己的起点"}</>}</h1><p>{mode === "edit" ? "修改后会更新四张关系卡牌与后续内容的依据。" : variant === "other" ? "这些资料会建立一份仅你可见的人物档案，帮助你更有边界地理解关系。" : "这些资料会共同建立你的生命智慧档案，之后可以随时查看和修改。"}</p></header>
     <div className="unified-form-card">
       <section className="unified-field-group"><span className="unified-field-index">01</span><label className="field-label" htmlFor={`unified-nickname-${variant}`}>{variant === "other" ? "姓名或你熟悉的称呼" : "希望我们怎么称呼你"}</label><div className="field profile-field"><input id={`unified-nickname-${variant}`} autoFocus maxLength={16} placeholder={variant === "other" ? "例如：妈妈、小林" : "例如：小满"} value={data.name} onChange={(e) => onChange({ ...data, name: e.target.value })} /></div><small>{variant === "other" ? "这份称呼只会出现在你的私人档案中" : "不需要填写真实姓名"}</small></section>
       {variant === "other" && <section className="unified-field-group unified-relation-group"><span className="unified-field-index">类</span><label className="field-label">与我的关系</label><div className="relation-picks"><div>{relations.map(([label, value]) => <button type="button" key={value} className={data.relationshipType === value ? "active" : ""} onClick={() => onChange({ ...data, relationshipType: value })}>{label}</button>)}</div></div><small>用于档案分组，之后可以调整</small></section>}
@@ -816,7 +991,7 @@ function UnifiedProfileForm({ data, onChange, onNext, variant = "self", busy = f
     </div>
     <div className="privacy-inline"><span className="lock" /><p>资料仅用于建立你的生命智慧档案，默认只对你可见。</p></div>
     {variant === "other" && <div className="other-profile-consent"><span className="lock"/><p><strong>请确认资料来源正当</strong>档案默认仅自己可见，不代表对方已经授权。</p></div>}
-    <button className="primary unified-profile-submit" type="button" disabled={busy || !data.name.trim() || !calendarReady || !timeReady} onClick={onNext}>{busy ? "正在建立档案…" : variant === "other" ? "确认资料，继续建立档案" : "确认资料，开始建立档案"} <span>→</span></button>
+    <button className="primary unified-profile-submit" type="button" disabled={busy || !data.name.trim() || !calendarReady || !timeReady} onClick={onNext}>{busy ? mode === "edit" ? "正在保存修改…" : "正在建立档案…" : mode === "edit" ? "保存修改" : variant === "other" ? "确认资料，继续建立档案" : "确认资料，开始建立档案"} <span>→</span></button>
   </section>;
 }
 
@@ -825,7 +1000,7 @@ function FlowStep({ eyebrow, title, note, children }: { eyebrow: string; title: 
 }
 
 function FlowNext({ children, onClick, disabled = false }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
-  return <button className="primary flow-next" type="button" disabled={disabled} onClick={onClick}>{children}<span>→</span></button>;
+  return <FreshButton className="primary flow-next" disabled={disabled} onClick={onClick} trailing="→">{children}</FreshButton>;
 }
 
 function SummaryRow({ label, value, edit }: { label: string; value: string; edit?: () => void }) {
@@ -862,44 +1037,45 @@ function RelationshipFirstLook({ name, revision, report, loading, onRetry, onEdi
   </section>;
 }
 
-function SeedGift({ name, claimed = false, busy, onClaim, onNext }: { name: string; claimed?: boolean; busy: boolean; onClaim: () => void; onNext: () => void }) {
+function SeedGift({ name, amount, claimed = false, busy, onClaim, onNext }: { name: string; amount: number; claimed?: boolean; busy: boolean; onClaim: () => void; onNext: () => void }) {
   return <section className={`seed-gift ${claimed ? "claimed" : ""}`}>
     <p className="eyebrow">A GIFT FOR YOUR JOURNEY</p>
     <h1>{claimed ? `${name}，种子已入袋` : `送给${name}的第一袋智慧种子`}</h1>
-    <div className="seed-visual" aria-hidden="true"><div className="soil" /><div className="sprout"><i /><i /></div><span>3</span><small>智慧种子</small></div>
+    <div className="seed-visual" aria-hidden="true"><div className="soil" /><div className="sprout"><i /><i /></div><span>{amount}</span><small>智慧种子</small></div>
     <p className="gift-lead">{claimed ? "从今天开始，让每一次指引都成为一次生长。" : "完成生命智慧档案的新用户，都可以领取一份启程礼。"}</p>
-    <div className="seed-value"><span>新手启程礼</span><strong>3 颗</strong><span>智慧种子</span></div>
+    <div className="seed-value"><span>新手启程礼</span><strong>{amount} 颗</strong><span>智慧种子</span></div>
     <div className="growth-path" aria-label="智慧种子的成长路径"><span className="active"><i>●</i>种下</span><b /><span><i>♧</i>发芽</span><b /><span><i>❧</i>枝叶</span><b /><span><i>✦</i>结果</span></div>
-    <p className="seed-rule">智慧种子是平台免费赠送、会员附赠或学院配置的 AI 体验额度，不可购买、充值、提现、转赠或交易。</p>
-    {!claimed ? <button className="primary" type="button" disabled={busy} onClick={onClaim}>{busy ? "领取中…" : "收下 3 颗智慧种子"} <span>＋</span></button> : <button className="primary" type="button" onClick={onNext}>进入今日首页 <span>→</span></button>}
+    {!claimed ? <button className="primary" type="button" disabled={busy} onClick={onClaim}>{busy ? "领取中…" : `收下 ${amount} 颗智慧种子`} <span>＋</span></button> : <button className="primary" type="button" onClick={onNext}>进入今日首页 <span>→</span></button>}
   </section>;
 }
 
 function TodayHome({ name, home, onNext, navigate }: { name: string; home: HomeOverview | null; onNext: () => void; navigate: (step: number) => void }) {
   const ready = home?.dailyInsight.state === "READY";
   const summary = home?.dailyEnergySummary.data;
-  return <section className="today-home"><header><Brand compact /><div className="seed-balance" title="平台附赠的 AI 体验额度"><i>●</i><span>智慧种子</span><strong>{home?.wisdomSeedAccount.available ?? "—"}</strong></div></header><p className="eyebrow">TODAY · {home?.dailyInsight.localDate || new Date().toLocaleDateString("zh-CN")}</p><h1>{name}，你好</h1><article className="daily-guide home-energy-card"><div className="energy-scale" aria-label={summary ? `今日能量为${summary.energyLevel}` : "今日能量暂不可用"}><small>今日能量</small><div>{(["高", "中", "低"] as const).map((level) => <span key={level} className={summary?.energyLevel === level ? "active" : ""}>{level}</span>)}</div></div><p className="guide-kicker">TODAY&apos;S GUIDANCE</p><h2>{summary?.guidance || "今日能量摘要暂不可用"}</h2><div className="home-growth-scene" aria-hidden="true"><div className="life-growth"><i className="living-seed" /><i className="living-stem" /><i className="living-leaf leaf-left" /><i className="living-leaf leaf-right" /><i className="living-leaf leaf-top" /><span className="growth-ring ring-one" /><span className="growth-ring ring-two" /></div></div>{summary ? <div className="guide-tips"><div><small>适合做什么</small><strong>{summary.suitableActions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div><div><small>注意什么</small><strong>{summary.cautions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div></div> : null}<button type="button" onClick={onNext}>{ready ? "查看今日能量指引" : "获取今日能量指引"}<span>→</span></button></article><MainNav active="今日" navigate={navigate} /></section>;
+  const localDate = home?.dailyInsight.localDate || new Date().toLocaleDateString("zh-CN");
+  return <section className="today-home"><header><Brand compact /><div className="seed-balance" title="平台附赠的 AI 体验额度"><i>●</i><span>智慧种子</span><strong>{home?.wisdomSeedAccount.available ?? "—"}</strong></div></header><p className="eyebrow">TODAY · {localDate}{summary?.heavenCard ? ` · ${summary.heavenCard}` : ""}</p><h1>{name}，你好</h1><article className="daily-guide home-energy-card"><div className="energy-scale" aria-label={summary ? `今日能量为${summary.energyLevel}` : "今日能量暂不可用"}><small>今日能量</small><div>{(["高", "中", "低"] as const).map((level) => <span key={level} className={summary?.energyLevel === level ? "active" : ""}>{level}</span>)}</div></div><p className="guide-kicker">TODAY&apos;S GUIDANCE</p><h2>{summary?.guidance || "今日能量摘要暂不可用"}</h2><div className="home-growth-scene" aria-hidden="true"><div className="life-growth"><i className="living-seed" /><i className="living-stem" /><i className="living-leaf leaf-left" /><i className="living-leaf leaf-right" /><i className="living-leaf leaf-top" /><span className="growth-ring ring-one" /><span className="growth-ring ring-two" /></div></div>{summary ? <div className="guide-tips"><div><small>适合做什么</small><strong>{summary.suitableActions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div><div><small>注意什么</small><strong>{summary.cautions.map((item, index) => <span key={item}>{index > 0 && <br />}{item}</span>)}</strong></div></div> : null}<button className="home-guidance-link" type="button" onClick={onNext}>{ready ? "查看今日能量指引" : "获取今日能量指引"}<span>→</span></button></article><MainNav active="今日" navigate={navigate} /></section>;
 }
 
-function DailyHeader({ onBack, balance = 3 }: { onBack: () => void; balance?: number }) {
-  return <header className="daily-header"><button className="back-button" type="button" onClick={onBack} aria-label="返回上一页">←</button><Brand compact /><div className="mini-balance"><i>●</i>{balance}</div></header>;
+function DailyHeader({ onBack, balance }: { onBack: () => void; balance: number | null }) {
+  return <header className="daily-header"><BackButton onClick={onBack} /><Brand compact /><div className="mini-balance"><i>●</i>{balance ?? "—"}</div></header>;
 }
 
-function DailyStart({ name, energyLevel, onBack, onNext }: { name: string; energyLevel?: EnergyLevel; onBack: () => void; onNext: () => void }) {
-  return <section className="daily-page daily-start"><DailyHeader onBack={onBack} /><div className="daily-seed-scene" aria-hidden="true"><i /><span>{energyLevel ?? "—"}</span><b>今日能量</b></div><p className="eyebrow">DAILY GUIDANCE</p><h1>{name}，今天的能量<br />正在邀请你慢下来</h1><p className="daily-lead">结合你的生命智慧档案与今日节律，为你整理一份只属于今天的行动指引。</p><div className="will-get"><small>你将获得</small><span><b>01</b>今日整体能量</span><span><b>02</b>事业与外部节奏</span><span><b>03</b>情绪与个人状态</span><span><b>04</b>一个可完成的小行动</span></div><div className="cost-preview"><span><i>●</i><small>本次使用体验额度</small></span><strong>1 颗智慧种子</strong></div><button className="primary" type="button" onClick={onNext}>继续开启 <span>→</span></button></section>;
+function DailyStart({ name, energyLevel, balance, onBack, onNext }: { name: string; energyLevel?: EnergyLevel; balance: number | null; onBack: () => void; onNext: () => void }) {
+  return <section className="daily-page daily-start"><DailyHeader onBack={onBack} balance={balance} /><div className="daily-seed-scene" aria-hidden="true"><i /><span>{energyLevel ?? "—"}</span><b>今日能量</b></div><p className="eyebrow">DAILY GUIDANCE</p><h1>{name}，今天的能量<br />正在邀请你慢下来</h1><p className="daily-lead">结合你的生命智慧档案与今日节律，为你整理一份只属于今天的行动指引。</p><div className="will-get"><small>你将获得</small><span><b>01</b>今日整体能量</span><span><b>02</b>事业与外部节奏</span><span><b>03</b>情绪与个人状态</span><span><b>04</b>一个可完成的小行动</span></div><div className="cost-preview"><span><i>●</i><small>本次使用体验额度</small></span><strong>1 颗智慧种子</strong></div><button className="primary" type="button" onClick={onNext}>继续开启 <span>→</span></button></section>;
 }
 
-function SeedPayment({ balance, busy, onBack, onNext, onSupport }: { balance: number; busy: boolean; onBack: () => void; onNext: () => void; onSupport: () => void }) {
+function SeedPayment({ balance, busy, onBack, onNext, onSupport }: { balance: number | null; busy: boolean; onBack: () => void; onNext: () => void; onSupport: () => void }) {
   const [helpOpen, setHelpOpen] = useState(false);
-  const insufficient = balance < 1;
-  return <section className="daily-page seed-payment"><DailyHeader onBack={onBack} balance={balance} /><p className="eyebrow">PLANT A SEED</p><h1>使用一颗智慧种子</h1><p className="daily-lead">智慧种子是平台附赠的 AI 体验额度，让每一次使用都成为一次更清晰的看见。</p><div className="pay-seed" aria-hidden="true"><i /><span>●</span><small>智慧种子</small></div><div className="payment-card"><div><span>今日能量指引</span><strong>使用 1 颗</strong></div><div><span>当前可用</span><strong>{balance} 颗</strong></div><div className="after"><span>使用后可用</span><strong>{Math.max(0, balance - 1)} 颗</strong></div></div><p className="payment-note"><span className="lock" />确认后将预留体验额度；未形成有效内容会自动恢复。</p><button className={`primary ${insufficient ? "credit-help-trigger" : ""}`} type="button" disabled={busy} onClick={insufficient ? () => setHelpOpen(true) : onNext}>{busy ? "正在提交…" : insufficient ? "AI 体验额度不足，获取帮助" : "确认使用 1 颗智慧种子"} <span>{insufficient ? "→" : "●"}</span></button><button className="text-action" type="button" onClick={onBack}>再想一想</button>{helpOpen && <div className="credit-help-backdrop" role="presentation" onClick={() => setHelpOpen(false)}><section className="credit-help-sheet" role="dialog" aria-modal="true" aria-labelledby="credit-help-title" onClick={(event) => event.stopPropagation()}><span className="sheet-icon" aria-hidden="true">芽</span><p className="eyebrow">A LITTLE SUPPORT</p><h2 id="credit-help-title">本次体验额度暂时不足</h2><p>你可以联系官方客服，了解体验额度的获取方式。当前内容不会丢失，获得额度后可以回来继续。</p><button className="primary" type="button" onClick={onSupport}>联系官方客服 <span>→</span></button><button className="text-action" type="button" onClick={() => setHelpOpen(false)}>稍后再说</button></section></div>}</section>;
+  const syncing = balance === null;
+  const insufficient = !syncing && balance < 1;
+  return <section className="daily-page seed-payment"><DailyHeader onBack={onBack} balance={balance} /><p className="eyebrow">PLANT A SEED</p><h1>使用一颗智慧种子</h1><p className="daily-lead">智慧种子是平台附赠的 AI 体验额度，让每一次使用都成为一次更清晰的看见。</p><div className="pay-seed" aria-hidden="true"><i /><span>●</span><small>智慧种子</small></div><div className="payment-card"><div><span>今日能量指引</span><strong>使用 1 颗</strong></div><div><span>当前可用</span><strong>{balance ?? "—"} 颗</strong></div><div className="after"><span>使用后可用</span><strong>{balance === null ? "—" : Math.max(0, balance - 1)} 颗</strong></div></div><p className="payment-note"><span className="lock" />确认后将预留体验额度；未形成有效内容会自动恢复。</p><button className={`primary ${insufficient ? "credit-help-trigger" : ""}`} type="button" disabled={busy || syncing} onClick={insufficient ? () => setHelpOpen(true) : onNext}>{busy ? "正在提交…" : syncing ? "正在同步体验额度…" : insufficient ? "AI 体验额度不足，获取帮助" : "确认使用 1 颗智慧种子"} <span>{insufficient ? "→" : "●"}</span></button><button className="text-action" type="button" onClick={onBack}>再想一想</button>{helpOpen && <div className="credit-help-backdrop" role="presentation" onClick={() => setHelpOpen(false)}><section className="credit-help-sheet" role="dialog" aria-modal="true" aria-labelledby="credit-help-title" onClick={(event) => event.stopPropagation()}><span className="sheet-icon" aria-hidden="true">芽</span><p className="eyebrow">A LITTLE SUPPORT</p><h2 id="credit-help-title">本次体验额度暂时不足</h2><p>你可以联系官方客服，了解体验额度的获取方式。当前内容不会丢失，获得额度后可以回来继续。</p><button className="primary" type="button" onClick={onSupport}>联系官方客服 <span>→</span></button><button className="text-action" type="button" onClick={() => setHelpOpen(false)}>稍后再说</button></section></div>}</section>;
 }
 
-function DailyGenerating({ name, balance, onBack }: { name: string; balance: number; onBack: () => void }) {
+function DailyGenerating({ name, balance, onBack }: { name: string; balance: number | null; onBack: () => void }) {
   return <section className="daily-page daily-generating"><DailyHeader onBack={onBack} balance={balance} /><div className="growing-report" aria-hidden="true"><div className="report-soil" /><i className="report-stem" /><i className="report-leaf a" /><i className="report-leaf b" /><span>●</span></div><p className="eyebrow">YOUR SEED IS GROWING</p><h1>{name}，你的今日指引<br />正在生长</h1><div className="generation-list"><span className="done">✓ 感受你的今日节律</span><span className="done">✓ 连接生命智慧档案</span><span className="active">· 整理事业与个人状态</span><span>· 长成今日行动建议</span></div><p className="quiet-wait">不用着急，生成完成后会自动打开</p></section>;
 }
 
-function DailyReport({ name, insight, energyLevel, balance, onBack, onNext }: { name: string; insight: DailyInsight | null; energyLevel?: EnergyLevel; balance: number; onBack: () => void; onNext: () => void }) {
+function DailyReport({ name, insight, energyLevel, balance, onBack, onNext }: { name: string; insight: DailyInsight | null; energyLevel?: EnergyLevel; balance: number | null; onBack: () => void; onNext: () => void }) {
   const content = insight?.content;
   return <section className="daily-page daily-report"><DailyHeader onBack={onBack} balance={balance} /><div className="report-scroll"><p className="eyebrow">TODAY · {insight?.localDate || "今日"}</p><h1>{name}的今日能量指引</h1><div className="energy-header"><div><span>{energyLevel ?? "—"}</span><small>今日能量</small></div><p><small>今日关键词</small><strong>{content?.theme || "回到自己的节奏"}</strong></p></div><article className="report-opening"><b>今日总览</b><h2>{content?.theme || "把重要的事，放在心静之后"}</h2><p>{content?.insight || insight?.fallback?.message || "今天的指引已经生成。"}</p></article><div className="report-columns"><article><small>今日行动</small><h3>从一件小事开始</h3><p>{content?.action || "为自己留出一点安静的时间。"}</p></article><article><small>今日反思</small><h3>问问自己</h3><p>{content?.reflectionQuestion || "此刻对我真正重要的是什么？"}</p></article></div>{content?.notice && <blockquote>{content.notice}</blockquote>}<AiContentNotice /><button className="primary" type="button" onClick={onNext}>收下今天的行动 <span>→</span></button></div></section>;
 }
@@ -919,7 +1095,7 @@ function DailyAction({ onBack, onNext }: { onBack: () => void; onNext: () => voi
 }
 
 function DailyShare({ name, energyLevel, onBack, onGenerate, onHome }: { name: string; energyLevel?: EnergyLevel; onBack: () => void; onGenerate: () => void; onHome: () => void }) {
-  return <section className="daily-page daily-share"><DailyHeader onBack={onBack} balance={2} /><p className="eyebrow">TODAY&apos;S FRUIT</p><h1>今天的指引<br />已经成为一份收获</h1><div className="share-card"><div className="share-brand">身心游 <small>SATORI</small></div><div className="share-energy"><span>{energyLevel ?? "—"}</span><small>今日能量</small></div><p>{name || "小满"}的今日指引</p><h2>先稳住自己<br />再回应世界</h2><blockquote>给自己十分钟留白，让清晰自然长出来。</blockquote><div className="share-growth"><i>●</i><b /><i>♧</i><b /><i>❧</i><b /><i>✦</i></div><footer>2026.08.06 · 今日能量指引</footer></div><p className="share-privacy">分享卡不包含出生资料与完整报告内容</p><button className="primary" type="button" onClick={onGenerate}>生成分享图片 <span>↗</span></button><button className="text-action" type="button" onClick={onHome}>完成，回到今日首页</button></section>;
+  return <section className="daily-page daily-share"><DailyHeader onBack={onBack} balance={2} /><p className="eyebrow">TODAY&apos;S FRUIT</p><h1>今天的指引<br />已经成为一份收获</h1><div className="share-card"><div className="share-brand">初见 <small>FRESH</small></div><div className="share-energy"><span>{energyLevel ?? "—"}</span><small>今日能量</small></div><p>{name || "小满"}的今日指引</p><h2>先稳住自己<br />再回应世界</h2><blockquote>给自己十分钟留白，让清晰自然长出来。</blockquote><div className="share-growth"><i>●</i><b /><i>♧</i><b /><i>❧</i><b /><i>✦</i></div><footer>2026.08.06 · 今日能量指引</footer></div><p className="share-privacy">分享卡不包含出生资料与完整报告内容</p><button className="primary" type="button" onClick={onGenerate}>生成分享图片 <span>↗</span></button><button className="text-action" type="button" onClick={onHome}>完成，回到今日首页</button></section>;
 }
 
 function ShareOptions({ energyLevel, onBack, onNext }: { energyLevel?: EnergyLevel; onBack: () => void; onNext: () => void }) {
@@ -934,7 +1110,7 @@ function ShareGenerating({ energyLevel, onBack, onSuccess, onFailure }: { energy
 
 function ShareSuccess({ energyLevel, onBack, onHome }: { energyLevel?: EnergyLevel; onBack: () => void; onHome: () => void }) {
   const [saved, setSaved] = useState(false);
-  return <section className="share-flow share-success"><DailyHeader onBack={onBack} balance={2} /><div className="success-bloom" aria-hidden="true"><i /><i /><i /><i /><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved ? "图片已保存" : "分享图片已经长好"}</h1><p className="share-lead">{saved ? "可以前往微信、朋友圈或其他应用分享。" : "高清图片已生成，保存后即可分享给你在意的人。"}</p><div className="ready-image"><span>{energyLevel ?? "—"}<small>今日能量</small></span><p>先稳住自己<br /><strong>再回应世界</strong></p><footer>身心游 · SATORI</footer></div><div className="ready-actions"><button type="button" onClick={() => setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved ? "已保存到相册" : "高清分享图"}</small></span></button><button type="button"><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><p className="share-toast" aria-live="polite">{saved ? "✓ 保存成功" : "图片将在设备支持的范围内保存或分享"}</p><button className="primary" type="button" onClick={onHome}>完成，回到今日首页 <span>→</span></button></section>;
+  return <section className="share-flow share-success"><DailyHeader onBack={onBack} balance={2} /><div className="success-bloom" aria-hidden="true"><i /><i /><i /><i /><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved ? "图片已保存" : "分享图片已经长好"}</h1><p className="share-lead">{saved ? "可以前往微信、朋友圈或其他应用分享。" : "高清图片已生成，保存后即可分享给你在意的人。"}</p><div className="ready-image"><span>{energyLevel ?? "—"}<small>今日能量</small></span><p>先稳住自己<br /><strong>再回应世界</strong></p><footer>初见 · FRESH</footer></div><div className="ready-actions"><button type="button" onClick={() => setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved ? "已保存到相册" : "高清分享图"}</small></span></button><button type="button"><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><p className="share-toast" aria-live="polite">{saved ? "✓ 保存成功" : "图片将在设备支持的范围内保存或分享"}</p><button className="primary" type="button" onClick={onHome}>完成，回到今日首页 <span>→</span></button></section>;
 }
 
 function ShareFailure({ onBack, onRetry, onHome }: { onBack: () => void; onRetry: () => void; onHome: () => void }) {
@@ -942,7 +1118,7 @@ function ShareFailure({ onBack, onRetry, onHome }: { onBack: () => void; onRetry
 }
 
 function ReadingHeader({ onBack }: { onBack?: () => void }) {
-  return <header className="reading-header">{onBack ? <button className="back-button" type="button" onClick={onBack}>←</button> : <Brand compact />}<span>问事</span><div className="mini-balance"><i>●</i>2</div></header>;
+  return <header className="reading-header">{onBack ? <BackButton onClick={onBack} /> : <Brand compact />}<span>问事</span><div className="mini-balance"><i>●</i>2</div></header>;
 }
 
 function ReadingHome({ navigate, onNext, onHistory }: { navigate: (step: number) => void; onNext: () => void; onHistory: () => void }) {
@@ -1031,7 +1207,7 @@ function ReadingMessageReturn({ onBack, onOpen }: { onBack: () => void; onOpen: 
 
 function ReadingShareOptions({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const [privacy,setPrivacy]=useState("隐藏问题");
-  return <section className="reading-page reading-share"><ReadingHeader onBack={onBack}/><p className="eyebrow">SHARE THE INSIGHT</p><h1>把这一刻的看见<br/>分享出去</h1><p className="reading-lead">默认保护你的原始问题，只分享卡牌与对你有力量的一句话。</p><div className="reading-share-preview"><small>今日问事 · 双卡</small><div><span>辛巳</span><i>×</i><span>甲子</span></div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>身心游 · SATORI</footer></div><div className="share-privacy"><strong>分享时展示</strong>{["隐藏问题","展示问题主题","展示完整问题"].map(x=><button className={privacy===x?"active":""} onClick={()=>setPrivacy(x)} key={x}><i>{privacy===x?"✓":""}</i>{x}</button>)}</div><button className="primary" onClick={onNext}>生成分享图片 <span>→</span></button></section>;
+  return <section className="reading-page reading-share"><ReadingHeader onBack={onBack}/><p className="eyebrow">SHARE THE INSIGHT</p><h1>把这一刻的看见<br/>分享出去</h1><p className="reading-lead">默认保护你的原始问题，只分享卡牌与对你有力量的一句话。</p><div className="reading-share-preview"><small>今日问事 · 双卡</small><div><span>辛巳</span><i>×</i><span>甲子</span></div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>初见 · FRESH</footer></div><div className="share-privacy"><strong>分享时展示</strong>{["隐藏问题","展示问题主题","展示完整问题"].map(x=><button className={privacy===x?"active":""} onClick={()=>setPrivacy(x)} key={x}><i>{privacy===x?"✓":""}</i>{x}</button>)}</div><button className="primary" onClick={onNext}>生成分享图片 <span>→</span></button></section>;
 }
 
 function ReadingShareGenerating({ onBack, onSuccess, onFailure }: { onBack: () => void; onSuccess: () => void; onFailure: () => void }) {
@@ -1040,7 +1216,7 @@ function ReadingShareGenerating({ onBack, onSuccess, onFailure }: { onBack: () =
 
 function ReadingShareSuccess({ onBack, onHome }: { onBack: () => void; onHome: () => void }) {
   const [saved,setSaved]=useState(false);
-  return <section className="reading-page reading-share-success"><ReadingHeader onBack={onBack}/><div className="success-bloom"><i/><i/><i/><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved?"分享图片已保存":"问事分享图片已经长好"}</h1><div className="reading-share-preview ready"><small>今日问事 · 双卡</small><div><span>辛巳</span><i>×</i><span>甲子</span></div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>身心游 · SATORI</footer></div><div className="ready-actions"><button onClick={()=>setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved?"已保存到相册":"高清分享图"}</small></span></button><button><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button></section>;
+  return <section className="reading-page reading-share-success"><ReadingHeader onBack={onBack}/><div className="success-bloom"><i/><i/><i/><span>✓</span></div><p className="eyebrow">READY TO SHARE</p><h1>{saved?"分享图片已保存":"问事分享图片已经长好"}</h1><div className="reading-share-preview ready"><small>今日问事 · 双卡</small><div><span>辛巳</span><i>×</i><span>甲子</span></div><h2>变化不是在催你离开<br/>而是在邀请你重新选择</h2><footer>初见 · FRESH</footer></div><div className="ready-actions"><button onClick={()=>setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved?"已保存到相册":"高清分享图"}</small></span></button><button><i>↗</i><span><strong>系统分享</strong><small>打开手机分享菜单</small></span></button></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button></section>;
 }
 
 function ReadingNetworkError({ onBack, onRetry }: { onBack: () => void; onRetry: () => void }) {
@@ -1048,7 +1224,7 @@ function ReadingNetworkError({ onBack, onRetry }: { onBack: () => void; onRetry:
 }
 
 function MainNav({ active, navigate }: { active: string; navigate: (step: number) => void }) {
-  const tabs = [["今日", 10, "◉"], ["问事", profileSteps.indexOf("PREVIEW-READ"), "◇"], ["成长", profileSteps.indexOf("PREVIEW-GROWTH"), "❧"], ["关系", profileSteps.indexOf("PREVIEW-RELATIONSHIP"), "∞"], ["我的", 21, "○"]] as const;
+  const tabs = [["今日", 10, "◉"], ["问事", profileSteps.indexOf("PREVIEW-READ"), "◇"], ["关系", profileSteps.indexOf("PREVIEW-RELATIONSHIP"), "∞"], ["成长", profileSteps.indexOf("PREVIEW-GROWTH"), "❧"], ["我的", 21, "○"]] as const;
   return <nav className="main-nav" aria-label="主导航">{tabs.map(([label, step, icon]) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => navigate(step)}><i>{icon}</i><span>{label}</span></button>)}</nav>;
 }
 
@@ -1073,12 +1249,12 @@ function ComingSoonPage({ kind, navigate }: { kind: ComingSoonKind; navigate: (s
 }
 
 function MyHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return <header className="my-header"><button className="back-button" type="button" onClick={onBack}>←</button><strong>{title}</strong><button type="button" className="header-more">•••</button></header>;
+  return <header className="my-header"><BackButton onClick={onBack} /><strong>{title}</strong><button type="button" className="header-more" aria-label="更多操作">•••</button></header>;
 }
 
-function MyHome({ name, balance, open }: { name: string; balance: number; open: (step: number) => void }) {
+function MyHome({ name, balance, open }: { name: string; balance: number | null; open: (step: number) => void }) {
   const items = [["每日指引记录", "查看已经生成的每日指引", 24, "册"], ["账号与退出", "管理当前账号登录状态", 27, "隐"], ["联系我们", "官方社交媒体与客服渠道", 28, "联"]] as const;
-  return <section className="my-page my-home"><header><Brand compact /></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子 · AI 体验额度</small><strong>{balance}<em> 颗可用</em></strong></div><b>查看明细 ›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
+  return <section className="my-page my-home"><header><Brand compact /></header><button className="my-identity" type="button" onClick={() => open(22)} aria-label="查看我的生命智慧档案"><div className="avatar-seed"><i /><span>{(name || "我").slice(0,1)}</span></div><div><p>你好</p><h1>{name || "我"}</h1><small>生命智慧档案已建立</small></div><b>›</b></button><button className="profile-banner" type="button" onClick={() => open(111)}><div><small>MY LIFE WISDOM ARCHIVE</small><h2>生命智慧档案库</h2><p>管理我的主档案与重要的人</p></div><div className="four-dots"><i /><i /><i /><i /></div><b>→</b></button><div className="my-assets"><button type="button" onClick={() => open(23)}><span>●</span><div><small>智慧种子 · AI 体验额度</small><strong>{balance ?? "—"}<em> 颗可用</em></strong></div><b>查看明细 ›</b></button></div><div className="my-menu">{items.map(([title,note,step,icon]) => <button type="button" key={title} onClick={() => open(step)}><i>{icon}</i><span><strong>{title}</strong><small>{note}</small></span><b>›</b></button>)}</div><MainNav active="我的" navigate={open} /></section>;
 }
 
 function MyProfile({ home, revision, onBack,onEdit,onFirstLook }: { home: HomeOverview | null; revision: ProfileRevision | null; onBack: () => void;onEdit:()=>void;onFirstLook:()=>void }) {
@@ -1140,7 +1316,7 @@ function MyBenefits({ onBack, openShop, openOrders }: { onBack: () => void; open
 }
 
 function MyStudyCompanion({ onBack }: { onBack: () => void }) {
-  return <section className="my-page my-detail study-companion"><MyHeader title="助学童子" onBack={onBack} /><div className="companion-orbit"><span>童</span><i /><i /></div><p className="eyebrow">FOR ACADEMY STUDENTS</p><h1>把课堂里的理解<br />带回每天的生活</h1><p className="companion-lead">助学童子为身心游关系学院学员提供课程复习、练习陪伴和专属权益。</p><div className="student-state"><small>当前身份</small><strong>尚未绑定学院学员身份</strong><p>绑定后可查看你的课程、练习和智慧种子赠送记录。</p></div><button className="primary" type="button">绑定学员身份 <span>→</span></button><button className="text-action" type="button">先了解助学童子</button></section>;
+  return <section className="my-page my-detail study-companion"><MyHeader title="助学童子" onBack={onBack} /><div className="companion-orbit"><span>童</span><i /><i /></div><p className="eyebrow">FOR ACADEMY STUDENTS</p><h1>把课堂里的理解<br />带回每天的生活</h1><p className="companion-lead">助学童子为初见关系学院学员提供课程复习、练习陪伴和专属权益。</p><div className="student-state"><small>当前身份</small><strong>尚未绑定学院学员身份</strong><p>绑定后可查看你的课程、练习和智慧种子赠送记录。</p></div><button className="primary" type="button">绑定学员身份 <span>→</span></button><button className="text-action" type="button">先了解助学童子</button></section>;
 }
 
 function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: () => void; busy: boolean }) {
@@ -1149,15 +1325,12 @@ function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onLogout: 
 }
 
 function MySupport({ onBack }: { onBack: () => void }) {
-  const channels = [
-    { title:"官方客服", short:"客服", description:"咨询账号、智慧种子与报告问题", src:"/contact/official-customer-service.png", width:196, height:198 },
-    { title:"官方视频号", short:"视频", description:"关注我们的视频动态", src:"/contact/official-video-channel.png", width:904, height:926 },
-    { title:"官方公众号", short:"公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:1280, height:1280 },
-    { title:"官方小红书", short:"小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:194, height:196 },
+  const media = [
+    { title:"官方公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:1280, height:1280 },
+    { title:"官方视频号", description:"关注我们的视频动态", src:"/contact/official-video-channel.png", width:904, height:926 },
+    { title:"官方小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:194, height:196 },
   ];
-  const [selected,setSelected]=useState(0);
-  const channel=channels[selected];
-  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><header className="contact-intro"><small>OFFICIAL CHANNELS</small><h1>在需要的时候，找到我们</h1><p>选择一个官方渠道，长按识别二维码。</p></header><nav className="contact-tabs" aria-label="官方联系渠道">{channels.map((item,index)=><button type="button" className={selected===index?"active":""} aria-pressed={selected===index} onClick={()=>setSelected(index)} key={item.title}><i>{item.short.slice(0,1)}</i><span>{item.short}</span></button>)}</nav><article className={`contact-focus channel-${selected}`}><div className="contact-focus-title"><span><small>当前选择</small><strong>{channel.title}</strong></span><b>官方</b></div><div className="contact-qr-stage"><div className="contact-focus-qr"><Image src={channel.src} width={channel.width} height={channel.height} alt={`${channel.title}二维码`} unoptimized priority/></div></div><p>{channel.description}</p><small>长按二维码识别 · 或使用另一台设备扫码</small></article><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。涉及账号与交易问题，请优先联系官方客服。</p></div></section>;
+  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><header className="contact-intro"><small>OFFICIAL SUPPORT</small><h1>需要的时候，我们在这里</h1><p>账号、智慧种子或报告问题，请优先联系官方客服。</p></header><article className="support-focus"><div className="support-focus-title"><span><small>优先服务</small><strong>官方客服</strong></span><b>推荐</b></div><div className="support-qr"><Image src="/contact/official-customer-service.png" width={196} height={198} alt="官方客服二维码" unoptimized priority/></div><p>长按识别二维码，与客服取得联系</p></article><section className="official-media"><header><small>FOLLOW US</small><strong>关注官方媒体</strong></header>{media.map(item=><article key={item.title}><div><Image src={item.src} width={item.width} height={item.height} alt={`${item.title}二维码`} unoptimized/></div><span><strong>{item.title}</strong><small>{item.description}</small><em>长按识别</em></span></article>)}</section><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。</p></div></section>;
 }
 
 function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:LifeProfile[];self:LifeProfile|null;onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:(profile:LifeProfile)=>void}){
@@ -1165,24 +1338,31 @@ function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:Li
   const relationLabel:Record<string,string>={FAMILY:"家人",FRIEND:"朋友",COLLEAGUE:"同事",OTHER:"其他"};
   const people=profiles.filter((profile)=>profile.subjectType==="OTHER").map((profile)=>({profile,label:relationLabel[profile.relationshipType || "OTHER"] || "其他"}));
   const shown=people.filter((item)=>group==="全部"||item.label===group);
-  return <section className="my-page archive-page"><MyHeader title="生命智慧档案库" onBack={onBack}/><div className="archive-owner" onClick={onSelf} role="button" tabIndex={0}><span>{(self?.displayName||"我").slice(0,1)}</span><p><small>我的主档案 · 唯一</small><strong>{self?.displayName||"我的生命智慧档案"}</strong><b>{self?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</b></p><i>›</i></div><div className="archive-tools"><label>⌕<input aria-label="搜索档案" placeholder="搜索姓名、称呼或关系"/></label><button onClick={onAdd}>＋ 添加人物</button></div><div className="archive-groups">{["全部","家人","朋友","同事","其他"].map(x=><button key={x} className={group===x?"active":""} onClick={()=>setGroup(x)}>{x}</button>)}</div><div className="people-title"><strong>{group}档案</strong><small>共 {shown.length} 人</small></div><div className="people-list">{shown.map(({profile,label})=><button key={profile.profileId} onClick={()=>onPerson(profile)}><span>{profile.displayName.slice(0,1)}</span><p><strong>{profile.displayName}<em>{label}</em></strong><small>{profile.state==="ACTIVE"?"四张卡牌已生成":"出生资料待完善"}</small></p><i>{profile.state==="ACTIVE"?"私人记录":"待完善"}</i><b>›</b></button>)}</div>{shown.length===0&&<div className="prototype-empty">这一分组暂无人物档案</div>}</section>
+  return <section className="my-page archive-page"><MyHeader title="生命智慧档案库" onBack={onBack}/><div className="archive-owner" onClick={onSelf} role="button" tabIndex={0}><span>{(self?.displayName||"我").slice(0,1)}</span><p><small>我的主档案 · 唯一</small><strong>{self?.displayName||"我的生命智慧档案"}</strong><b>{self?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</b></p><i>›</i></div><div className="archive-tools"><label>⌕<input aria-label="搜索档案" placeholder="搜索姓名、称呼或关系"/></label><button onClick={onAdd}>＋ 添加人物</button></div><div className="archive-groups">{["全部","家人","朋友","同事","其他"].map(x=><button key={x} className={group===x?"active":""} onClick={()=>setGroup(x)}>{x}</button>)}</div><div className="people-title"><strong>{group}档案</strong><small>共 {shown.length} 人</small></div><div className="people-list">{shown.map(({profile,label})=><button key={profile.profileId} onClick={()=>onPerson(profile)}><span>{profile.displayName.slice(0,1)}</span><p><strong>{profile.displayName}<em>{label}</em></strong><small>{profile.state==="ACTIVE"?"四张卡牌已生成":"出生资料待完善"}</small></p><i>{profile.state==="ACTIVE"?"进入详情":"待完善"}</i><b>›</b></button>)}</div>{shown.length===0&&<div className="prototype-empty">这一分组暂无人物档案</div>}</section>
 }
 
 function NewPersonArchive({data,busy,onChange,onBack,onNext}:{data:ProfileData;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page new-person-unified"><MyHeader title="新建人物档案" onBack={onBack}/><UnifiedProfileForm data={data} busy={busy} variant="other" onChange={onChange} onNext={onNext}/></section>}
 
-function ArchiveConfirm({data,revision,busy,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page"><MyHeader title="确认出生信息" onBack={onBack}/><div className="confirm-person"><span>{data.name.slice(0,1)}</span><p><small>即将创建</small><strong>{data.name}的生命智慧档案</strong><b>私人记录 · 待确认</b></p></div><div className="archive-facts"><p><span>历法</span><strong>公历</strong></p><p><span>出生日期</span><strong>{data.date}</strong></p><p><span>出生时间</span><strong>{data.time} · 准确到分钟</strong></p></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><div className="privacy-inline"><span className="lock"/><p><strong>这是你的私人关系记录</strong><small>对方不会收到通知；共享、共同查看或互动前需另行授权。</small></p></div><button className="primary" disabled={busy} onClick={onNext}>{busy?"正在确认…":"确认并生成四张卡牌"} <span>→</span></button><button className="text-action" onClick={onBack}>返回修改</button></section>}
+function ArchiveConfirm({data,revision,busy,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page"><MyHeader title="确认出生信息" onBack={onBack}/><div className="confirm-person"><span>{data.name.slice(0,1)}</span><p><small>即将创建</small><strong>{data.name}的生命智慧档案</strong><b>私人记录 · 待确认</b></p></div><div className="archive-facts"><p><span>历法</span><strong>公历</strong></p><p><span>出生日期</span><strong>{data.date}</strong></p><p><span>出生时间</span><strong>{data.time} · 准确到分钟</strong></p></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><div className="privacy-inline"><span className="lock"/><p><strong>这是你的私人关系记录</strong><small>对方不会收到通知；共享、共同查看或互动前需另行授权。</small></p></div><button className="primary" disabled={busy} onClick={onNext}>{busy?"正在创建…":"确认并创建档案"} <span>→</span></button><button className="text-action" onClick={onBack}>返回修改</button></section>}
 
 function ArchiveGenerating({name,onBack,onNext}:{name:string;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page generating-archive"><MyHeader title="档案生成完成" onBack={onBack}/><div className="archive-grow"><span>{name.slice(0,1)}</span><i/><i/><b/><b/></div><p className="eyebrow">WISDOM IS READY</p><h1>四张关系卡牌<br/>已经生成</h1><p>{name}的档案已由后端确认并保存到生命智慧档案库。</p><div className="life-progress"><i><b style={{width:"100%"}}/></i><span>生成完成 · 100%</span></div><button className="primary" onClick={onNext}>查看生成后的档案 <span>→</span></button></section>}
 
-function PersonArchive({profile,revision,onBack,onManage}:{profile:LifeProfile|null;revision:ProfileRevision|null;onBack:()=>void;onManage:()=>void}){return <section className="my-page archive-page"><MyHeader title="人物生命智慧档案" onBack={onBack}/><div className="person-cover"><span>{(profile?.displayName||"人").slice(0,1)}</span><small>私人关系记录</small><h1>{profile?.displayName||"人物"}的生命智慧档案</h1><p>{profile?.state==="ACTIVE"?"资料完整":"资料待完善"} · 当前为私人记录</p></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><div className="person-feeling"><small>档案状态</small><p>该人物档案与卡牌版本均来自后端，默认仅当前账号可见。</p></div><button className="outline-button" onClick={onManage}>管理人物资料与授权</button></section>}
-
-function PersonArchiveManage({profile,onBack,onDelete}:{profile:LifeProfile|null;onBack:()=>void;onDelete:()=>void}){return <section className="my-page archive-page"><MyHeader title="人物档案管理" onBack={onBack}/><div className="confirm-person"><span>{(profile?.displayName||"人").slice(0,1)}</span><p><small>当前档案</small><strong>{profile?.displayName||"人物档案"}</strong><b>私人记录 · {profile?.state==="ACTIVE"?"资料完整":"待完善"}</b></p></div><div className="manage-entry"><button disabled><span><strong>编辑出生信息</strong><small>后续版本开放，当前请重新创建档案</small></span><b>›</b></button><button disabled><span><strong>授权与共享状态</strong><small>当前档案默认仅自己可见</small></span><b>›</b></button></div><button className="outline-button" onClick={onBack}>返回人物档案</button><button className="danger-action" onClick={onDelete}>删除这份人物档案</button></section>}
+function PersonArchive({profile,revision,firstLook,firstLookLoading,editing,editData,busy,onEditData,onBack,onFirstLook,onEdit,onSave,onDelete}:{profile:LifeProfile|null;revision:ProfileRevision|null;firstLook:ProfileFirstLook|null;firstLookLoading:boolean;editing:boolean;editData:ProfileData;busy:boolean;onEditData:(data:ProfileData)=>void;onBack:()=>void;onFirstLook:()=>void;onEdit:()=>void;onSave:()=>void;onDelete:()=>void}){
+  const [confirmingDelete,setConfirmingDelete]=useState(false);
+  const birth=revision?.originalInput;
+  const date=birth?`${birth.date.year}-${String(birth.date.month).padStart(2,"0")}-${String(birth.date.day).padStart(2,"0")}`:"未提供";
+  const precision=birth?.timePrecision==="EXACT_MINUTE"?"准确到分钟":birth?.timePrecision==="APPROXIMATE"?"大致时间":"未提供具体时间";
+  const content=firstLook?.status==="READY"?firstLook.content:null;
+  const firstLookPending=firstLookLoading||firstLook?.status==="GENERATING";
+  if(editing)return <section className="my-page archive-page other-profile-editor"><MyHeader title="编辑生命智慧档案" onBack={onBack}/><UnifiedProfileForm data={editData} busy={busy} variant="other" mode="edit" onChange={onEditData} onNext={onSave}/></section>;
+  return <section className="my-page archive-page person-archive-detail"><MyHeader title="生命智慧档案" onBack={onBack}/><div className="profile-owner"><span>{(profile?.displayName||"人").slice(0,1)}</span><div><h1>{profile?.displayName||"人物档案"}</h1><p>{profile?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</p></div></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook} disabled={firstLookPending}><i>初</i><span><small>生命智慧初识</small><strong>{firstLookPending?"正在整理生命底色…":content?"查看生命底色与四个短画像":"生成并查看这份档案的初识"}</strong></span><b>›</b></button>{content&&<section className="other-first-look"><small>{content.profileSummary.keywords.join(" · ")}</small><h2>{content.profileSummary.title}</h2><p>{content.profileSummary.description}</p><div>{content.cards.map(card=><article key={card.position}><strong>{card.title}</strong><span>{card.summary}</span></article>)}</div></section>}<section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{date} · {birth?.calendarType==="LUNAR"?"农历":"公历"}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime||"未提供"} · {precision}</strong></p></section><div className="person-archive-actions"><button className="outline-button" type="button" onClick={onEdit} disabled={!revision}>编辑生命智慧档案</button><button className="danger-action" type="button" onClick={()=>setConfirmingDelete(true)}>删除这份人物档案</button></div>{confirmingDelete&&<div className="confirm-backdrop" role="presentation" onClick={()=>setConfirmingDelete(false)}><section className="logout-confirm person-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="person-delete-title" onClick={event=>event.stopPropagation()}><span>删</span><h2 id="person-delete-title">确认删除这份档案？</h2><p>“{profile?.displayName||"人物"}”的出生资料与四张卡牌会被移除，删除后无法恢复。</p><button className="danger-primary" type="button" disabled={busy} onClick={onDelete}>{busy?"正在删除…":"确认删除"}</button><button className="outline-button" type="button" onClick={()=>setConfirmingDelete(false)}>暂不删除</button></section></div>}</section>
+}
 
 function ArchivePicker({onBack,onAdd,onNext}:{onBack:()=>void;onAdd:()=>void;onNext:()=>void}){const [picked,setPicked]=useState(["小满"]);const people=[["小","小满","我的主档案"],["妈","妈妈","家人 · 已授权"],["言","周言","朋友 · 私人记录"],["林","林远","同事 · 待完善"]];return <section className="my-page archive-page"><MyHeader title="选择关系中的两个人" onBack={onBack}/><p className="eyebrow">TWO PEOPLE, ONE RELATIONSHIP</p><h1>从生命智慧档案库<br/>选择想理解的两个人</h1><div className="picker-slots"><span className={picked[0]?"filled":""}><i>{picked[0]?.slice(0,1)||"A"}</i><small>{picked[0]||"人物 A"}</small></span><b>∞</b><span className={picked[1]?"filled":""}><i>{picked[1]?.slice(0,1)||"B"}</i><small>{picked[1]||"人物 B"}</small></span></div><label className="picker-search">⌕<input placeholder="搜索档案"/></label><div className="picker-list">{people.map(x=><button key={x[1]} className={picked.includes(x[1])?"active":""} onClick={()=>setPicked(p=>p.includes(x[1])?p.filter(v=>v!==x[1]):p.length<2?[...p,x[1]]:[p[0],x[1]])}><span>{x[0]}</span><p><strong>{x[1]}</strong><small>{x[2]}</small></p><i>{picked.includes(x[1])?"✓":""}</i></button>)}</div><button className="archive-add-inline" onClick={onAdd}>＋ 新建一个人物档案</button><div className="task-rule">私人记录可用于你自己的关系理解；涉及对方查看、互动或共享时，会单独发起授权。</div><button className="primary" disabled={picked.length<2} onClick={onNext}>选择匹配类型 <span>→</span></button></section>}
 
 function ArchiveDeleteImpact({name,busy,onBack,onDone}:{name:string;busy:boolean;onBack:()=>void;onDone:()=>void}){const [confirmed,setConfirmed]=useState(false);return <section className="my-page archive-page delete-impact"><MyHeader title="删除档案" onBack={onBack}/><div className="delete-symbol">删</div><p className="eyebrow">PLEASE REVIEW THE IMPACT</p><h1>删除“{name}”的档案前<br/>请确认这些影响</h1><div className="impact-list"><p><i>档</i><span><strong>四张关系卡牌将被删除</strong><small>出生资料与人物标签也会同时移除</small></span></p><p><i>∞</i><span><strong>历史报告按后端保留规则处理</strong><small>删除请求由服务端执行影响检查</small></span></p></div><label className="delete-confirm"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/><span>我了解删除无法撤销，并确认删除这份人物档案</span></label><button className="danger-primary" disabled={!confirmed||busy} onClick={onDone}>{busy?"正在删除…":"确认永久删除"}</button><button className="outline-button" onClick={onBack}>暂不删除</button></section>}
 
-function RelationshipHeader({title="关系",onBack}:{title?:string;onBack?:()=>void}){return <header className="relationship-header">{onBack?<button className="back-button" onClick={onBack}>←</button>:<Brand compact/>}<strong>{title}</strong><button className="relationship-more">•••</button></header>}
+function RelationshipHeader({title="关系",onBack}:{title?:string;onBack?:()=>void}){return <header className="relationship-header">{onBack?<BackButton onClick={onBack}/>:<Brand compact/>}<strong>{title}</strong><button className="relationship-more" aria-label="更多操作">•••</button></header>}
 
 function RelationshipHome({navigate,onStart,onHistory}:{navigate:(step:number)=>void;onStart:(type:string)=>void;onHistory:()=>void}){return <section className="relationship-page relationship-home"><RelationshipHeader/><div className="relation-hero"><div className="relation-orbit"><span>∞</span><i/><i/></div><small>BETWEEN TWO PEOPLE</small><h1>两个人之间<br/>不只是合不合适</h1><p>看见彼此如何靠近、互补，也看见怎样相处会更舒服。</p></div><div className="relation-entry"><button onClick={()=>onStart("情感伴侣")}><i>情</i><span><small>情感伴侣</small><strong>理解吸引、默契与相处方式</strong></span><b>→</b></button><button onClick={()=>onStart("事业合作伙伴")}><i>业</i><span><small>事业合作伙伴</small><strong>理解分工、互补与合作边界</strong></span><b>→</b></button></div><button className="relation-history-link" onClick={onHistory}><span>册</span><p><strong>我的关系报告</strong><small>3 份报告 · 最近更新于昨天</small></p><b>›</b></button><div className="future-invite"><small>未来玩法</small><p>邀请更多朋友参与，寻找属于你的伴侣与事业搭子</p><span>后续开放</span></div><MainNav active="关系" navigate={navigate}/></section>}
 
@@ -1208,7 +1388,7 @@ function RelationshipSummary({type,onBack,onFull,onShare}:{type:string;onBack:()
 
 function RelationshipFullReport({type,onBack,onShare,onDone}:{type:string;onBack:()=>void;onShare:()=>void;onDone:()=>void}){const sections=[["01","关系整体感觉","你们不是完全相同的人，却容易在彼此身上看见自己缺少的那一部分。"],["02","为什么会彼此吸引","小满的行动感会带来方向，周言的细腻会让关系不只是向前，也能被认真感受。"],["03","天然默契与互补","当一方负责打开可能，另一方负责辨认价值，你们很容易形成相互补位。"],["04","容易摩擦的地方","一个倾向于尽快回应，一个需要更多时间确认感受。催促与沉默都可能被误解。"],["05","更舒服的相处方式","重要沟通前先说明自己需要的是倾听、建议还是决定，给彼此清楚而温柔的边界。"],["06","给这段关系的下一步","选择一件双方都在意的小事，一起完成，并观察真实合作时的感受。"]];return <section className="relationship-page relation-full"><RelationshipHeader title="完整匹配报告" onBack={onBack}/><div className="full-relation-intro"><span>互</span><small>小满 × 周言 · {type}</small><h1>互补成长</h1><p>一段关系的价值，不在于完全相同，而在于能否理解差异背后的需要。</p></div><div className="relation-report-sections">{sections.map(x=><article key={x[0]}><b>{x[0]}</b><span><strong>{x[1]}</strong><p>{x[2]}</p></span></article>)}</div><div className="annual-boundary"><span>参</span><p><strong>这是关系理解，不是关系判决</strong>报告不替你决定是否开始、继续或结束一段关系。</p></div><button className="primary" onClick={onDone}>保存到我的关系报告 <span>→</span></button><button className="outline-button" onClick={onShare}>生成隐私友好的分享卡片</button></section>}
 
-function RelationshipShare({onBack,onDone}:{onBack:()=>void;onDone:()=>void}){const [names,setNames]=useState(false);return <section className="relationship-page"><RelationshipHeader title="分享关系结果" onBack={onBack}/><p className="eyebrow">SHARE THE FEELING, KEEP THE PRIVACY</p><h1>分享这段关系的感觉<br/>不分享两个人的隐私</h1><div className="relation-share-card"><small>身心游 · RELATIONSHIP</small><span>∞</span><p>{names?"小满 × 周言":"小满 × 一位朋友"}</p><h2>互补成长</h2><blockquote>在差异里慢慢靠近，也在理解中成为更完整的自己</blockquote><b>扫码看看你们的关系语言</b></div><label className="timeline-switch"><span><strong>在分享卡片显示双方称呼</strong><small>关闭时只显示“我与一位朋友”</small></span><input type="checkbox" checked={names} onChange={e=>setNames(e.target.checked)}/></label><div className="share-privacy"><span className="lock"/>不会展示四张卡牌、出生信息与完整报告</div><button className="primary" onClick={onDone}>生成并分享 <span>→</span></button></section>}
+function RelationshipShare({onBack,onDone}:{onBack:()=>void;onDone:()=>void}){const [names,setNames]=useState(false);return <section className="relationship-page"><RelationshipHeader title="分享关系结果" onBack={onBack}/><p className="eyebrow">SHARE THE FEELING, KEEP THE PRIVACY</p><h1>分享这段关系的感觉<br/>不分享两个人的隐私</h1><div className="relation-share-card"><small>初见 · RELATIONSHIP</small><span>∞</span><p>{names?"小满 × 周言":"小满 × 一位朋友"}</p><h2>互补成长</h2><blockquote>在差异里慢慢靠近，也在理解中成为更完整的自己</blockquote><b>扫码看看你们的关系语言</b></div><label className="timeline-switch"><span><strong>在分享卡片显示双方称呼</strong><small>关闭时只显示“我与一位朋友”</small></span><input type="checkbox" checked={names} onChange={e=>setNames(e.target.checked)}/></label><div className="share-privacy"><span className="lock"/>不会展示四张卡牌、出生信息与完整报告</div><button className="primary" onClick={onDone}>生成并分享 <span>→</span></button></section>}
 
 function RelationshipComplete({onHome,onHistory}:{onHome:()=>void;onHistory:()=>void}){return <section className="relationship-page relation-complete"><RelationshipHeader title="报告已保存"/><div className="complete-orbit"><span>∞</span><i/><i/></div><p className="eyebrow">A RELATIONSHIP UNDERSTOOD</p><h1>这段关系的理解<br/>已经被好好保存</h1><p>你可以随时回来看，也可以用另一个维度重新理解同样的两个人。</p><div className="feedback-summary"><span>关系报告 <b>已保存</b></span><span>报告历史 <b>已更新</b></span><span>隐私状态 <b>仅自己</b></span></div><button className="primary" onClick={onHome}>完成，回到关系首页 <span>→</span></button><button className="outline-button" onClick={onHistory}>查看我的关系报告</button></section>}
 
@@ -1216,7 +1396,7 @@ function CommerceHeader({title,onBack}:{title:string;onBack:()=>void}){return <h
 
 function ThirdPartyPurchase({onBack,onPoster,onSupport,onExternal}:{onBack:()=>void;onPoster:()=>void;onSupport:()=>void;onExternal:()=>void}){const [notice,setNotice]=useState("");return <section className="commerce-page"><CommerceHeader title="第三方购买" onBack={onBack}/><p className="eyebrow">CHOOSE AN AVAILABLE CHANNEL</p><h1>选择方便的购买方式</h1><div className="external-methods"><button onClick={onPoster}><i>码</i><span><strong>查看支付二维码海报</strong><small>适合微信内长按识别或另一台设备扫码</small></span><b>›</b></button><button onClick={onSupport}><i>客</i><span><strong>联系客服购买</strong><small>获取当前可用的第三方支付入口</small></span><b>›</b></button><button onClick={()=>{setNotice("正在打开经过安全校验的第三方购买页面");onExternal();}}><i>外</i><span><strong>前往外部购买页面</strong><small>将在浏览器中打开安全链接</small></span><b>↗</b></button></div>{notice&&<div className="prototype-toast">✓ {notice}</div>}<div className="task-rule">第三方支付完成后请保留订单信息；到账状态可在“我的订单”查看。</div></section>}
 
-function SeedPoster({onBack,onPaid}:{onBack:()=>void;onPaid:()=>void}){const [saved,setSaved]=useState(false);return <section className="commerce-page commerce-center"><CommerceHeader title="扫码购买" onBack={onBack}/><p className="eyebrow">SCAN TO PURCHASE</p><h1>扫码购买600颗<br/>智慧种子</h1><div className="qr-poster"><span>身心游</span><i>▦</i><strong>¥49.9 · 600颗</strong><small>请使用微信扫码或长按识别</small></div><button className="primary" onClick={onPaid}>我已完成支付 <span>→</span></button><button className="text-action" onClick={()=>setSaved(true)}>{saved?"✓ 海报已保存到相册":"保存海报到相册"}</button></section>}
+function SeedPoster({onBack,onPaid}:{onBack:()=>void;onPaid:()=>void}){const [saved,setSaved]=useState(false);return <section className="commerce-page commerce-center"><CommerceHeader title="扫码购买" onBack={onBack}/><p className="eyebrow">SCAN TO PURCHASE</p><h1>扫码购买600颗<br/>智慧种子</h1><div className="qr-poster"><span>初见</span><i>▦</i><strong>¥49.9 · 600颗</strong><small>请使用微信扫码或长按识别</small></div><button className="primary" onClick={onPaid}>我已完成支付 <span>→</span></button><button className="text-action" onClick={()=>setSaved(true)}>{saved?"✓ 海报已保存到相册":"保存海报到相册"}</button></section>}
 
 function SeedSupport({onBack,onContinue}:{onBack:()=>void;onContinue:()=>void}){const [opened,setOpened]=useState(false);return <section className="commerce-page commerce-center"><CommerceHeader title="联系客服购买" onBack={onBack}/><div className="service-orbit"><span>客</span><i/><i/></div><p className="eyebrow">PURCHASE WITH SUPPORT</p><h1>联系客服获取<br/>当前购买入口</h1><p className="commerce-lead">客服会向你发送第三方购买网站、支付二维码或外部链接，并协助确认到账。</p><div className="service-hours"><small>服务时间</small><strong>每日 09:00—21:00</strong><p>咨询时请说明：600颗智慧种子套餐</p></div>{opened&&<div className="support-opened"><strong>微信客服入口已准备</strong><p>完成支付后返回此页，系统会继续确认到账。</p></div>}<button className="primary" onClick={()=>setOpened(true)}>{opened?"已打开微信客服":"打开微信客服"} <span>→</span></button>{opened&&<button className="outline-button" onClick={onContinue}>我已完成支付，查询到账</button>}</section>}
 
@@ -1225,7 +1405,7 @@ function CommercePage({id,navigate,returnAfterSeed,onReturnAfterSeed,onSeedRecha
   const back=()=>navigate(backTargets[id]??133);
   const seedPacks=[["200","19.9","轻轻种下"],["600","49.9","持续生长"],["1200","99.9","丰盛一程"]];
   const goods=[["串","四季能量手串","380","陪伴日常的温柔提醒"],["晶","自然水晶石","260","为生活留下一处安定"],["香","草木清心香","180","让空间慢下来"],["茶","四时调和茶","220","在一杯茶里回到自己"]];
-  if(id==="SHOP-01")return <section className="commerce-page"><CommerceHeader title="身心游商城" onBack={back}/><div className="shop-hero"><small>SATORI MARKET</small><h1>让每一颗智慧种子<br/>都有生长的去处</h1><p>现金只用于购买智慧种子；报告、服务与R1文创商品统一使用智慧种子兑换。</p><div><span>我的智慧种子</span><strong>12 ●</strong></div></div><div className="shop-portals"><button onClick={()=>navigate(134)}><i>种</i><span><small>智慧种子专区</small><strong>购买智慧种子</strong><p>三种固定套餐 · 多种购买方式</p></span><b>→</b></button><button onClick={()=>navigate(135)}><i>物</i><span><small>身心游文创</small><strong>用种子兑换好物</strong><p>手串、水晶、香与茶</p></span><b>→</b></button></div><button className="commerce-order-link" onClick={()=>navigate(136)}><span>单</span><p><strong>订单与消费记录</strong><small>产品、服务与智慧种子去向</small></p><b>›</b></button></section>;
+  if(id==="SHOP-01")return <section className="commerce-page"><CommerceHeader title="初见商城" onBack={back}/><div className="shop-hero"><small>FRESH MARKET</small><h1>让每一颗智慧种子<br/>都有生长的去处</h1><p>现金只用于购买智慧种子；报告、服务与R1文创商品统一使用智慧种子兑换。</p><div><span>我的智慧种子</span><strong>12 ●</strong></div></div><div className="shop-portals"><button onClick={()=>navigate(134)}><i>种</i><span><small>智慧种子专区</small><strong>购买智慧种子</strong><p>三种固定套餐 · 多种购买方式</p></span><b>→</b></button><button onClick={()=>navigate(135)}><i>物</i><span><small>初见文创</small><strong>用种子兑换好物</strong><p>手串、水晶、香与茶</p></span><b>→</b></button></div><button className="commerce-order-link" onClick={()=>navigate(136)}><span>单</span><p><strong>订单与消费记录</strong><small>产品、服务与智慧种子去向</small></p><b>›</b></button></section>;
   if(id==="SHOP-02"||id==="SEED-01")return <section className="commerce-page"><CommerceHeader title="智慧种子专区" onBack={back}/><p className="eyebrow">CHOOSE YOUR SEEDS</p><h1>选择适合此刻的<br/>智慧种子数量</h1><div className="seed-packages">{seedPacks.map((x,i)=><button className={i===1?"popular":""} key={x[0]} onClick={()=>navigate(138)}><small>{x[2]}{i===1&&<b>推荐</b>}</small><strong>{x[0]}<em>颗</em></strong><p>¥ {x[1]}</p><span>约 ¥ {(Number(x[1])/Number(x[0])).toFixed(3)} / 颗</span></button>)}</div><div className="commerce-rule"><strong>智慧种子可以做什么？</strong><p>兑换日签、生命之光、抽卡问事、月运、年运、关系匹配、助学童子报告及R1文创商品。</p></div><button className="outline-button" onClick={()=>navigate(136)}>查看购种记录</button></section>;
   if(id==="SHOP-03"||id==="GOODS-01")return <section className="commerce-page"><CommerceHeader title="文创商品" onBack={back}/><div className="goods-hero"><small>OBJECTS WITH MEANING</small><h1>把看见带回生活</h1><p>R1文创商品只使用智慧种子兑换</p></div><div className="goods-tabs"><button className="active">全部</button><button>手串</button><button>水晶</button><button>香</button><button>茶</button></div><div className="goods-grid">{goods.map(x=><button key={x[1]} onClick={()=>navigate(147)}><i>{x[0]}</i><small>{x[3]}</small><strong>{x[1]}</strong><p>{x[2]} ●</p></button>)}</div></section>;
   if(id==="SHOP-04"||id==="ORDER-01")return <section className="commerce-page"><CommerceHeader title="全部订单" onBack={back}/><div className="order-summary"><span><small>全部</small><strong>6</strong></span><span><small>处理中</small><strong>1</strong></span><span><small>已完成</small><strong>5</strong></span></div><div className="order-tabs"><button className="active">全部</button><button>购种</button><button>报告</button><button>文创</button></div><div className="unified-orders"><button onClick={()=>navigate(157)}><i>种</i><span><small>现金购种 · 今天</small><strong>600颗智慧种子</strong><p>¥49.9 · 已到账</p></span><b>›</b></button><button onClick={()=>navigate(158)}><i>情</i><span><small>报告兑换 · 昨天</small><strong>情感关系匹配报告</strong><p>-6 ● · 已生成</p></span><b>›</b></button><button onClick={()=>navigate(159)}><i>串</i><span><small>文创兑换 · 08月05日</small><strong>四季能量手串</strong><p>-380 ● · 已发货</p></span><b>›</b></button></div><button className="order-help" onClick={()=>navigate(160)}>退款、退种与异常处理</button></section>;
@@ -1253,7 +1433,7 @@ function CommercePage({id,navigate,returnAfterSeed,onReturnAfterSeed,onSeedRecha
 }
 
 function GrowthHeader({ title = "成长", onBack }: { title?: string; onBack?: () => void }) {
-  return <header className="growth-header">{onBack ? <button className="back-button" onClick={onBack}>←</button> : <Brand compact />}<strong>{title}</strong><button className="growth-message">信<i/></button></header>;
+  return <header className="growth-header">{onBack ? <BackButton onClick={onBack} /> : <Brand compact />}<strong>{title}</strong><button className="growth-message" aria-label="消息">信<i/></button></header>;
 }
 
 function GrowthHome({ name, navigate }: { name: string; navigate: (step: number) => void }) {
@@ -1312,7 +1492,7 @@ function LifeFullReport({ onBack, onNext }: { onBack: () => void; onNext: () => 
 
 function LifeShare({ onBack, onHome }: { onBack: () => void; onHome: () => void }) {
   const [saved,setSaved]=useState(false); const [style,setStyle]=useState("生命绿"); const [shared,setShared]=useState(false);
-  return <section className="growth-page life-share"><GrowthHeader title="分享生命之光" onBack={onBack}/><p className="eyebrow">SHARE YOUR LIGHT</p><h1>分享这一刻的看见<br/>不暴露你的出生资料</h1><div className={`life-share-card ${style==="暖金"?"gold":""}`}><small>MY INNER LIGHT</small><div><span>光</span><i/><i/></div><p>你不是急着找到答案的人<br/><strong>你更擅长让答案慢慢长出来</strong></p><footer>身心游 · SATORI</footer></div><div className="share-style"><small>选择卡片氛围</small><div>{["生命绿","暖金"].map(x=><button className={style===x?"active":""} onClick={()=>setStyle(x)} key={x}>{x}</button>)}</div></div><div className="share-privacy-check"><span>✓</span><p><strong>已自动隐藏敏感信息</strong>不展示出生日期、时间、地点和四张卡牌原文。</p></div><div className="ready-actions"><button onClick={()=>setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved?"已保存到相册":"高清分享图"}</small></span></button><button onClick={()=>setShared(true)}><i>↗</i><span><strong>系统分享</strong><small>{shared?"分享菜单已唤起":"打开手机分享菜单"}</small></span></button></div><button className="primary" onClick={onHome}>完成，回到成长首页 <span>→</span></button></section>;
+  return <section className="growth-page life-share"><GrowthHeader title="分享生命之光" onBack={onBack}/><p className="eyebrow">SHARE YOUR LIGHT</p><h1>分享这一刻的看见<br/>不暴露你的出生资料</h1><div className={`life-share-card ${style==="暖金"?"gold":""}`}><small>MY INNER LIGHT</small><div><span>光</span><i/><i/></div><p>你不是急着找到答案的人<br/><strong>你更擅长让答案慢慢长出来</strong></p><footer>初见 · FRESH</footer></div><div className="share-style"><small>选择卡片氛围</small><div>{["生命绿","暖金"].map(x=><button className={style===x?"active":""} onClick={()=>setStyle(x)} key={x}>{x}</button>)}</div></div><div className="share-privacy-check"><span>✓</span><p><strong>已自动隐藏敏感信息</strong>不展示出生日期、时间、地点和四张卡牌原文。</p></div><div className="ready-actions"><button onClick={()=>setSaved(true)}><i>↓</i><span><strong>保存图片</strong><small>{saved?"已保存到相册":"高清分享图"}</small></span></button><button onClick={()=>setShared(true)}><i>↗</i><span><strong>系统分享</strong><small>{shared?"分享菜单已唤起":"打开手机分享菜单"}</small></span></button></div><button className="primary" onClick={onHome}>完成，回到成长首页 <span>→</span></button></section>;
 }
 
 function PeriodHub({ onBack, onMonthly, onAnnual, onHistory }: { onBack: () => void; onMonthly: () => void; onAnnual: () => void; onHistory: () => void }) {
@@ -1411,9 +1591,9 @@ function StageReviewReport({onBack,onHome}:{onBack:()=>void;onHome:()=>void}){re
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <a className={`brand ${compact ? "brand-compact" : ""}`} href="#" aria-label="身心游首页">
+    <a className={`brand ${compact ? "brand-compact" : ""}`} href="#" aria-label="初见首页">
       <span className="brand-mark" aria-hidden="true"><i /></span>
-      {!compact && <span><strong>身心游</strong><small>SATORI</small></span>}
+      <span><strong>初见</strong><small>FRESH</small></span>
     </a>
   );
 }

@@ -20,12 +20,90 @@ test("服务端首屏渲染中性 Session 恢复态，避免老用户闪现欢�
   assert.doesNotMatch(html, /R1\.0 · AUTH-02/);
 });
 
+test("AUTH-02 不展示已有档案快捷入口，新用户礼物按后端额度显示", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const welcome = page.match(/view === "welcome" \? \([\s\S]*?\) : view === "login"/)?.[0] ?? "";
+  const gift = page.match(/function SeedGift[\s\S]*?\n}\n\nfunction TodayHome/)?.[0] ?? "";
+  assert.doesNotMatch(welcome, /已有档案/);
+  assert.match(page, /amount=\{home\?\.registrationReward\.wisdomSeedAmount \?\? 18\}/);
+  assert.match(gift, /<span>\{amount\}<\/span>/);
+  assert.match(gift, /收下 \$\{amount\} 颗智慧种子/);
+  assert.doesNotMatch(gift, /收下 3 颗智慧种子|<span>3<\/span>|<strong>3 颗<\/strong>/);
+});
+
+test("AUTH-04 使用统一资料用途文案且不展示内部协议规则编号", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const login = page.match(/view === "login" \? \([\s\S]*?\) : view === "recovery"/)?.[0] ?? "";
+  assert.match(login, /并知晓相关资料的用途/);
+  assert.doesNotMatch(login, /并知晓出生资料的用途|AUTH-05 · 协议与隐私确认/);
+});
+
+test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const login = page.match(/view === "login" \? \([\s\S]*?\) : view === "recovery"/)?.[0] ?? "";
+  assert.match(login, /<header className="brand-row login-header">\s*<Brand \/>\s*<\/header>/);
+  assert.doesNotMatch(login, /back-button|返回欢迎页|login-brand|Brand compact/);
+});
+
+test("页面编号仅在显式开启的研发与调试构建中显示", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const component = page.match(/const showPageDebugLabels[\s\S]*?function PageDebugLabel[\s\S]*?\n}/)?.[0] ?? "";
+  assert.match(component, /process\.env\.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true"/);
+  assert.match(component, /if \(!showPageDebugLabels\) return null/);
+  assert.equal((page.match(/className="screen-id"/g) || []).length, 1);
+  assert.ok((page.match(/<PageDebugLabel>/g) || []).length >= 3);
+
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(packageJson.scripts.dev, /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.doesNotMatch(packageJson.scripts["build:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.doesNotMatch(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.match(packageJson.scripts["build:debug:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+});
+
 test("正式工程包含完整原型基础样式", async () => {
   const formalCss = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   for (const selector of [".stage", ".phone", ".hero-copy", ".login-page", ".profile-flow", ".today-home", ".my-home"]) {
     assert.match(formalCss, new RegExp(selector.replace(".", "\\.")));
   }
   assert.ok(formalCss.length > 50_000);
+});
+
+test("R1.0 使用统一字体令牌并明确区分品牌与功能文字", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  for (const token of [
+    "--font-brand:", "--font-ui:", "--type-display: 32px", "--type-page-title: 24px",
+    "--type-body: 14px", "--type-secondary: 13px", "--type-caption: 12px",
+  ]) assert.match(css, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(css, /\.phone\{font-family:var\(--font-ui\)/);
+  assert.match(css, /\.phone h1,[\s\S]*?font-family:var\(--font-brand\)/);
+  assert.match(css, /\.report-opening p,[\s\S]*?font-size:var\(--type-body\);line-height:1\.85/);
+  assert.match(css, /\.home-energy-card \.guide-tips strong,[\s\S]*?font-size:var\(--type-caption\)/);
+});
+
+test("R1.0 字体随构建交付并保留 OFL 授权证据", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const sansLicense = await readFile(new URL("../public/fonts/licenses/Noto-Sans-SC-OFL-1.1.txt", import.meta.url), "utf8");
+  const serifLicense = await readFile(new URL("../public/fonts/licenses/Noto-Serif-SC-OFL-1.1.txt", import.meta.url), "utf8");
+
+  assert.equal(packageJson.dependencies["@fontsource/noto-sans-sc"], "5.2.7");
+  assert.equal(packageJson.dependencies["@fontsource/noto-serif-sc"], "5.2.7");
+  for (const family of ["noto-sans-sc", "noto-serif-sc"]) {
+    for (const weight of [400, 500, 600]) {
+      const path = `/fonts/${family}/${family}-${weight}.woff2`;
+      assert.match(css, new RegExp(path.replaceAll("/", "\\/")));
+      const binary = await readFile(new URL(`../public${path}`, import.meta.url));
+      assert.ok(binary.byteLength > 10_000);
+    }
+  }
+  for (const license of [sansLicense, serifLicense]) assert.match(license, /SIL OPEN FONT LICENSE Version 1\.1/);
+});
+
+test("R1.0 业务样式不直接指定未经规范批准的具名字体", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /--font-brand: "Noto Serif SC", serif/);
+  assert.match(css, /--font-ui: "Noto Sans SC", sans-serif/);
+  assert.doesNotMatch(css, /PingFang|Microsoft YaHei|Songti|STSong|Arial|Helvetica|Source Han/);
 });
 
 test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {
@@ -36,6 +114,7 @@ test("R1.0 主导航展示五项且三个未来模块只进入预告页", async 
   assert.match(nav, /PREVIEW-READ/);
   assert.match(nav, /PREVIEW-GROWTH/);
   assert.match(nav, /PREVIEW-RELATIONSHIP/);
+  assert.ok(nav.indexOf('["关系"') < nav.indexOf('["成长"'));
   assert.doesNotMatch(nav, /\["问事", 29|\["成长", 43|\["关系", 44/);
 });
 
@@ -60,13 +139,12 @@ test("R1.0 我的页面不展示后续版本入口", async () => {
   assert.doesNotMatch(myHome, /商城|助学童子|生命之光|月运|年运|关系匹配/);
 });
 
-test("R1.0 智慧种子统一为不可交易的 AI 体验额度", async () => {
+test("R1.0 智慧种子统一为不可交易的 AI 体验额度，赠送页不重复展示说明", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const gift = page.match(/function SeedGift[\s\S]*?\n}\n/)?.[0] ?? "";
   const daily = page.match(/function SeedPayment[\s\S]*?\n}\n/)?.[0] ?? "";
   const seeds = page.match(/function MySeeds[\s\S]*?\n}\n/)?.[0] ?? "";
-  assert.match(gift, /AI 体验额度/);
-  assert.match(gift, /不可购买、充值、提现、转赠或交易/);
+  assert.doesNotMatch(gift, /智慧种子是平台免费赠送、会员附赠或学院配置的 AI 体验额度/);
   assert.match(daily, /确认后将预留体验额度/);
   assert.match(daily, /未形成有效内容会自动恢复/);
   assert.match(daily, /AI 体验额度不足/);
@@ -236,7 +314,12 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(css, /\.today-home \.home-energy-card\{min-height:clamp\(340px,44svh,390px\)/);
   assert.match(css, /\.home-growth-scene \.life-growth\{top:50%;right:auto;left:50%/);
   assert.match(css, /\.home-energy-card \.guide-tips>div\+div\{padding:3px 4px 7px;border:0;text-align:center\}/);
-  assert.match(css, /\.home-energy-card button\{width:auto;min-width:0;height:auto;margin:3px 0 0 auto/);
+  assert.match(home, /summary\?\.heavenCard \? ` · \$\{summary\.heavenCard\}` : ""/);
+  assert.doesNotMatch(home, /summary\?\.dayCard \? ` · \$\{summary\.dayCard\}`/);
+  assert.match(home, /className="home-guidance-link"/);
+  assert.match(css, /\.home-energy-card \.home-guidance-link\{-webkit-appearance:none;appearance:none;width:auto;min-width:44px;min-height:44px/);
+  assert.match(css, /\.home-energy-card \.home-guidance-link\{[^}]*background-image:none[^}]*filter:none;backdrop-filter:none;-webkit-backdrop-filter:none/);
+  assert.match(css, /\.home-energy-card \.home-guidance-link:hover,\.home-energy-card \.home-guidance-link:active,\.home-energy-card \.home-guidance-link:focus\{[^}]*backdrop-filter:none;-webkit-backdrop-filter:none\}/);
   assert.doesNotMatch(home, /先稳住自己的节奏，再清醒回应外界的变化/);
   assert.match(home, /适合做什么/);
   assert.match(home, /注意什么/);
@@ -244,7 +327,7 @@ test("HOME-01 使用最新高中特低能量指引卡并保留真实数据入口
   assert.match(home, /ready \? "查看今日能量指引" : "获取今日能量指引"/);
   assert.match(page, /id === "HOME-01" \? " home-flow"/);
   assert.match(css, /\.profile-flow\.home-flow\{height:100%;min-height:0;overflow:hidden\}/);
-  assert.match(css, /\.home-flow \.today-home\{[^}]*overflow-y:auto[^}]*display:flex[^}]*flex-direction:column[^}]*scrollbar-width:thin/);
+  assert.match(css, /\.home-flow \.today-home\{[^}]*overflow-x:hidden[^}]*overflow-y:auto[^}]*display:flex[^}]*flex-direction:column[^}]*scrollbar-width:none/);
   assert.match(css, /\.home-flow \.today-home>h1\{[^}]*overflow-wrap:anywhere/);
   assert.match(css, /\.home-flow \.today-home>\.home-energy-card\{flex:none;margin-bottom:18px\}/);
   assert.match(css, /\.home-flow \.today-home>\.main-nav\{position:sticky[^}]*margin:auto -9px 0/);
@@ -311,7 +394,8 @@ test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access T
 
 test("手机号登录后按后端真实档案状态分流，老用户直接进入 HOME-01", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /const session = await api\.createSession/);
+  assert.match(page, /const session = await createSessionWithCurrentConsents\(\)/);
+  assert.match(page, /session\.user\.requiresConsent \|\| session\.nextAction === "ACCEPT_CONSENTS"/);
   assert.match(page, /const me = await api\.me\(\)/);
   assert.match(page, /stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
   assert.match(page, /if \(action === "CREATE_TODAY_DAILY_INSIGHT" \|\| action === "VIEW_HOME"\) return 10/);
@@ -322,7 +406,8 @@ test("R1 核心页面调用真实后端能力", async () => {
   for (const call of ["api.sendSms", "api.createSession", "api.logout", "api.previewProfile", "api.confirmProfile", "api.generateProfileFirstLook", "api.profileFirstLook", "api.claimRegistrationReward", "api.createTodayInsight", "api.generationTask", "api.createProfile", "api.previewOtherProfile", "api.confirmOtherProfile", "api.deleteProfile"]) {
     assert.match(page, new RegExp(call.replace(".", "\\.")));
   }
-  assert.match(page, /await api\.createSession\(challengeId, code, consentAcceptances\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
+  assert.match(page, /api\.createSession\(challengeId, code, consentAcceptances\)/);
+  assert.match(page, /const session = await createSessionWithCurrentConsents\(\);[\s\S]*?session\.user\.requiresConsent \|\| session\.nextAction === "ACCEPT_CONSENTS"[\s\S]*?await acceptCurrentConsents\(\);[\s\S]*?const me = await api\.me\(\);[\s\S]*?stepForAction\(me\.nextAction \|\| session\.nextAction\)/);
   assert.match(page, /action === "CONFIRM_PROFILE" \|\| action === "CLAIM_REGISTRATION_REWARD"\) return 10/);
   assert.doesNotMatch(page, /验证码已发送，原型中/);
   assert.doesNotMatch(page, /原型中直接查看结果/);
@@ -333,6 +418,28 @@ test("老用户恢复 Session 前使用中性恢复态，不渲染 AUTH-02", asy
   assert.match(page, /const \[sessionReady, setSessionReady\] = useState\(false\)/);
   assert.match(page, /!sessionReady \? <SessionRestoring \/> : view === "welcome"/);
   assert.match(page, /finally\(\(\) => active && setSessionReady\(true\)\)/);
+});
+
+test("协议版本更新时阻止空接受列表并为新旧 Session 完成补充确认", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(page, /const currentBootstrap = await api\.bootstrap\(\)/);
+  assert.match(page, /requiredConsentAcceptances\(currentBootstrap\)/);
+  assert.match(page, /error\.code !== "LEGAL_DOCUMENT_VERSION_INVALID"/);
+  assert.match(page, /isConsentRequired\(error\)[\s\S]*?setView\("consent"\)/);
+  assert.match(page, /function ConsentUpdate/);
+  assert.match(page, /await api\.acceptConsents\(acceptances\)/);
+  assert.match(client, /acceptConsents\(acceptances:[\s\S]*?"\/me\/consents"/);
+});
+
+test("任意受保护接口返回 CONSENT_REQUIRED 时全局进入协议确认页", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(client, /export const CONSENT_REQUIRED_EVENT = "satori:consent-required"/);
+  assert.match(client, /failure\?\.code === "CONSENT_REQUIRED"[\s\S]*?window\.dispatchEvent\(new CustomEvent\(CONSENT_REQUIRED_EVENT/);
+  assert.match(page, /window\.addEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
+  assert.match(page, /handleConsentRequired[\s\S]*?setView\("consent"\)[\s\S]*?setSessionReady\(true\)/);
+  assert.match(page, /window\.removeEventListener\(CONSENT_REQUIRED_EVENT, handleConsentRequired\)/);
 });
 
 test("MY-04 打开的每日指引详情返回 MY-01", async () => {
@@ -351,7 +458,7 @@ test("R1.0 我的页面收口账户、联系入口并使用通栏智慧种子卡
   assert.match(css, /\.my-assets\{grid-template-columns:1fr\}/);
 });
 
-test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维码", async () => {
+test("R1.0 退出登录二次确认且联系我们突出客服、官媒依次下沉", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const settings = page.match(/function MySettings[\s\S]*?\n}\n/)?.[0] ?? "";
   const support = page.match(/function MySupport[\s\S]*?\n}\n/)?.[0] ?? "";
@@ -360,9 +467,34 @@ test("R1.0 退出登录具有二次确认且联系我们展示四个官方二维
   assert.doesNotMatch(settings, /账号安全|隐私中心|数据管理|通知设置|通用设置/);
   for (const channel of ["官方视频号", "官方公众号", "官方小红书", "官方客服"]) assert.match(support, new RegExp(channel));
   for (const asset of ["official-video-channel.png", "official-wechat-account.jpeg", "official-xiaohongshu.png", "official-customer-service.png"]) assert.match(support, new RegExp(asset));
-  assert.match(support, /contact-tabs/);
-  assert.match(support, /contact-focus/);
-  assert.ok(support.indexOf("官方客服") < support.indexOf("官方视频号"));
+  assert.match(support, /support-focus/);
+  assert.match(support, /official-media/);
+  assert.doesNotMatch(support, /contact-tabs/);
+  assert.ok(support.indexOf("官方公众号") < support.indexOf("官方视频号"));
+  assert.ok(support.indexOf("官方视频号") < support.indexOf("官方小红书"));
+  assert.match(support, /className="support-focus"[\s\S]*className="official-media"/);
+});
+
+test("MY-09 人物档案使用进入详情文案", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const archive = page.match(/function WisdomArchive[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(archive, /进入详情/);
+  assert.doesNotMatch(archive, /\?"私人记录":"待完善"/);
+});
+
+test("MY-13 复用档案结构并只保留编辑和一次删除确认", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const archive = page.match(/function PersonArchive[\s\S]*?\n}\n/)?.[0] ?? "";
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(archive, /生命智慧初识/);
+  assert.match(archive, /编辑生命智慧档案/);
+  assert.match(archive, /删除这份人物档案/);
+  assert.match(archive, /<UnifiedProfileForm/);
+  assert.match(archive, /mode="edit"/);
+  assert.match(archive, /确认删除这份档案/);
+  assert.doesNotMatch(archive, /管理人物资料与授权|授权与共享状态/);
+  assert.match(client, /method: "PATCH"/);
+  assert.match(page, /api\.deleteProfile\(selectedProfile\.profileId\)/);
 });
 
 test("PROFILE-11 与 GIFT-01 不展示返回和保存退出操作", async () => {
@@ -427,6 +559,19 @@ test("MY-10 复用统一建档组件并真实提交历法与时间精度", async
   assert.match(page, /资料来源正当/);
 });
 
+test("MY-09 新增人物在 MY-11 确认后直接返回档案库", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const confirmFlow = page.match(/async function confirmOtherProfile[\s\S]*?\n  }\n/)?.[0] ?? "";
+  const confirmPage = page.match(/function ArchiveConfirm[\s\S]*?\n\nfunction ArchiveGenerating/)?.[0] ?? "";
+  assert.match(page, /id === "MY-09"[\s\S]*?onAdd=\{\(\) => setStep\(112\)\}/);
+  assert.match(page, /id === "MY-10"[\s\S]*?onNext=\{createOtherProfile\}/);
+  assert.match(page, /id === "MY-11"[\s\S]*?onNext=\{confirmOtherProfile\}/);
+  assert.match(confirmFlow, /setProfiles\(await api\.profiles\(\)\); setStep\(111\)/);
+  assert.doesNotMatch(confirmFlow, /setStep\(114\)/);
+  assert.match(confirmPage, /确认并创建档案/);
+  assert.doesNotMatch(confirmPage, /确认并生成四张卡牌/);
+});
+
 test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const component = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
@@ -441,6 +586,115 @@ test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底",
   assert.match(component, /<footer>\{card\.title\}<\/footer>/);
   assert.doesNotMatch(component, /card\.ganzhi/);
   assert.match(css, /\.life-card-visual/);
+});
+
+test("R1.0 用户可见品牌统一为横排初见 · FRESH", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  const card = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
+  assert.match(page, /初见/);
+  assert.match(page, /FRESH/);
+  assert.match(layout, /初见 · FRESH/);
+  assert.match(card, />初见<\/span>/);
+  assert.doesNotMatch(`${page}\n${layout}\n${card}`, /身心游|SATORI/);
+});
+
+test("初见视觉规范、设计令牌与公共基础组件已经固化", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const primitives = await readFile(new URL("../src/components/FreshPrimitives.tsx", import.meta.url), "utf8");
+  const spec = await readFile(new URL("../../docs/初见·FRESH-视觉与组件设计规范.md", import.meta.url), "utf8");
+
+  for (const token of ["--color-brand-primary", "--color-text-primary", "--space-4", "--radius-md", "--shadow-focus", "--motion-normal"]) {
+    assert.match(css, new RegExp(token));
+  }
+  assert.match(css, /\.fresh-button--primary/);
+  assert.match(css, /\.fresh-icon-button/);
+  assert.match(primitives, /export function FreshButton/);
+  assert.match(primitives, /export function BackButton/);
+  assert.match(primitives, /export function FreshSurface/);
+  assert.match(page, /import \{ BackButton, FreshButton \} from "@\/src\/components\/FreshPrimitives"/);
+  assert.equal((page.match(/<BackButton/g) || []).length >= 5, true);
+  assert.match(spec, /状态：已固化/);
+  assert.match(spec, /H5 原型、R1\.0 及后续 Release/);
+});
+
+test("R1.0 DAILY-01—03 始终展示真实智慧种子余额", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const dailyHeader = page.match(/function DailyHeader[\s\S]*?\n}/)?.[0] ?? "";
+  const payment = page.match(/function SeedPayment[\s\S]*?\n}\n\nfunction DailyGenerating/)?.[0] ?? "";
+  const start = page.match(/function DailyStart[\s\S]*?\n}\n\nfunction SeedPayment/)?.[0] ?? "";
+  const createDaily = page.match(/async function startDailyInsight[\s\S]*?\n  }/)?.[0] ?? "";
+
+  assert.match(page, /const availableBalance = account\?\.available \?\? null/);
+  for (const id of ["DAILY-01", "PAY-01", "DAILY-02", "DAILY-03"]) {
+    assert.match(page, new RegExp(`id === "${id}"[\\s\\S]{0,220}balance=\\{availableBalance\\}`));
+  }
+  assert.match(dailyHeader, /balance: number \| null/);
+  assert.match(dailyHeader, /balance \?\? "—"/);
+  assert.doesNotMatch(dailyHeader, /balance = 3/);
+  assert.match(start, /<DailyHeader onBack=\{onBack\} balance=\{balance\}/);
+  assert.match(payment, /const syncing = balance === null/);
+  assert.match(payment, /disabled=\{busy \|\| syncing\}/);
+  assert.match(createDaily, /await loadOverview\(\);/);
+});
+
+test("MY-18 不再通过页面内容硬编码调试编号", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const firstLook = page.match(/function FirstLookArchive[\s\S]*?\n\nfunction EditSelfProfile/)?.[0] ?? "";
+  assert.match(firstLook, /生命智慧初识/);
+  assert.doesNotMatch(firstLook, /R1\.0 · MY-18/);
+});
+
+test("用户协议与隐私政策进入安全且可读的前端阅读页", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const legal = await readFile(new URL("../app/legal/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(page, /`\/legal\.html\?documentId=\$\{encodeURIComponent\(document\.documentId\)\}`/);
+  assert.doesNotMatch(page, /return document \? `\/api\/v1\/legal-documents/);
+  assert.match(legal, /fetch\(`\/api\/v1\/legal-documents\/\$\{encodeURIComponent\(documentId\)\}`/);
+  assert.match(legal, /function MarkdownDocument/);
+  assert.match(legal, /<table>/);
+  assert.match(legal, /<blockquote/);
+  assert.doesNotMatch(legal, /dangerouslySetInnerHTML/);
+  assert.match(css, /\.legal-markdown/);
+  assert.match(css, /\.legal-table-wrap/);
+});
+
+test("所有图形 Logo 均统一展示初见与 FRESH", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const brand = page.match(/function Brand[\s\S]*?\n}/)?.[0] ?? "";
+  assert.match(brand, /<strong>初见<\/strong><small>FRESH<\/small>/);
+  assert.doesNotMatch(brand, /!compact/);
+  assert.match(css, /\.brand-compact \.brand-mark/);
+  assert.match(css, /\.brand-compact strong/);
+});
+
+test("AUTH-02 移除重复协议文案但 AUTH-04 保留正式协议确认", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const welcome = page.match(/view === "welcome" \? \([\s\S]*?\) : view === "login"/)?.[0] ?? "";
+  const login = page.match(/view === "login" \? \([\s\S]*?\) : view === "recovery"/)?.[0] ?? "";
+  assert.doesNotMatch(welcome, /继续即表示你已阅读并同意/);
+  assert.match(login, /我已阅读并同意/);
+  assert.match(login, /legalHref\("TERMS_OF_SERVICE"\)/);
+  assert.match(login, /legalHref\("PRIVACY_POLICY"\)/);
+});
+
+test("HOME-01 生命动画提高枝叶与金色线条可见度", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.home-growth-scene \.life-growth\{[^}]*opacity:\.62/);
+  assert.match(css, /\.home-growth-scene \.living-stem\{[^}]*#d2aa63/);
+  assert.match(css, /\.home-growth-scene \.living-leaf\{[^}]*rgba\(232,204,145,\.78\)/);
+  assert.match(css, /\.home-growth-scene \.living-leaf::after\{[^}]*rgba\(235,203,137,\.82\)/);
+});
+
+test("HOME-01 完整展示生长动画且不出现底部横向滚动条", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.home-energy-card \.home-growth-scene\{[^}]*min-height:clamp\(148px,18svh,172px\)[^}]*overflow:visible/);
+  assert.match(css, /\.home-flow \.today-home\{[^}]*overflow-x:hidden[^}]*overflow-y:auto[^}]*scrollbar-width:none/);
+  assert.match(css, /\.home-flow \.today-home::-webkit-scrollbar\{display:none\}/);
+  assert.doesNotMatch(css, /\.home-flow \.today-home\{[^}]*scrollbar-width:thin/);
 });
 
 test("H5 阅读正文、底部导航与多端断点保持可读", async () => {
