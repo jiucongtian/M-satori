@@ -219,6 +219,16 @@ export class DailyInsightService implements OnModuleInit {
           .where(and(eq(dailyInsights.ownerUserId, userId), eq(dailyInsights.localDate, today)))
           .limit(1)
       : [undefined];
+    const [pendingRevision] = profileRow
+      ? await this.infrastructure.database
+          .select({ id: revisions.id })
+          .from(revisions)
+          .where(
+            and(eq(revisions.profileId, profileRow.profile.id), eq(revisions.status, 'CALCULATED')),
+          )
+          .orderBy(desc(revisions.createdAt))
+          .limit(1)
+      : [undefined];
     const profile = profileRow
       ? {
           profileId: profileRow.profile.id,
@@ -228,7 +238,7 @@ export class DailyInsightService implements OnModuleInit {
           relationshipType: 'SELF',
           groupId: profileRow.profile.groupId,
           currentRevisionId: profileRow.profile.activeRevisionId,
-          pendingRevisionId: null,
+          pendingRevisionId: pendingRevision?.id ?? null,
           state: profileRow.profile.activeRevisionId ? 'ACTIVE' : 'CALCULATED',
           updatedAt: profileRow.profile.updatedAt.toISOString(),
         }

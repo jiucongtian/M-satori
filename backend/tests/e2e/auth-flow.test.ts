@@ -191,6 +191,17 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     });
     expect(replay.json<{ data: { revisionId: string } }>().data.revisionId).toBe(previewBody.revisionId);
 
+    const pendingOverview = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me/home-overview',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(pendingOverview.statusCode).toBe(200);
+    expect(
+      pendingOverview.json<{ data: { profile: { pendingRevisionId: string | null } } }>().data.profile
+        .pendingRevisionId,
+    ).toBe(previewBody.revisionId);
+
     const mismatch = await app.inject({
       method: 'POST',
       url: `/api/v1/me/life-profile/revisions/${previewBody.revisionId}/confirm`,
