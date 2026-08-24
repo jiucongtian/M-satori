@@ -13,6 +13,7 @@ export const ROUTES = {
   mySeeds: "/my/seeds",
   myReports: "/my/reports",
   myArchive: "/my/archive",
+  mySupport: "/my/support",
   legal: "/legal",
 } as const;
 
@@ -41,6 +42,7 @@ export const PROTECTED_PATHS = new Set<AppPath>([
   ROUTES.mySeeds,
   ROUTES.myReports,
   ROUTES.myArchive,
+  ROUTES.mySupport,
 ]);
 
 const SAFE_NEXT_PATHS = new Set<AppPath>([...PROTECTED_PATHS]);

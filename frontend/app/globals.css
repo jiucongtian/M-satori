@@ -422,11 +422,21 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 
 @media (max-width: 520px) {
   .stage {
+    width: 100%;
     min-height: 100dvh;
+    padding: 0;
+    place-items: stretch;
+    background: var(--cream);
   }
   .phone {
+    width: 100%;
+    max-width: none;
     height: 100dvh;
     min-height: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
     padding-right: clamp(18px, 6vw, 26px);
     padding-left: clamp(18px, 6vw, 26px);
   }
@@ -644,5 +654,4 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
     transition-duration: .01ms !important;
   }
 }
-
 

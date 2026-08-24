@@ -557,7 +557,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       {id === "MY-06" && <MyStudyCompanion onBack={() => setStep(21)} />}
       {id === "MY-07" && <MySettings onBack={() => setStep(21)} onLogout={logout} busy={apiBusy} />}
       {id === "MY-08" && <MySupport onBack={() => setStep(21)} />}
-      {id === "MY-09" && <WisdomArchive profiles={profiles} self={home?.profile || null} onBack={() => setStep(21)} onAdd={() => setStep(112)} onSelf={() => setStep(22)} onPerson={openOtherProfile} />}
+      {id === "MY-09" && <WisdomArchive profiles={profiles} self={home?.profile || null} onBack={() => onNavigateRoute ? onNavigateRoute("/my") : setStep(21)} onAdd={() => setStep(112)} onSelf={() => onNavigateRoute ? onNavigateRoute("/my/profile") : setStep(22)} onPerson={openOtherProfile} />}
       {id === "MY-10" && <NewPersonArchive data={otherData} busy={apiBusy} onChange={setOtherData} onBack={() => setStep(111)} onNext={createOtherProfile} />}
       {id === "MY-11" && <ArchiveConfirm data={otherData} revision={otherRevision} busy={apiBusy} onBack={back} onNext={confirmOtherProfile} />}
       {id === "MY-12" && <ArchiveGenerating name={selectedProfile?.displayName || otherData.name} onBack={() => setStep(111)} onNext={next} />}

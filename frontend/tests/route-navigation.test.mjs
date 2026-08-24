@@ -71,3 +71,15 @@ test("首页与我的底部导航使用具名目标而非易漂移的数字步�
   assert.match(my, /<MyHome[^>]*navigate=\{navigate\}/);
   assert.doesNotMatch(my, /step===29|step===43|step===44/);
 });
+
+test("档案库返回与体验额度帮助使用独立真实路由", async () => {
+  const [routes, daily, legacy] = await Promise.all([
+    readFile(new URL("../src/shared/routes.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/daily/DailyScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(routes, /mySupport: "\/my\/support"/);
+  assert.match(daily, /router\.push\(ROUTES\.mySupport\)/);
+  assert.match(legacy, /onBack=\{\(\) => onNavigateRoute \? onNavigateRoute\("\/my"\)/);
+  assert.match(legacy, /onSelf=\{\(\) => onNavigateRoute \? onNavigateRoute\("\/my\/profile"\)/);
+});
