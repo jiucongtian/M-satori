@@ -120,7 +120,7 @@ describe('foundation API integration', () => {
       data: { locationId: string }[];
       meta: { nextCursor: string | null; hasMore: boolean };
     }>();
-    expect(body.data[0]?.locationId).toBe('loc_cn_330100');
+    expect(body.data[0]?.locationId).toBe('geonames:1808926');
     expect(body.meta).toEqual({ nextCursor: null, hasMore: false });
 
     const invalid = await app.inject({

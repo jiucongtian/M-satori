@@ -730,14 +730,14 @@ GET /api/v1/locations?query=杭州&limit=10
 {
   "data": [
     {
-      "locationId": "loc_cn_330100",
-      "displayName": "中国 浙江省 杭州市",
+      "locationId": "geonames:1808926",
+      "displayName": "中国 浙江省 杭州",
       "countryCode": "CN",
-      "administrativePath": ["浙江省", "杭州市"],
+      "administrativePath": ["浙江省", "杭州"],
       "timezone": "Asia/Shanghai",
       "coordinates": {
-        "latitude": 30.2741,
-        "longitude": 120.1551
+        "latitude": 30.29365,
+        "longitude": 120.16142
       }
     }
   ],
@@ -749,6 +749,8 @@ GET /api/v1/locations?query=杭州&limit=10
 ```
 
 `locationId` 是后续档案接口的输入。H5 不应提交自己计算的经纬度和时区作为出生地点事实。
+
+地点目录由固定版本的 `joelacus/world-cities` 和 GeoNames 数据离线生成并随后端发布，不在请求期间访问 GitHub 或第三方地理服务。全球目录保留人口不少于 15,000 的城市；中国额外保留省级及地级行政中心。搜索支持源名称、罗马化名称和数据中可用的中文别名，结果使用稳定的 `geonames:<id>` 标识。R1 已使用的六个 `loc_cn_*` ID 继续兼容，但新搜索结果不再返回旧 ID。
 
 ---
 

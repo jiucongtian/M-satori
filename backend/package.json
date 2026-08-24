@@ -7,7 +7,8 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "npm run clean && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "build": "npm run clean && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && npm run copy:assets",
+    "copy:assets": "node -e \"require('node:fs').cpSync('assets','dist/assets',{recursive:true})\"",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "dev:api": "tsx watch apps/api/src/main.ts",
     "dev:worker": "tsx watch apps/worker/src/main.ts",
@@ -28,6 +29,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed-legal-documents.ts",
     "db:seed-cards": "tsx scripts/seed-card-catalog.ts",
+    "data:build-locations": "python3 scripts/locations/build-world-city-catalog.py",
     "db:reconcile-seeds": "tsx scripts/reconcile-seed-ledger.ts",
     "db:check": "drizzle-kit check",
     "infra:up": "docker compose up -d --wait",

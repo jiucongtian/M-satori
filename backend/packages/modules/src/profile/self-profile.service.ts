@@ -304,7 +304,7 @@ export class SelfProfileService {
           const locationSnapshotId = newId();
           await tx.insert(locationSnapshots).values({
             id: locationSnapshotId,
-            provider: 'LOCAL_REFERENCE',
+            provider: location.locationId.startsWith('geonames:') ? 'GEONAMES' : 'LOCAL_REFERENCE',
             providerLocationId: location.locationId,
             displayName: location.displayName,
             latitudeMicrodegrees: Math.round(location.coordinates.latitude * 1_000_000),
