@@ -322,6 +322,14 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
     }
   }
 
+  useEffect(() => {
+    if (id !== "PROFILE-08" || calculationState !== "complete" || apiBusy || !revision?.inputFingerprint) return;
+    const timer = window.setTimeout(() => void confirmProfile(), 450);
+    return () => window.clearTimeout(timer);
+    // confirmProfile intentionally runs only when the completed revision changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBusy, calculationState, id, revision?.inputFingerprint, revision?.revisionId]);
+
   async function claimReward() {
     setApiBusy(true); setApiError("");
     try { const result = await api.claimRegistrationReward(); setAccount(result.account); await loadOverview(); setStep(10); }
@@ -535,7 +543,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
           <FlowNext onClick={previewProfile}>确认并生成生命智慧档案</FlowNext>
         </FlowStep>
       )}
-      {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} busy={apiBusy} onRetry={() => setCalculationAttempt((value) => value + 1)} onDone={() => void confirmProfile()} />}
+      {id === "PROFILE-08" && <Calculating name={data.name} stage={calculationStage} state={calculationState} busy={apiBusy} onRetry={() => setCalculationAttempt((value) => value + 1)} />}
       {id === "PROFILE-11" && <RelationshipFirstLook name={data.name} revision={revision} report={firstLook} loading={firstLookLoading} onRetry={() => { const revisionId=firstLook?.profileRevisionId||revision?.revisionId||home?.profile.currentRevisionId; if(revisionId) void generateFirstLook(revisionId); }} onEdit={() => setStep(1)} onSkip={next} onNext={next} />}
       {id === "GIFT-01" && <SeedGift name={data.name} amount={home?.registrationReward.wisdomSeedAmount ?? 18} claimed={home?.registrationReward.status === "CLAIMED"} busy={apiBusy} onClaim={claimReward} onNext={() => setStep(10)} />}
       {id === "HOME-01" && <TodayHome name={data.name || home?.profile.displayName || "你"} home={home} onNext={() => home?.dailyInsight.state === "READY" && home.dailyInsight.localDate ? api.dailyInsight(home.dailyInsight.localDate).then((value) => { setDailyInsight(value); setDailyReturnStep(10); setStep(14); }).catch((error) => setApiError(apiMessage(error))) : setStep(11)} navigate={navigateHome} />}
@@ -714,9 +722,9 @@ function SummaryRow({ label, value, edit }: { label: string; value: string; edit
   return <div className="summary-row"><span>{label}</span><strong>{value}</strong>{edit ? <button type="button" onClick={edit}>修改</button> : <i />}</div>;
 }
 
-export function Calculating({ name, stage, state, busy, onRetry, onDone }: { name: string; stage: number; state: "idle" | "running" | "complete" | "failed"; busy: boolean; onRetry: () => void; onDone: () => void }) {
+export function Calculating({ name, stage, state, busy, onRetry }: { name: string; stage: number; state: "idle" | "running" | "complete" | "failed"; busy: boolean; onRetry: () => void }) {
   const stages = ["核对出生日期与时间", "对齐你的生命节律", "生成四张关系卡牌", "准备你的档案初见"];
-  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>成档</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages" aria-live="polite">{stages.map((label, index) => { const done = index < stage; const active = state === "running" && index === stage; return <span key={label} className={done ? "done" : active ? "active" : ""}>{done ? "✓" : active ? "●" : "○"} {label}</span>; })}</div>{state === "failed" ? <><p>档案生成暂时中断，已填写的资料仍然保留。</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></> : state === "complete" ? <><p>档案已经建立，开启后会自动生成并打开详情。</p><button className="text-action" type="button" onClick={onDone} disabled={busy}>{busy ? "正在开启…" : "开启档案初见 →"}</button></> : <p>正在连接后端生成基础档案，请稍候。</p>}</div>;
+  return <div className="calculating"><div className="calc-orbit"><i /><i /><span>成档</span></div><p className="eyebrow">CREATING YOUR PROFILE</p><h1>正在为{name}<br />建立生命智慧档案</h1><div className="calc-stages" aria-live="polite">{stages.map((label, index) => { const done = index < stage; const active = state === "running" && index === stage; return <span key={label} className={done ? "done" : active ? "active" : ""}>{done ? "✓" : active ? "●" : "○"} {label}</span>; })}</div>{state === "failed" ? <><p>档案生成暂时中断，已填写的资料仍然保留。</p><button className="primary" type="button" onClick={onRetry}>重新生成</button></> : state === "complete" ? <p aria-live="polite">{busy ? "正在开启档案初见…" : "档案已经建立，正在进入初见…"}</p> : <p>正在连接后端生成基础档案，请稍候。</p>}</div>;
 }
 
 function FirstLookCardPanel({ revision }: { revision: ProfileRevision | null }) {

@@ -7,6 +7,7 @@ const pageSourceUrls = [
   "../src/features/auth/WelcomeScreen.tsx",
   "../src/features/auth/LoginScreen.tsx",
   "../src/features/auth/ConsentScreen.tsx",
+  "../src/features/profile/ProfileCreateScreen.tsx",
   "../src/features/legacy/LegacyProfileFlow.tsx",
 ].map((path) => new URL(path, import.meta.url));
 
@@ -236,7 +237,7 @@ test("PROFILE-11 可从 MY-02 进入 MY-18 长期回看", async () => {
   assert.doesNotMatch(page, /card\.summary\|\|/);
 });
 
-test("PROFILE-08 自动生成预览，点击开启后跳过 PROFILE-10 进入初见生成态", async () => {
+test("PROFILE-08 完成预览后自动确认并跳过 PROFILE-10 进入初见生成态", async () => {
   const page = await readPageSources();
   const flow = page.match(/function LegacyProfileFlow[\s\S]*?function FlowStep/)?.[0] ?? "";
   const calculating = page.match(/function Calculating[\s\S]*?\n}/)?.[0] ?? "";
@@ -244,12 +245,13 @@ test("PROFILE-08 自动生成预览，点击开启后跳过 PROFILE-10 进入初
   assert.match(flow, /api\.previewProfile/);
   assert.match(flow, /setCalculationStage\(4\)/);
   assert.doesNotMatch(flow, /setStep\(7\)/);
-  assert.match(flow, /onDone=\{\(\) => void confirmProfile\(\)\}/);
+  assert.match(flow, /window\.setTimeout\(\(\) => void confirmProfile\(\), 450\)/);
   assert.match(flow, /const cardsComplete = hasCompleteFirstLookCards\(revisionToConfirm\)/);
   assert.match(flow, /setFirstLookLoading\(cardsComplete\);\s*setStep\(8\)/);
   assert.match(flow, /if \(cardsComplete\) await generateFirstLook/);
   assert.match(calculating, /index < stage/);
   assert.match(calculating, /重新生成/);
+  assert.doesNotMatch(calculating, /开启档案初见 →|onDone/);
 });
 test("PROFILE-08 不展示保存退出操作", async () => {
   const page = await readPageSources();
@@ -287,7 +289,7 @@ test("出生时间精度正确映射 DATE_ONLY 与 HOUR_RANGE", async () => {
 
 test("PROFILE-08 开启初见时防止并发重复确认并恢复已激活的档案版本", async () => {
   const page = await readPageSources();
-  const confirmation = page.match(/async function confirmProfile\(\) \{[\s\S]*?\n  \}\n\n  async function claimReward/)?.[0] ?? "";
+  const confirmation = page.match(/async function confirmProfile\(\) \{[\s\S]*?async function claimReward/)?.[0] ?? "";
   assert.match(page, /const confirmingRevisionRef = useRef<string \| null>\(null\)/);
   assert.match(confirmation, /confirmingRevisionRef\.current === revision\.revisionId/);
   assert.match(confirmation, /PROFILE_REVISION_ALREADY_CONFIRMED/);
@@ -512,7 +514,8 @@ test("PROFILE-08/11 直达初见详情、四张卡牌置顶且 PAY-01 提供客�
   assert.match(calculating, /<span>成档<\/span>/);
   assert.match(calculating, /对齐你的生命节律/);
   assert.match(calculating, /生成四张关系卡牌/);
-  assert.match(calculating, /开启档案初见/);
+  assert.match(calculating, /正在进入初见/);
+  assert.doesNotMatch(calculating, /开启档案初见 →/);
   assert.match(firstLook, /<FirstLookCardPanel revision=\{revision\} \/>/);
   assert.doesNotMatch(page, /function ProfileResult/);
   assert.doesNotMatch(page, /\{id === "PROFILE-10"/);
