@@ -459,11 +459,20 @@ test("R1.0 我的页面收口账户、联系入口并使用通栏智慧种子卡
   assert.match(css, /\.my-assets\{grid-template-columns:1fr\}/);
 });
 
+test("MY-01 明确提示生命智慧档案库可以进入", async () => {
+  const page = await readPageSources();
+  const myHome = page.match(/function MyHome[\s\S]*?\n}/)?.[0] ?? "";
+  assert.match(myHome, /aria-label="进入生命智慧档案库"/);
+  assert.match(myHome, /查看和管理自己与重要之人的档案/);
+  assert.match(myHome, /进入档案库/);
+});
+
 test("R1.0 退出登录二次确认且联系我们突出客服、官媒依次下沉", async () => {
   const page = await readPageSources();
   const settings = page.match(/function MySettings[\s\S]*?\n}\n/)?.[0] ?? "";
   const support = page.match(/function MySupport[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(settings, /确认退出当前账号/);
+  assert.match(settings, /className="danger-action"[\s\S]*退出当前账号[\s\S]*<span>→<\/span>/);
   assert.match(settings, /继续留在这里/);
   assert.doesNotMatch(settings, /账号安全|隐私中心|数据管理|通知设置|通用设置/);
   for (const channel of ["官方视频号", "官方公众号", "官方小红书", "官方客服"]) assert.match(support, new RegExp(channel));
