@@ -13,22 +13,16 @@ const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true";
 function PageDebugLabel({ children }: { children: string }) { return showPageDebugLabels ? <span className="screen-id" aria-hidden="true">{children}</span> : null; }
 function apiMessage(error: unknown) { if (error instanceof ApiError) return `${error.message}${error.requestId ? `（请求 ${error.requestId}）` : ""}`; return "网络连接失败，请稍后重试"; }
 
-type TimeAccuracy = "准确到分钟" | "大致时间" | "只知道时辰" | "完全不知道";
+type TimeAccuracy = "准确到分钟" | "完全不知道";
 type HourBranchCode = NonNullable<BirthInput["time"]["hourBranchCode"]>;
 export type ProfileData = { name: string; date: string; calendarType: "SOLAR" | "LUNAR"; lunarYear: number; lunarMonth: number; lunarDay: number; isLeapMonth: boolean; time: string; accuracy: TimeAccuracy; place: string; locationId: string; gender: "MALE" | "FEMALE"; relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER" };
-const hourBranches: HourBranchCode[] = ["ZI", "CHOU", "YIN", "MAO", "CHEN", "SI", "WU", "WEI", "SHEN", "YOU", "XU", "HAI"];
 const hourBranchTimes: Record<HourBranchCode, string> = { ZI: "23:00", CHOU: "01:00", YIN: "03:00", MAO: "05:00", CHEN: "07:00", SI: "09:00", WU: "11:00", WEI: "13:00", SHEN: "15:00", YOU: "17:00", XU: "19:00", HAI: "21:00" };
-const timeAccuracyOptions: TimeAccuracy[] = ["准确到分钟", "大致时间", "只知道时辰", "完全不知道"];
+const timeAccuracyOptions: TimeAccuracy[] = ["准确到分钟", "完全不知道"];
 
 export function birthTimeFromProfileData(accuracy: TimeAccuracy, time: string): Pick<BirthInput, "timePrecision" | "time"> {
   if (accuracy === "完全不知道") return { timePrecision: "DATE_ONLY", time: { localTime: null, hourBranchCode: null } };
-  if (accuracy === "只知道时辰") {
-    const hour = Number(time.split(":")[0]);
-    const hourBranchCode = Number.isInteger(hour) ? hourBranches[Math.floor((hour + 1) / 2) % 12] : null;
-    return { timePrecision: "HOUR_RANGE", time: { localTime: null, hourBranchCode } };
-  }
   return {
-    timePrecision: accuracy === "准确到分钟" ? "EXACT_MINUTE" : "APPROXIMATE",
+    timePrecision: "EXACT_MINUTE",
     time: { localTime: time, hourBranchCode: null },
   };
 }
@@ -182,7 +176,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       lunarDay: birth.date.day,
       isLeapMonth: birth.date.isLeapMonth,
       time: timeFromBirthInput(birth),
-      accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : birth.timePrecision === "HOUR_RANGE" ? "只知道时辰" : "完全不知道",
+      accuracy: birth.timePrecision === "DATE_ONLY" ? "完全不知道" : "准确到分钟",
       locationId: birth.locationId,
       gender: birth.calculationGender,
     }));
@@ -402,7 +396,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       lunarDay: birth.date.day,
       isLeapMonth: birth.date.isLeapMonth,
       time: birth.time.localTime || "08:30",
-      accuracy: birth.timePrecision === "EXACT_MINUTE" ? "准确到分钟" : birth.timePrecision === "APPROXIMATE" ? "大致时间" : "完全不知道",
+      accuracy: birth.timePrecision === "DATE_ONLY" ? "完全不知道" : "准确到分钟",
       locationId: birth.locationId,
       gender: birth.calculationGender,
     }));
@@ -417,12 +411,12 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       const year = otherData.calendarType === "LUNAR" ? otherData.lunarYear : solarYear;
       const month = otherData.calendarType === "LUNAR" ? otherData.lunarMonth : solarMonth;
       const day = otherData.calendarType === "LUNAR" ? otherData.lunarDay : solarDay;
-      const exact = otherData.accuracy === "准确到分钟" || otherData.accuracy === "大致时间";
+      const exact = otherData.accuracy === "准确到分钟";
       const updatedProfile = await api.updateProfile(selectedProfile.profileId, otherData.name.trim(), otherData.relationshipType);
       const preview = await api.previewOtherProfile(selectedProfile.profileId, {
         calendarType: otherData.calendarType,
         date: { year, month, day, isLeapMonth: otherData.calendarType === "LUNAR" && otherData.isLeapMonth },
-        timePrecision: otherData.accuracy === "准确到分钟" ? "EXACT_MINUTE" : otherData.accuracy === "大致时间" ? "APPROXIMATE" : "DATE_ONLY",
+        timePrecision: exact ? "EXACT_MINUTE" : "DATE_ONLY",
         time: { localTime: exact ? otherData.time : null, hourBranchCode: null },
         locationId: otherData.locationId,
         calculationGender: otherData.gender,
@@ -525,7 +519,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       {id === "PROFILE-04" && (
         <FlowStep eyebrow="BIRTH TIME" title="你知道出生时间吗？" note="不知道也没关系。诚实的不确定，比看起来精确更重要。">
           <div className="choice-grid">
-            {timeAccuracyOptions.map((item) => <button key={item} type="button" className={data.accuracy === item ? "choice active" : "choice"} onClick={() => setData({ ...data, accuracy: item })}><i />{item}<span>{item === "准确到分钟" ? "推荐保留原始分钟" : item === "大致时间" ? "可以填写误差范围" : item === "只知道时辰" ? "按传统时辰保存" : "建立时间不完整档案"}</span></button>)}
+            {timeAccuracyOptions.map((item) => <button key={item} type="button" className={data.accuracy === item ? "choice active" : "choice"} onClick={() => setData({ ...data, accuracy: item })}><i />{item === "准确到分钟" ? "知道具体时间" : "不知道具体时间"}<span>{item === "准确到分钟" ? "填写出生时刻" : "暂按子时生成，并标注时间不确定"}</span></button>)}
           </div>
           {data.accuracy === "准确到分钟" && <div className="field profile-field time-input"><input aria-label="出生时间" type="time" value={data.time} onChange={(e) => setData({ ...data, time: e.target.value })} /></div>}
           <FlowNext onClick={next}>继续</FlowNext>
@@ -700,7 +694,7 @@ export function UnifiedProfileForm({ data, onChange, onNext, variant = "self", m
         {data.calendarType === "SOLAR" ? <div className="field profile-field"><input id="unified-birth-date" type="date" value={data.date} max="2026-08-19" onChange={(e) => onChange({ ...data, date: e.target.value })} /></div> : <div className="lunar-date-row"><label><select id="lunar-year" aria-label="农历年份" value={data.lunarYear} onChange={(e) => onChange({ ...data, lunarYear: Number(e.target.value) })}>{Array.from({ length: 127 }, (_, index) => 2026 - index).map((year) => <option key={year} value={year}>{year}年</option>)}</select></label><label><select aria-label="农历月份" value={`${data.lunarMonth}-${data.isLeapMonth ? "leap" : "normal"}`} onChange={(e) => { const [month, mode] = e.target.value.split("-"); onChange({ ...data, lunarMonth: Number(month), isLeapMonth: mode === "leap" }); }}>{lunarMonths.flatMap((month, index) => [<option key={`${index + 1}-normal`} value={`${index + 1}-normal`}>{month}</option>, <option key={`${index + 1}-leap`} value={`${index + 1}-leap`}>闰{month}</option>])}</select></label><label><select aria-label="农历日期" value={data.lunarDay} onChange={(e) => onChange({ ...data, lunarDay: Number(e.target.value) })}>{lunarDays.map((day, index) => <option key={day} value={index + 1}>{day}</option>)}</select></label></div>}
         <small>{data.calendarType === "SOLAR" ? "按公历记录出生日期" : "支持闰月；系统会保留农历原始日期并统一换算"}</small>
       </section>
-      <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="unified-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="unified-birth-time" type="time" value={data.time} disabled={data.accuracy === "完全不知道"} onChange={(e) => onChange({ ...data, time: e.target.value })} /></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={(e) => onChange({ ...data, accuracy: e.target.value as TimeAccuracy })}>{timeAccuracyOptions.map((item) => <option key={item}>{item}</option>)}</select></div><small>{data.accuracy === "只知道时辰" ? "将按当前时间所在的传统时辰保存，不保留具体分钟" : data.accuracy === "完全不知道" ? "可以先完成基础档案，补充时间后再生成生命智慧初识" : "不知道准确时间也没关系，如实选择即可"}</small></section>
+      <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="unified-birth-time">出生时间</label><div className="time-known-switch" role="group" aria-label="是否知道具体出生时间">{timeAccuracyOptions.map((item) => <button type="button" key={item} className={data.accuracy === item ? "active" : ""} aria-pressed={data.accuracy === item} onClick={() => onChange({ ...data, accuracy: item })}>{item === "准确到分钟" ? "知道具体时间" : "不知道具体时间"}</button>)}</div>{data.accuracy === "准确到分钟" && <div className="field profile-field"><input id="unified-birth-time" type="time" value={data.time} onChange={(e) => onChange({ ...data, time: e.target.value })} /></div>}<small>{data.accuracy === "完全不知道" ? "将暂按子时生成完整档案；自我关系卡牌会明确标注时间不确定。" : "填写你知道的具体出生时间"}</small></section>
       <section className="solar-time-option"><div className="solar-time-symbol" aria-hidden="true">日</div><div className="solar-time-copy"><span><strong>真太阳时校正</strong><b>后续开放</b></span><p>根据出生城市，让时间更贴近当地真实的太阳节律。</p></div><button type="button" role="switch" aria-checked="false" aria-label="真太阳时校正，后续开放" onClick={() => setSolarNotice(true)}><i /></button></section>
       {solarNotice && <div className="solar-time-notice" role="status"><span>芽</span><p><strong>真太阳时校正正在准备</strong>当前先按出生时间建档，开放后再补充城市。</p><button type="button" aria-label="关闭提示" onClick={() => setSolarNotice(false)}>×</button></div>}
     </div>
@@ -1005,7 +999,7 @@ function EditSelfProfile({data,revision,busy,onChange,onBack,onNext}:{data:Profi
           {data.calendarType === "SOLAR" ? <div className="field profile-field"><input id="edit-profile-birth-date" type="date" value={data.date} max="2026-08-19" onChange={e=>onChange({...data,date:e.target.value})}/></div> : <div className="lunar-date-row"><label><select id="edit-lunar-year" aria-label="农历年份" value={data.lunarYear} onChange={e=>onChange({...data,lunarYear:Number(e.target.value)})}>{Array.from({length:127},(_,index)=>2026-index).map(year=><option key={year} value={year}>{year}年</option>)}</select></label><label><select aria-label="农历月份" value={`${data.lunarMonth}-${data.isLeapMonth?"leap":"normal"}`} onChange={e=>{const [month,mode]=e.target.value.split("-");onChange({...data,lunarMonth:Number(month),isLeapMonth:mode==="leap"});}}>{lunarMonths.flatMap((month,index)=>[<option key={`${index+1}-normal`} value={`${index+1}-normal`}>{month}</option>,<option key={`${index+1}-leap`} value={`${index+1}-leap`}>闰{month}</option>])}</select></label><label><select aria-label="农历日期" value={data.lunarDay} onChange={e=>onChange({...data,lunarDay:Number(e.target.value)})}>{lunarDays.map((day,index)=><option key={day} value={index+1}>{day}</option>)}</select></label></div>}
           <small>{data.calendarType === "SOLAR" ? "按公历记录出生日期" : "支持闰月；系统会保留农历原始日期并统一换算"}</small>
         </section>
-        <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="edit-profile-birth-time">出生时间</label><div className="unified-time-row"><div className="field profile-field"><input id="edit-profile-birth-time" type="time" value={data.time} disabled={data.accuracy==="完全不知道"} onChange={e=>onChange({...data,time:e.target.value})}/></div><select aria-label="出生时间准确度" value={data.accuracy} onChange={e=>onChange({...data,accuracy:e.target.value as TimeAccuracy})}>{timeAccuracyOptions.map(item=><option key={item}>{item}</option>)}</select></div><small>{data.accuracy==="只知道时辰"?"将按当前时间所在的传统时辰保存，不保留具体分钟":data.accuracy==="完全不知道"?"可以先保留基础档案，补充时间后再生成生命智慧初识":"不知道准确时间也没关系，如实选择即可"}</small></section>
+        <section className="unified-field-group"><span className="unified-field-index">03</span><label className="field-label" htmlFor="edit-profile-birth-time">出生时间</label><div className="time-known-switch" role="group" aria-label="是否知道具体出生时间">{timeAccuracyOptions.map(item=><button type="button" key={item} className={data.accuracy===item?"active":""} aria-pressed={data.accuracy===item} onClick={()=>onChange({...data,accuracy:item})}>{item==="准确到分钟"?"知道具体时间":"不知道具体时间"}</button>)}</div>{data.accuracy==="准确到分钟"&&<div className="field profile-field"><input id="edit-profile-birth-time" type="time" value={data.time} onChange={e=>onChange({...data,time:e.target.value})}/></div>}<small>{data.accuracy==="完全不知道"?"将暂按子时生成完整档案；自我关系卡牌会明确标注时间不确定。":"填写你知道的具体出生时间"}</small></section>
         <section className="unified-field-group edit-gender-group"><span className="unified-field-index">04</span><span className="field-label">计算性别</span><div className="edit-gender-options">{([['FEMALE','女'],['MALE','男']] as const).map(([value,label])=><button type="button" key={value} className={data.gender===value?'active':''} onClick={()=>onChange({...data,gender:value})}>{label}</button>)}</div><small>用于传统排盘规则计算</small></section>
         <section className="solar-time-option"><div className="solar-time-symbol" aria-hidden="true">日</div><div className="solar-time-copy"><span><strong>真太阳时校正</strong><b>后续开放</b></span><p>当前版本先按出生时间更新档案，暂不启用该功能。</p></div><button type="button" role="switch" aria-checked="false" aria-label="真太阳时校正，后续开放" onClick={()=>setSolarNotice(true)}><i/></button></section>
         {solarNotice&&<div className="solar-time-notice" role="status"><span>芽</span><p><strong>真太阳时校正正在准备</strong>当前先按出生时间更新档案，开放后再补充城市。</p><button type="button" aria-label="关闭提示" onClick={()=>setSolarNotice(false)}>×</button></div>}
@@ -1063,7 +1057,7 @@ function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:Li
 
 function NewPersonArchive({data,busy,onChange,onBack,onNext}:{data:ProfileData;busy:boolean;onChange:(data:ProfileData)=>void;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page new-person-unified"><MyHeader title="新建人物档案" onBack={onBack}/><UnifiedProfileForm data={data} busy={busy} variant="other" onChange={onChange} onNext={onNext}/></section>}
 
-function ArchiveConfirm({data,revision,busy,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page"><MyHeader title="确认出生信息" onBack={onBack}/><div className="confirm-person"><span>{data.name.slice(0,1)}</span><p><small>即将创建</small><strong>{data.name}的生命智慧档案</strong><b>私人记录 · 待确认</b></p></div><div className="archive-facts"><p><span>历法</span><strong>公历</strong></p><p><span>出生日期</span><strong>{data.date}</strong></p><p><span>出生时间</span><strong>{data.time} · 准确到分钟</strong></p></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><div className="privacy-inline"><span className="lock"/><p><strong>这是你的私人关系记录</strong><small>对方不会收到通知；共享、共同查看或互动前需另行授权。</small></p></div><button className="primary" disabled={busy} onClick={onNext}>{busy?"正在创建…":"确认并创建档案"} <span>→</span></button><button className="text-action" onClick={onBack}>返回修改</button></section>}
+function ArchiveConfirm({data,revision,busy,onBack,onNext}:{data:ProfileData;revision:ProfileRevision|null;busy:boolean;onBack:()=>void;onNext:()=>void}){const unknownTime=data.accuracy==="完全不知道";return <section className="my-page archive-page"><MyHeader title="确认出生信息" onBack={onBack}/><div className="confirm-person"><span>{data.name.slice(0,1)}</span><p><small>即将创建</small><strong>{data.name}的生命智慧档案</strong><b>私人记录 · 待确认</b></p></div><div className="archive-facts"><p><span>历法</span><strong>{data.calendarType==="LUNAR"?"农历":"公历"}</strong></p><p><span>出生日期</span><strong>{data.date}</strong></p><p><span>出生时间</span><strong>{unknownTime?"不知道具体时间 · 暂按子时生成":`${data.time} · 知道具体时间`}</strong></p></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/>{unknownTime&&<p className="unknown-time-notice">出生时间尚未确认，自我关系卡牌暂按子时呈现，仅供初步认识。</p>}<div className="privacy-inline"><span className="lock"/><p><strong>这是你的私人关系记录</strong><small>对方不会收到通知；共享、共同查看或互动前需另行授权。</small></p></div><button className="primary" disabled={busy} onClick={onNext}>{busy?"正在创建…":"确认并创建档案"} <span>→</span></button><button className="text-action" onClick={onBack}>返回修改</button></section>}
 
 function ArchiveGenerating({name,onBack,onNext}:{name:string;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page generating-archive"><MyHeader title="档案生成完成" onBack={onBack}/><div className="archive-grow"><span>{name.slice(0,1)}</span><i/><i/><b/><b/></div><p className="eyebrow">WISDOM IS READY</p><h1>四张关系卡牌<br/>已经生成</h1><p>{name}的档案已由后端确认并保存到生命智慧档案库。</p><div className="life-progress"><i><b style={{width:"100%"}}/></i><span>生成完成 · 100%</span></div><button className="primary" onClick={onNext}>查看生成后的档案 <span>→</span></button></section>}
 

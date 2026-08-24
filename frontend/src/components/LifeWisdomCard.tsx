@@ -14,6 +14,7 @@ export function LifeWisdomCard({card,size="medium"}:{card:Card;size?:"small"|"me
       {available?<Image src={card.assetUrl!} width={768} height={1313} alt={card.altText} unoptimized onError={()=>setFailed(true)}/>:<div className="life-card-back"><i/><span>初见</span><small>{card.uncertainty||"卡牌加载中"}</small></div>}
     </div>
     <footer>{card.title}</footer>
+    {card.uncertainty&&<p className="life-card-uncertainty">时间未知 · 暂按子时生成</p>}
   </article>;
 }
 

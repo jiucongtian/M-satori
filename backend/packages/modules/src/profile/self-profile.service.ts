@@ -632,7 +632,10 @@ async function createCards(chart: BirthChartResult, catalog: CardCatalogService)
       summary: card
         ? `${card.ganzhi} · ${card.talentMark} · ${card.journeyMark}`
         : '出生时间未知，暂不能确定自我关系卡牌',
-      uncertainty: definition.pillar ? null : '出生时间未知，无法确定时柱',
+      uncertainty:
+        definition.dimension === 'SELF' && chart.calculationPreview.certainty === 'LOW'
+          ? '出生时间未知 · 暂按子时生成'
+          : null,
       mappingVersion: 'pillar-card-map/2.0',
       knowledgeVersion: 'relationship-card-knowledge/1.0',
       snapshotPillar: definition.pillar ?? 'UNKNOWN',

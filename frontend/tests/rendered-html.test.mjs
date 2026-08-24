@@ -8,6 +8,7 @@ const pageSourceUrls = [
   "../src/features/auth/LoginScreen.tsx",
   "../src/features/auth/ConsentScreen.tsx",
   "../src/features/profile/ProfileCreateScreen.tsx",
+  "../src/components/LifeWisdomCard.tsx",
   "../src/features/legacy/LegacyProfileFlow.tsx",
 ].map((path) => new URL(path, import.meta.url));
 
@@ -277,14 +278,16 @@ test("PROFILE-11 四卡不完整时不发起生成并允许修改或跳过", asy
   assert.match(page, /onEdit=\{\(\) => setStep\(1\)\}/);
 });
 
-test("出生时间精度正确映射 DATE_ONLY 与 HOUR_RANGE", async () => {
+test("出生时间只保留知道与不知道并正确映射 DATE_ONLY", async () => {
   const page = await readPageSources();
   const mapping = page.match(/function birthTimeFromProfileData[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(mapping, /accuracy === "完全不知道"/);
   assert.match(mapping, /timePrecision: "DATE_ONLY"/);
-  assert.match(mapping, /accuracy === "只知道时辰"/);
-  assert.match(mapping, /timePrecision: "HOUR_RANGE"/);
-  assert.match(mapping, /hourBranchCode/);
+  assert.match(mapping, /timePrecision: "EXACT_MINUTE"/);
+  assert.doesNotMatch(mapping, /HOUR_RANGE|APPROXIMATE/);
+  assert.match(page, /知道具体时间/);
+  assert.match(page, /不知道具体时间/);
+  assert.match(page, /暂按子时生成完整档案/);
 });
 
 test("PROFILE-08 开启初见时防止并发重复确认并恢复已激活的档案版本", async () => {
@@ -565,7 +568,8 @@ test("MY-10 复用统一建档组件并真实提交历法与时间精度", async
   assert.match(page, /calendarType: otherData\.calendarType/);
   assert.match(page, /isLeapMonth: otherData\.calendarType === "LUNAR" && otherData\.isLeapMonth/);
   assert.match(page, /birthTimeFromProfileData\(otherData\.accuracy, otherData\.time\)/);
-  assert.match(page, /timePrecision: "HOUR_RANGE"/);
+  assert.match(page, /timePrecision: "DATE_ONLY"/);
+  assert.match(page, /时间未知 · 暂按子时生成/);
   assert.match(page, /与我的关系/);
   assert.match(page, /资料来源正当/);
 });

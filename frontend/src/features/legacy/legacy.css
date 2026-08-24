@@ -447,4 +447,7 @@
 /* R1.0 MY-01/MY-07 interaction affordances */
 .profile-banner-action{margin-top:9px;display:inline-flex;align-items:center;gap:5px;color:#f0d9a8;font-size:8px;font-weight:500}.profile-banner-action span{font:12px var(--font-ui)}.profile-banner:active{transform:scale(.99)}.profile-banner:focus-visible{outline:2px solid rgba(232,207,158,.9);outline-offset:3px}
 .account-exit .danger-action{width:100%;min-height:48px;margin-top:16px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(161,111,102,.24);border-radius:14px;color:#925e56;background:rgba(248,235,229,.72);font-size:9px;font-weight:500}.account-exit .danger-action:active{background:rgba(241,222,215,.95)}.account-exit .danger-action:focus-visible{outline:2px solid rgba(161,111,102,.45);outline-offset:2px}
-
+.logout-confirm .danger-primary,.logout-confirm .outline-button{font-size:var(--type-action)}
+.time-known-switch{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px}.time-known-switch button{min-height:38px;border:1px solid rgba(69,107,91,.14);border-radius:12px;color:#738178;background:rgba(255,255,255,.55);font-size:var(--type-label)}.time-known-switch button.active{border-color:rgba(69,107,91,.38);color:white;background:var(--sage)}
+.life-card-uncertainty{margin:5px 0 0;padding:4px 3px;border-radius:7px;color:#8d6740;background:rgba(239,223,192,.68);font-size:var(--type-micro);line-height:1.35}
+.unknown-time-notice{margin:10px 0 0;padding:10px 12px;border:1px solid rgba(190,143,82,.18);border-radius:12px;color:#826746;background:rgba(239,223,192,.45);font-size:var(--type-caption);line-height:1.6}

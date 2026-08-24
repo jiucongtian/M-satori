@@ -37,12 +37,13 @@ describe('reference birth chart calculator', () => {
     expect(result.algorithmVersion).toContain('localCalculateBazi/v1.3');
   });
 
-  it('does not expose a guessed hour pillar for DATE_ONLY', () => {
+  it('returns a clearly low-certainty Zi-hour fallback for DATE_ONLY', () => {
     const result = calculator.calculate(
       { ...input, timePrecision: 'DATE_ONLY', time: { localTime: null, hourBranchCode: null } },
       location,
     );
-    expect(result.calculationPreview.pillars.hour).toBeNull();
+    expect(result.calculationPreview.pillars.hour).toBe('丙子');
+    expect(result.normalizedBirthData.adoptedDateTime).toContain('1990-05-20T00:00:00');
     expect(result.calculationPreview.certainty).toBe('LOW');
     expect(result.warnings).not.toHaveLength(0);
   });

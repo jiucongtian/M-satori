@@ -89,7 +89,7 @@ export class ReferenceBirthChartCalculator implements BirthChartCalculator {
             year: pillars.year,
             month: pillars.month,
             day: pillars.day,
-            hour: unknownTime ? null : pillars.hour,
+            hour: pillars.hour,
           },
           certainty: unknownTime ? 'LOW' : approximate ? 'MEDIUM' : 'HIGH',
         },
@@ -110,7 +110,9 @@ export class ReferenceBirthChartCalculator implements BirthChartCalculator {
 }
 
 function resolveTime(input: BirthInput): { hour: number; minute: number } {
-  if (input.timePrecision === 'DATE_ONLY') return { hour: 12, minute: 0 };
+  // R1.0 keeps the four-card response stable when birth time is unknown.
+  // Midnight is the deterministic Zi-hour fallback and never crosses the supplied birth date.
+  if (input.timePrecision === 'DATE_ONLY') return { hour: 0, minute: 0 };
   if (input.timePrecision === 'HOUR_RANGE') {
     if (!input.time.hourBranchCode || input.time.localTime !== null) invalidTimeFields();
     return { hour: branchHours[input.time.hourBranchCode], minute: 0 };
