@@ -153,4 +153,16 @@ describe('R1 delivery contract', () => {
       expect(source).not.toMatch(/console\.(?:log|info|warn|error)\s*\(/u);
     }
   });
+
+  it('keeps /me nextAction aligned with pending registration rewards', () => {
+    const source = readFileSync(
+      `${backendRoot}/packages/modules/src/identity/me/me.service.ts`,
+      'utf8',
+    );
+    expect(source).toContain('registrationRewards.status');
+    expect(source).toMatch(
+      /reward\?\.status === 'AVAILABLE' \? 'CLAIM_REGISTRATION_REWARD' : 'VIEW_HOME'/u,
+    );
+    expect(source).toMatch(/nextAction = await this\.resolveNextAction/u);
+  });
 });

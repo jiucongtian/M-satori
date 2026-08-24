@@ -9,6 +9,7 @@ import {
   newId,
   PostgresIdempotencyStore,
   preferences,
+  registrationRewards,
   revisions,
   RuntimeInfrastructure,
   subjects,
@@ -74,13 +75,7 @@ export class MeService {
     if (!row) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
     const consent = await this.consentState(userId);
     const profileState = await this.profileState(userId);
-    const nextAction: NextAction = consent.requiresConsent
-      ? 'ACCEPT_CONSENTS'
-      : profileState === 'NOT_CREATED'
-        ? 'CREATE_PROFILE'
-        : profileState === 'CALCULATED'
-          ? 'CONFIRM_PROFILE'
-          : 'VIEW_HOME';
+    const nextAction = await this.resolveNextAction(userId, consent.requiresConsent, profileState);
     return {
       userId: row.user.id,
       status: row.user.status,
@@ -183,16 +178,28 @@ export class MeService {
           body: {
             records,
             requiresConsent: state.requiresConsent,
-            nextAction: state.requiresConsent
-              ? ('ACCEPT_CONSENTS' as const)
-              : profileState === 'NOT_CREATED'
-                ? ('CREATE_PROFILE' as const)
-                : ('VIEW_HOME' as const),
+            nextAction: await this.resolveNextAction(input.userId, state.requiresConsent, profileState),
           },
         };
       },
     );
     return result.body;
+  }
+
+  private async resolveNextAction(
+    userId: string,
+    requiresConsent: boolean,
+    profileState: MeProjection['profileState'],
+  ): Promise<NextAction> {
+    if (requiresConsent) return 'ACCEPT_CONSENTS';
+    if (profileState === 'NOT_CREATED') return 'CREATE_PROFILE';
+    if (profileState === 'CALCULATED') return 'CONFIRM_PROFILE';
+    const [reward] = await this.infrastructure.database
+      .select({ status: registrationRewards.status })
+      .from(registrationRewards)
+      .where(eq(registrationRewards.userId, userId))
+      .limit(1);
+    return reward?.status === 'AVAILABLE' ? 'CLAIM_REGISTRATION_REWARD' : 'VIEW_HOME';
   }
 
   private async consentState(userId: string): Promise<{
