@@ -205,7 +205,7 @@ test("MY-02 进入 MY-17 完整编辑档案闭环", async () => {
   assert.match(editor, /unified-form-card/);
   assert.match(editor, /calendar-switch/);
   assert.match(editor, /lunar-date-row/);
-  assert.match(editor, /unified-time-row/);
+  assert.match(editor, /time-known-switch/);
   assert.match(editor, /edit-gender-options/);
   assert.doesNotMatch(profile, /编辑功能正在完善中/);
   assert.doesNotMatch(profile, /编辑出生资料|查看版本与历史影响/);
@@ -400,6 +400,7 @@ test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access T
 test("手机号登录后按档案状态分流，老用户及新用户建档完成后都进入 HOME-01", async () => {
   const login = await readFile(new URL("../src/features/auth/LoginScreen.tsx", import.meta.url), "utf8");
   const routes = await readFile(new URL("../src/shared/routes.ts", import.meta.url), "utf8");
+  const guard = await readFile(new URL("../src/shared/guards.tsx", import.meta.url), "utf8");
   const profileCreate = await readFile(new URL("../src/features/profile/ProfileCreateScreen.tsx", import.meta.url), "utf8");
   assert.match(login, /session=await api\.createSession\(challengeId,code,acceptances\)/);
   assert.match(login, /session\.user\.requiresConsent\|\|session\.nextAction==="ACCEPT_CONSENTS"/);
@@ -410,8 +411,19 @@ test("手机号登录后按档案状态分流，老用户及新用户建档完�
   assert.match(routes, /CONFIRM_PROFILE: ROUTES\.profileCreate/);
   assert.match(routes, /CLAIM_REGISTRATION_REWARD: ROUTES\.profileCreate/);
   assert.match(routes, /VIEW_HOME: ROUTES\.home/);
-  assert.match(profileCreate, /claimRegistrationReward\(\)[\s\S]*router\.replace\(ROUTES\.home\)/);
+  assert.match(guard, /authenticatedEntryPath\(me\.nextAction\)[\s\S]*pathname !== requiredPath[\s\S]*router\.replace\(requiredPath\)/);
+  assert.match(profileCreate, /registrationReward\.status==="CLAIMED"[\s\S]*RESTORE_GIFT/);
+  assert.match(profileCreate, /claimRegistrationReward\(\)[\s\S]*await resolve\(\)[\s\S]*router\.replace\(ROUTES\.home\)/);
   assert.match(profileCreate, /<SeedGift[\s\S]*onNext=\{\(\)=>router\.replace\(ROUTES\.home\)\}/);
+});
+
+test("生命智慧档案详情支持卡牌放大，未知时间卡牌只显示遮罩且禁止放大", async () => {
+  const cards = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
+  assert.match(cards, /closest\("\.my-detail, \.person-archive-detail"\)/);
+  assert.match(cards, /expandable&&available&&!card\.uncertainty/);
+  assert.match(cards, /life-card-unknown-overlay">时间未知/);
+  assert.match(cards, /createPortal\(<div className="life-card-modal"/);
+  assert.doesNotMatch(cards, /时间未知 · 暂按子时生成/);
 });
 test("R1 核心页面调用真实后端能力", async () => {
   const page = await readPageSources();
@@ -569,7 +581,7 @@ test("MY-10 复用统一建档组件并真实提交历法与时间精度", async
   assert.match(page, /isLeapMonth: otherData\.calendarType === "LUNAR" && otherData\.isLeapMonth/);
   assert.match(page, /birthTimeFromProfileData\(otherData\.accuracy, otherData\.time\)/);
   assert.match(page, /timePrecision: "DATE_ONLY"/);
-  assert.match(page, /时间未知 · 暂按子时生成/);
+  assert.match(page, /life-card-unknown-overlay/);
   assert.match(page, /与我的关系/);
   assert.match(page, /资料来源正当/);
 });
