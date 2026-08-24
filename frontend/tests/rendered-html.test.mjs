@@ -392,14 +392,21 @@ test("真实 API 客户端使用同源接口、Cookie Session 与内存 Access T
   assert.doesNotMatch(client, /localStorage\.setItem\([^\n]*(access|token)/i);
 });
 
-test("手机号登录后按后端真实档案状态分流，老用户直接进入 HOME-01", async () => {
+test("手机号登录后按档案状态分流，老用户及新用户建档完成后都进入 HOME-01", async () => {
   const login = await readFile(new URL("../src/features/auth/LoginScreen.tsx", import.meta.url), "utf8");
-  const navigation = await readFile(new URL("../src/features/auth/navigation.ts", import.meta.url), "utf8");
+  const routes = await readFile(new URL("../src/shared/routes.ts", import.meta.url), "utf8");
+  const profileCreate = await readFile(new URL("../src/features/profile/ProfileCreateScreen.tsx", import.meta.url), "utf8");
   assert.match(login, /session=await api\.createSession\(challengeId,code,acceptances\)/);
   assert.match(login, /session\.user\.requiresConsent\|\|session\.nextAction==="ACCEPT_CONSENTS"/);
   assert.match(login, /const current=await api\.me\(\)/);
-  assert.match(login, /routeAfterAuthentication\(current\.nextAction\|\|session\.nextAction,requested\)/);
-  assert.match(navigation, /nextAction === "CREATE_PROFILE" \? ROUTES\.profileCreate : ROUTES\.home/);
+  assert.match(login, /authenticatedEntryPath\(current\.nextAction\)/);
+  assert.doesNotMatch(login, /URLSearchParams|requested|safeNextPath/);
+  assert.match(routes, /CREATE_PROFILE: ROUTES\.profileCreate/);
+  assert.match(routes, /CONFIRM_PROFILE: ROUTES\.profileCreate/);
+  assert.match(routes, /CLAIM_REGISTRATION_REWARD: ROUTES\.profileCreate/);
+  assert.match(routes, /VIEW_HOME: ROUTES\.home/);
+  assert.match(profileCreate, /claimRegistrationReward\(\)[\s\S]*router\.replace\(ROUTES\.home\)/);
+  assert.match(profileCreate, /<SeedGift[\s\S]*onNext=\{\(\)=>router\.replace\(ROUTES\.home\)\}/);
 });
 test("R1 核心页面调用真实后端能力", async () => {
   const page = await readPageSources();

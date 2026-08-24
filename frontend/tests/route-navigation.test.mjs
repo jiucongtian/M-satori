@@ -2,11 +2,29 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  authenticatedEntryPath,
+  consentCompletionPath,
   dailyReportPath,
   dailyReportReturnPath,
   ROUTES,
   safeNextPath,
 } from "../src/shared/routes.ts";
+
+test("认证后入口只由后端 nextAction 决定", () => {
+  assert.equal(authenticatedEntryPath("ACCEPT_CONSENTS"), ROUTES.consent);
+  for (const action of ["CREATE_PROFILE", "CONFIRM_PROFILE", "CLAIM_REGISTRATION_REWARD"]) {
+    assert.equal(authenticatedEntryPath(action), ROUTES.profileCreate);
+  }
+  for (const action of ["CREATE_TODAY_DAILY_INSIGHT", "VIEW_HOME"]) {
+    assert.equal(authenticatedEntryPath(action), ROUTES.home);
+  }
+});
+
+test("来源页只用于已完成账号准备后的协议恢复", () => {
+  assert.equal(consentCompletionPath("VIEW_HOME", "/my"), ROUTES.my);
+  assert.equal(consentCompletionPath("CREATE_PROFILE", "/my"), ROUTES.profileCreate);
+  assert.equal(consentCompletionPath("CLAIM_REGISTRATION_REWARD", "/my"), ROUTES.profileCreate);
+});
 
 test("每日报告保留安全来源并返回对应业务域", () => {
   assert.equal(dailyReportPath("2026-08-23"), "/daily/report?date=2026-08-23");

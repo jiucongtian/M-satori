@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "./session";
-import { consentPath, loginPath } from "./routes";
+import { consentPath, ROUTES } from "./routes";
 import { RouteSkeleton } from "./shell";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -12,7 +12,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "anonymous") router.replace(loginPath(pathname));
+    if (status === "anonymous") router.replace(ROUTES.login);
     if (status === "consent-required") router.replace(consentPath(pathname));
   }, [pathname, router, status]);
 

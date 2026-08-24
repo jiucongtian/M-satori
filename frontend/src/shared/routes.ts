@@ -1,3 +1,5 @@
+import type { components } from "../api/contracts/generated";
+
 export const ROUTES = {
   welcome: "/",
   login: "/login",
@@ -17,6 +19,16 @@ export const ROUTES = {
 export type RouteId = keyof typeof ROUTES;
 export type AppPath = (typeof ROUTES)[RouteId];
 export type DailyReportSource = "my-reports";
+export type AuthNextAction = components["schemas"]["NextAction"];
+
+const AUTHENTICATED_ENTRY_PATHS = {
+  ACCEPT_CONSENTS: ROUTES.consent,
+  CREATE_PROFILE: ROUTES.profileCreate,
+  CONFIRM_PROFILE: ROUTES.profileCreate,
+  CLAIM_REGISTRATION_REWARD: ROUTES.profileCreate,
+  CREATE_TODAY_DAILY_INSIGHT: ROUTES.home,
+  VIEW_HOME: ROUTES.home,
+} satisfies Record<AuthNextAction, AppPath>;
 
 export const PUBLIC_PATHS = new Set<AppPath>([ROUTES.welcome, ROUTES.login, ROUTES.legal]);
 export const PROTECTED_PATHS = new Set<AppPath>([
@@ -80,8 +92,14 @@ export function safeNextPath(value: string | null | undefined, fallback: AppPath
   return `${parsed.pathname}${parsed.search}`;
 }
 
-export function loginPath(next: string) {
-  return `${ROUTES.login}?next=${encodeURIComponent(safeNextPath(next))}`;
+export function authenticatedEntryPath(nextAction: AuthNextAction): AppPath {
+  return AUTHENTICATED_ENTRY_PATHS[nextAction];
+}
+
+export function consentCompletionPath(nextAction: AuthNextAction, requestedNext?: string | null): string {
+  const requiredPath = authenticatedEntryPath(nextAction);
+  if (requiredPath !== ROUTES.home) return requiredPath;
+  return safeNextPath(requestedNext, requiredPath);
 }
 
 export function consentPath(next: string) {

@@ -21,7 +21,8 @@ test("统一 Session 四态和受保护路由守卫已经接入", async () => {
   const [session, guard, layout] = await Promise.all([source("../src/shared/session.tsx"), source("../src/shared/guards.tsx"), source("../app/layout.tsx")]);
   assert.match(session, /"unknown" \| "anonymous" \| "authenticated" \| "consent-required"/);
   assert.match(session, /clearAllFlowDrafts/);
-  assert.match(guard, /router\.replace\(loginPath\(pathname\)\)/);
+  assert.match(guard, /router\.replace\(ROUTES\.login\)/);
+  assert.doesNotMatch(guard, /loginPath|ROUTES\.login[^\n]*next/);
   assert.match(guard, /router\.replace\(consentPath\(pathname\)\)/);
   assert.match(layout, /<Providers>/);
 });
