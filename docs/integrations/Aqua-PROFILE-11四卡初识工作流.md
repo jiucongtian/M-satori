@@ -1,6 +1,6 @@
 # Aqua PROFILE-11 四卡初识工作流
 
-> 本文保留 Aqua 历史验收与应急回退基线。2026-08-19 起，PROFILE-11 默认使用 `PROFILE_FIRST_LOOK_GENERATOR=LOCAL` 的本地确定性生成器；当前实现见 [`PROFILE-11本地确定性生成.md`](./PROFILE-11本地确定性生成.md)。只有显式选择 `AQUA` 时才执行本文流程。
+> 本文只保留 Aqua 历史验收记录，不代表当前运行路径。四卡初识报告现已固定使用本地确定性生成器，Aqua 实现及环境切换配置均已删除；当前实现见 [`PROFILE-11本地确定性生成.md`](./PROFILE-11本地确定性生成.md)。
 
 ## 接入基线
 
@@ -12,7 +12,7 @@
 - 超时：300 秒
 - 重试：不自动重试；人工重试复用同一业务报告中持久化的 Aqua `idempotencyKey`
 
-回退 Aqua 时配置 `PROFILE_FIRST_LOOK_ENABLED=true`、`PROFILE_FIRST_LOOK_GENERATOR=AQUA`，Aqua 地址和 service key 通过服务器环境变量注入。
+当前版本不会执行本节 Aqua 流程。若未来重新采用外部生成，必须作为新的产品和代码版本重新评审，不能通过环境变量临时切换。
 
 ## Satori 业务流程
 

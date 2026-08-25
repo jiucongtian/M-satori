@@ -16,7 +16,7 @@ Satori 已完成 Aqua 每日指引的代码接入，不再处于“适配器待�
 
 - 后端通过 `@aqua-ai/sdk@0.1.1` 的 service-key 客户端调用无状态工作流；
 - `AquaDailyInsightGenerator` 已实现输入转换、幂等键、工作流版本选择、严格输出校验、错误分类和生成清单映射；
-- 依赖注入可通过 `DAILY_INSIGHT_GENERATOR=STUB|AQUA` 切换生成器，默认仍为 `STUB`；
+- 运行服务固定注入 `AquaDailyInsightGenerator`，不存在 Stub/Aqua 环境切换；
 - H5 只调用 Satori `/api/v1/daily-insights*`，不接触 Aqua 地址、凭据、request ID 或内部错误；
 - Satori 现有异步任务、智慧种子预占/核销/释放、内容归档和前端轮询机制保持不变。
 
@@ -51,25 +51,25 @@ sequenceDiagram
 
 ## 3. 代码与职责映射
 
-| 路径 | 当前职责 |
-| --- | --- |
-| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.ts` | Aqua 输入转换、SDK 调用、响应校验、错误映射 |
-| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.spec.ts` | 输入、成功映射、活动版本、网络错误和 Schema 错误测试 |
-| `backend/packages/modules/src/integrations/integrations.module.ts` | 根据环境变量选择 Stub 或 Aqua，并创建 service-key 客户端 |
-| `backend/packages/application/src/daily-insight/daily-insight-generator.ts` | Satori 生成器接口、最终内容 Schema 和发布侧安全检查 |
-| `backend/packages/infrastructure/src/config/environment.ts` | 环境变量校验和生产环境门禁 |
-| `backend/vendor/aqua-ai-sdk-0.1.1.tgz` | 当前锁定的 Aqua SDK 交付包 |
+| 路径                                                                                           | 当前职责                                                 |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.ts`      | Aqua 输入转换、SDK 调用、响应校验、错误映射              |
+| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.spec.ts` | 输入、成功映射、活动版本、网络错误和 Schema 错误测试     |
+| `backend/packages/modules/src/integrations/integrations.module.ts`                             | 根据环境变量选择 Stub 或 Aqua，并创建 service-key 客户端 |
+| `backend/packages/application/src/daily-insight/daily-insight-generator.ts`                    | Satori 生成器接口、最终内容 Schema 和发布侧安全检查      |
+| `backend/packages/infrastructure/src/config/environment.ts`                                    | 环境变量校验和生产环境门禁                               |
+| `backend/vendor/aqua-ai-sdk-0.1.1.tgz`                                                         | 当前锁定的 Aqua SDK 交付包                               |
 
 职责边界保持如下：
 
-| 职责 | Satori | Aqua |
-| --- | --- | --- |
-| 用户认证、授权和数据所有权 | 负责 | 不负责 |
-| 排盘、卡牌事实和输入固化 | 负责 | 只解释收到的事实 |
-| 工作流与模型执行 | 发起并裁决是否发布 | 负责生成 |
-| 内容安全 | 最终 Schema/禁词/业务校验 | 生成侧校验并返回约定结构 |
-| 智慧种子账务 | 预占、核销、释放/退款 | 不感知 |
-| 正式内容归档 | 保存最终内容和 manifest | 返回技术运行结果 |
+| 职责                       | Satori                    | Aqua                     |
+| -------------------------- | ------------------------- | ------------------------ |
+| 用户认证、授权和数据所有权 | 负责                      | 不负责                   |
+| 排盘、卡牌事实和输入固化   | 负责                      | 只解释收到的事实         |
+| 工作流与模型执行           | 发起并裁决是否发布        | 负责生成                 |
+| 内容安全                   | 最终 Schema/禁词/业务校验 | 生成侧校验并返回约定结构 |
+| 智慧种子账务               | 预占、核销、释放/退款     | 不感知                   |
+| 正式内容归档               | 保存最终内容和 manifest   | 返回技术运行结果         |
 
 ## 4. 当前 Aqua 请求契约
 
@@ -115,13 +115,13 @@ Satori 当前发送的是经过收敛的日运事实，不发送手机号、登�
 
 Aqua `result` 必须严格满足：
 
-| 字段 | 当前约束 |
-| --- | --- |
-| `theme` | 4–16 字符 |
-| `insight` | 80–800 字符 |
-| `action` | 8–200 字符 |
-| `reflectionQuestion` | 8–120 字符 |
-| `notice` | 必须精确等于“本内容仅供自我觉察与日常参考，不构成医疗、心理、法律或投资建议。” |
+| 字段                 | 当前约束                                                                       |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `theme`              | 4–16 字符                                                                      |
+| `insight`            | 80–800 字符                                                                    |
+| `action`             | 8–200 字符                                                                     |
+| `reflectionQuestion` | 8–120 字符                                                                     |
+| `notice`             | 必须精确等于“本内容仅供自我觉察与日常参考，不构成医疗、心理、法律或投资建议。” |
 
 Satori 校验通过后，会将对外内容中的 `notice` 统一映射为“内容用于自我观察与成长参考。”，再执行应用层 Schema 和禁词校验。包含“诊断、保证、必然、投资建议、医疗建议”等内容会被拒绝发布。
 
@@ -145,30 +145,28 @@ Satori 会将这些字段与 SDK 返回的 `requestId` 一并映射到正式生�
 
 ## 6. 配置与环境门禁
 
-| 环境变量 | 规则 |
-| --- | --- |
-| `DAILY_INSIGHT_GENERATOR` | `STUB` 或 `AQUA`，默认 `STUB` |
-| `AQUA_AI_BASE_URL` | 启用 `AQUA` 时必填，必须为合法 URL |
-| `AQUA_AI_SERVICE_KEY` | 启用 `AQUA` 时必填，至少 20 字符，只能服务端注入 |
-| `AQUA_AI_WORKFLOW_ID` | 默认 `daily-insight` |
-| `AQUA_AI_WORKFLOW_VERSION` | 可选；省略时使用 Aqua 当前激活版本 |
+| 环境变量                   | 规则                                           |
+| -------------------------- | ---------------------------------------------- |
+| `AQUA_AI_BASE_URL`         | 所有运行环境必填，必须为合法 URL               |
+| `AQUA_AI_SERVICE_KEY`      | 所有运行环境必填，至少 20 字符，只能服务端注入 |
+| `AQUA_AI_WORKFLOW_ID`      | 默认 `daily-insight`                           |
+| `AQUA_AI_WORKFLOW_VERSION` | 可选；省略时使用 Aqua 当前激活版本             |
 
-生产环境额外强制：
+所有运行环境统一要求：
 
-- `DAILY_INSIGHT_GENERATOR` 必须为 `AQUA`；
 - 必须配置 Aqua base URL 和 service key；
 - service key 不得进入前端、Git、日志、异常正文或普通交接文档；
 - 不同环境应使用独立租户凭据，并通过 Secret Manager 或等价设施轮换。
 
 ## 7. 错误、重试和账务
 
-| 场景 | 当前映射 | Satori 处理 |
-| --- | --- | --- |
-| SDK 返回可重试错误 | 保留 Aqua `code`、`requestId`，`retryable=true` | Worker 按任务策略重试 |
-| `OUTPUT_SCHEMA_INVALID` | 当前明确标记为可重试 | 允许重新生成 |
-| SDK 其他错误 | 使用 SDK `retryable` 和错误分类 | 可重试或终态失败 |
-| Satori Zod 响应校验失败 | `AQUA_AI_RESPONSE_INVALID`、不可重试 | 拒绝发布并进入失败补偿 |
-| 本地输入非法 | `AQUA_AI_INPUT_INVALID`、不可重试 | 不调用 Aqua，终态失败 |
+| 场景                    | 当前映射                                        | Satori 处理            |
+| ----------------------- | ----------------------------------------------- | ---------------------- |
+| SDK 返回可重试错误      | 保留 Aqua `code`、`requestId`，`retryable=true` | Worker 按任务策略重试  |
+| `OUTPUT_SCHEMA_INVALID` | 当前明确标记为可重试                            | 允许重新生成           |
+| SDK 其他错误            | 使用 SDK `retryable` 和错误分类                 | 可重试或终态失败       |
+| Satori Zod 响应校验失败 | `AQUA_AI_RESPONSE_INVALID`、不可重试            | 拒绝发布并进入失败补偿 |
+| 本地输入非法            | `AQUA_AI_INPUT_INVALID`、不可重试               | 不调用 Aqua，终态失败  |
 
 Satori 当前队列默认：任务超时 360 秒、最多 5 次尝试、2 秒起始退避。Aqua SDK 默认请求超时 300 秒且工作流不自动重试，两者预算目前能够嵌套，但仍需在 Staging 以真实耗时验证。
 
@@ -187,7 +185,7 @@ Satori 当前队列默认：任务超时 360 秒、最多 5 次尝试、2 秒起
 
 - [ ] 通过安全渠道配置测试租户 `AQUA_AI_BASE_URL` 与 `AQUA_AI_SERVICE_KEY`。
 - [ ] 确认租户已授权 `daily-insight` 工作流，并决定固定版本还是使用当前激活版本。
-- [ ] 设置 `DAILY_INSIGHT_GENERATOR=AQUA`，完成一条真实成功生成。
+- [ ] 完成一条真实 Aqua 成功生成。
 - [ ] 核对输入映射、结果长度、固定 notice、manifest 全字段和 `requestId`。
 - [ ] 验证同一 `dailyInsightId` 重试不会产生重复 Aqua 执行或重复扣种。
 - [ ] 验证网络超时、429/5xx、非法 JSON、字段缺失、超长内容和安全拒绝。
@@ -205,7 +203,7 @@ Satori 当前队列默认：任务超时 360 秒、最多 5 次尝试、2 秒起
 3. 内容安全与黄金案例通过产品/内容验收；
 4. service key 的存储、轮换、最小权限和环境隔离通过安全检查；
 5. 401/402/403/429/5xx、超时、Schema 拒绝率和任务积压具备监控告警；
-6. 已明确回滚到 `DAILY_INSIGHT_GENERATOR=STUB` 的适用环境、操作步骤和数据处理边界；
+6. 已明确 Aqua 故障时暂停新生成、保留查询和账务补偿的操作边界；
 7. 生产 Go/No-Go 有明确批准记录。
 
 ## 11. 待双方确认

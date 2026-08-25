@@ -1,17 +1,12 @@
-# PROFILE-11 本地确定性生成
+# 四卡初识报告本地确定性生成
 
 ## 目标
 
-新用户首次建立本人生命智慧档案后，PROFILE-11 不在在线请求中调用 RAG、LLM 或 Aqua Workflow，而是使用版本化知识与固定规则直接生成并持久化报告。
+新用户首次建立本人生命智慧档案后，四卡初识报告不调用 RAG、LLM 或 Aqua Workflow，而是使用版本化知识与固定规则直接生成并持久化报告。
 
-## 运行开关
+## 运行方式
 
-```dotenv
-PROFILE_FIRST_LOOK_ENABLED=true
-PROFILE_FIRST_LOOK_GENERATOR=LOCAL
-```
-
-`LOCAL` 是默认生成器。紧急回退 Aqua 时显式配置 `PROFILE_FIRST_LOOK_GENERATOR=AQUA`，并同时提供 `AQUA_AI_BASE_URL` 与 `AQUA_AI_SERVICE_KEY`。
+所有环境固定注册 `DeterministicProfileFirstLookGenerator`。该能力没有启用开关、生成器选择器或 Aqua 回退配置，因此测试与生产使用同一段本地代码和同一份版本化知识。
 
 ## 知识基线
 
@@ -47,7 +42,7 @@ PROFILE_FIRST_LOOK_GENERATOR=LOCAL
 - 继续使用 `profile_first_look_reports`、幂等键、`READY/FAILED` 状态和历史版本持久化。
 - Manifest 改为 provider-neutral 字符串，并为本地报告增加 `generator`、`ruleVersion`、`knowledgeRelease`。
 - 历史 Aqua 报告无需迁移，仍可由 GET 回读。
-- 前端不再把 PROFILE-11 标记为“Aqua 正在生成”或“AI 生成内容”；每日完整指引的 AI 声明保持不变。
+- 前端不再把四卡初识报告标记为“Aqua 正在生成”或“AI 生成内容”；每日完整指引的 AI 声明保持不变。
 
 ## 验证要求
 
@@ -55,4 +50,4 @@ PROFILE_FIRST_LOOK_GENERATOR=LOCAL
 - 确定性：相同四卡输入的 `content` 必须完全相同。
 - 边界：覆盖单季主导、双季、五季平衡、内外并列与日卡回落。
 - 性能：测试环境目标 `POST first-look p95 < 200ms`，以真实数据库链路压测结果为准。
-- 回退：将 `PROFILE_FIRST_LOOK_GENERATOR` 切换为 `AQUA` 并重启 API；不得删除已持久化的本地或 Aqua 历史报告。
+- 回退：通过正常代码版本回滚恢复上一实现；不得删除已持久化的本地或历史 Aqua 报告。
