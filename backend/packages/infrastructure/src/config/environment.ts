@@ -5,8 +5,7 @@ const booleanFromString = z
   .default('false')
   .transform((value) => value === 'true');
 
-export const environmentSchema = z
-  .object({
+const environmentShape = {
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     HOST: z.string().default('0.0.0.0'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -44,7 +43,13 @@ export const environmentSchema = z
     HOME_ENERGY_PREWARM_PROFILE: z.enum(['CONSERVATIVE', 'NORMAL']).default('NORMAL'),
     AQUA_BASE_URL: z.string().url().optional(),
     AQUA_TENANT_SERVICE_KEY: z.string().min(20).optional(),
-  })
+} as const;
+
+/** 需要在 `.env.example` 中逐项说明的部署环境变量名称。 */
+export const environmentVariableNames = Object.keys(environmentShape) as Array<keyof typeof environmentShape>;
+
+export const environmentSchema = z
+  .object(environmentShape)
   .superRefine((environment, context) => {
     if (environment.CORS_ORIGINS.split(',').some((origin) => origin.trim() === '*')) {
       context.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'Wildcard CORS is forbidden' });

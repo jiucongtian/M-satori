@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { validate as validateUuid } from 'uuid';
 import { describe, expect, it } from 'vitest';
 import { newId } from '../database/ids.js';
-import { validateEnvironment } from './environment.js';
+import { environmentVariableNames, validateEnvironment } from './environment.js';
 
 describe('runtime baseline', () => {
   it('uses auditable R1 defaults', () => {
@@ -17,6 +19,18 @@ describe('runtime baseline', () => {
     expect(() => validateEnvironment({ CORS_ORIGINS: '*' })).toThrow();
     expect(() => validateEnvironment({ NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow();
     expect(() => validateEnvironment({ DAILY_INSIGHT_GENERATOR: 'AQUA' })).toThrow();
+  });
+
+  it('documents every deployment variable with purpose, values, and impact', () => {
+    const example = readFileSync(resolve(process.cwd(), '.env.example'), 'utf8');
+    for (const name of environmentVariableNames) {
+      expect(example, `${name} must have complete comments`).toMatch(
+        new RegExp(
+          `# 用途：[^\\n]+\\n# 取值：[^\\n]+\\n# 影响：[^\\n]+\\n(?:# )?${name}=`,
+          'm',
+        ),
+      );
+    }
   });
 
   it('accepts Aqua daily-insight configuration without accepting a JWT signing secret', () => {

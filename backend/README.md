@@ -12,6 +12,8 @@ npm run db:migrate
 npm run dev:api
 ```
 
+`.env.example` 中每个部署变量均说明用途、允许值和影响范围；可选变量未启用时应整行省略。完整配置分层、版本化策略和测试专用变量见 [`docs/backend/R1.0-configuration-reference.md`](../docs/backend/R1.0-configuration-reference.md)。
+
 另开终端运行 `npm run dev:worker`。提交前运行：
 
 ```bash
