@@ -16,7 +16,7 @@ export class AccessTokenService {
   }
 
   async issue(claims: AccessTokenClaims): Promise<{ token: string; expiresAt: Date }> {
-    const expiresAt = new Date(Date.now() + this.infrastructure.environment.ACCESS_TOKEN_TTL_SECONDS * 1000);
+    const expiresAt = new Date(Date.now() + this.infrastructure.policy.auth.accessTokenTtlSeconds * 1000);
     const token = await new SignJWT({ sid: claims.sessionId })
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       .setSubject(claims.userId)

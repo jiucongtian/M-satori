@@ -93,7 +93,7 @@ export class SessionService {
   ) {
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
-      infrastructure.environment.IDEMPOTENCY_TTL_SECONDS * 1000,
+      infrastructure.policy.idempotency.ttlSeconds * 1000,
     );
   }
 
@@ -176,7 +176,7 @@ export class SessionService {
         familyId: current.familyId,
         refreshTokenHash: this.crypto.hashRefreshToken(nextRefreshToken),
         deviceHash: current.deviceHash,
-        expiresAt: new Date(Date.now() + this.infrastructure.environment.REFRESH_TOKEN_TTL_SECONDS * 1000),
+        expiresAt: new Date(Date.now() + this.infrastructure.policy.auth.refreshTokenTtlSeconds * 1000),
       });
       await tx
         .update(sessions)
@@ -309,7 +309,7 @@ export class SessionService {
           id: newId(),
           userId,
           rewardType: 'NEW_USER_ONBOARDING',
-          amount: this.infrastructure.environment.REGISTRATION_REWARD_AMOUNT,
+          amount: this.infrastructure.policy.registration.rewardAmount,
         });
       }
 
@@ -370,7 +370,7 @@ export class SessionService {
         familyId: newId(),
         refreshTokenHash: this.crypto.hashRefreshToken(refreshToken),
         deviceHash: challenge.deviceHash,
-        expiresAt: new Date(Date.now() + this.infrastructure.environment.REFRESH_TOKEN_TTL_SECONDS * 1000),
+        expiresAt: new Date(Date.now() + this.infrastructure.policy.auth.refreshTokenTtlSeconds * 1000),
       });
       await tx
         .update(smsChallenges)

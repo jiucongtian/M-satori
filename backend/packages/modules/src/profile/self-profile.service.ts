@@ -88,7 +88,7 @@ export class SelfProfileService {
   ) {
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
-      infrastructure.environment.IDEMPOTENCY_TTL_SECONDS * 1000,
+      infrastructure.policy.idempotency.ttlSeconds * 1000,
     );
     this.cursors = new CursorCodec(infrastructure.environment.CURSOR_SIGNING_SECRET);
   }
@@ -321,7 +321,7 @@ export class SelfProfileService {
           });
           const revisionId = newId();
           const expiresAt = new Date(
-            Date.now() + this.infrastructure.environment.PROFILE_PREVIEW_TTL_SECONDS * 1000,
+            Date.now() + this.infrastructure.policy.profile.previewTtlSeconds * 1000,
           );
           const [revision] = await tx
             .insert(revisions)

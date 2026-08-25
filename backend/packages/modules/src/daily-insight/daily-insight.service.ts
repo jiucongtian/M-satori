@@ -116,7 +116,7 @@ export class DailyInsightService implements OnModuleInit {
       });
       const reserved = await this.ledger.reserveInTransaction(tx, {
         userId,
-        amount: 1,
+        amount: this.infrastructure.policy.dailyInsight.price,
         businessKey: `daily:${insightId}:reserve`,
         businessType: 'DAILY_INSIGHT',
         resourceId: insightId,
@@ -155,7 +155,7 @@ export class DailyInsightService implements OnModuleInit {
     const limit = normalizePageLimit(input.limit);
     const cursor = input.cursor ? this.cursors.decode(input.cursor) : null;
     const cutoff = new Date(
-      Date.now() - this.infrastructure.environment.DAILY_INSIGHT_HISTORY_DAYS * 86_400_000,
+      Date.now() - this.infrastructure.policy.dailyInsight.historyDays * 86_400_000,
     );
     const rows = await this.infrastructure.database
       .select()
@@ -285,7 +285,7 @@ export class DailyInsightService implements OnModuleInit {
           .limit(1);
         const reserved = await this.ledger.reserveInTransaction(tx, {
           userId: insight.ownerUserId,
-          amount: 1,
+          amount: this.infrastructure.policy.dailyInsight.price,
           businessKey: `daily:${insight.id}:reserve:retry:${task?.attempt ?? 0}`,
           businessType: 'DAILY_INSIGHT',
           resourceId: insight.id,
@@ -339,7 +339,7 @@ export class DailyInsightService implements OnModuleInit {
       if (!locked.seedReservationEntryId) throw new Error('Daily insight reservation missing');
       const consumed = await this.ledger.consumeInTransaction(tx, {
         userId: locked.ownerUserId,
-        amount: 1,
+        amount: this.infrastructure.policy.dailyInsight.price,
         businessKey: `daily:${locked.id}:consume:${locked.seedReservationEntryId}`,
         businessType: 'DAILY_INSIGHT',
         resourceId: locked.id,
@@ -379,7 +379,7 @@ export class DailyInsightService implements OnModuleInit {
         if (entry?.type === 'CONSUME') {
           const refund = await this.ledger.refundInTransaction(tx, {
             userId: insight.ownerUserId,
-            amount: 1,
+            amount: this.infrastructure.policy.dailyInsight.price,
             businessKey: `daily:${insight.id}:refund`,
             businessType: 'DAILY_INSIGHT',
             resourceId: insight.id,
@@ -398,7 +398,7 @@ export class DailyInsightService implements OnModuleInit {
       } else if (insight.seedReservationEntryId) {
         const release = await this.ledger.releaseInTransaction(tx, {
           userId: insight.ownerUserId,
-          amount: 1,
+          amount: this.infrastructure.policy.dailyInsight.price,
           businessKey: `daily:${insight.id}:release`,
           businessType: 'DAILY_INSIGHT',
           resourceId: insight.id,
@@ -456,7 +456,7 @@ export class DailyInsightService implements OnModuleInit {
       taskId: (await this.taskFor(row.id))?.taskId ?? null,
       settlement: {
         currency: 'WISDOM_SEED',
-        amount: 1,
+        amount: this.infrastructure.policy.dailyInsight.price,
         status: settlementStatus,
         transactionId: entry?.id ?? '',
       },

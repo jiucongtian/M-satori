@@ -22,7 +22,7 @@ export class FeedbackService {
   ) {
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
-      infrastructure.environment.IDEMPOTENCY_TTL_SECONDS * 1000,
+      infrastructure.policy.idempotency.ttlSeconds * 1000,
     );
   }
 

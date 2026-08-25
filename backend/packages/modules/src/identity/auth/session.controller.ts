@@ -138,7 +138,7 @@ export class SessionController {
       httpOnly: true,
       secure: this.infrastructure.environment.COOKIE_SECURE,
       sameSite: 'lax',
-      maxAge: this.infrastructure.environment.REFRESH_TOKEN_TTL_SECONDS,
+      maxAge: this.infrastructure.policy.auth.refreshTokenTtlSeconds,
     });
   }
 

@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import type { Environment } from '../config/environment.js';
+import type { RuntimePolicy } from '../config/runtime-policy.js';
 
 export const GENERATION_QUEUE = 'generation';
 
@@ -13,7 +14,7 @@ export function queueExecutionPolicy(environment: Environment): QueueExecutionPo
   return { concurrency: environment.QUEUE_CONCURRENCY, jobTimeoutMs: environment.QUEUE_JOB_TIMEOUT_MS };
 }
 
-export function createQueueInfrastructure(environment: Environment): {
+export function createQueueInfrastructure(environment: Environment, policy: RuntimePolicy): {
   redis: Redis;
   generationQueue: Queue;
 } {
@@ -22,8 +23,8 @@ export function createQueueInfrastructure(environment: Environment): {
     connection: redis,
     prefix: environment.QUEUE_PREFIX,
     defaultJobOptions: {
-      attempts: environment.QUEUE_MAX_ATTEMPTS,
-      backoff: { type: 'exponential', delay: environment.QUEUE_BACKOFF_MS },
+      attempts: policy.queue.maxAttempts,
+      backoff: { type: 'exponential', delay: policy.queue.backoffMs },
       removeOnComplete: 1000,
       removeOnFail: 5000,
     },

@@ -7,6 +7,7 @@ export interface TransactionManager {
 }
 
 export * from './config/environment.js';
+export * from './config/runtime-policy.js';
 export * from './database/client.js';
 export * from './database/ids.js';
 export * from './database/postgres-idempotency.store.js';

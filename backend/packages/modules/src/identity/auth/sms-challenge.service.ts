@@ -47,7 +47,7 @@ export class SmsChallengeService {
   ) {
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
-      infrastructure.environment.IDEMPOTENCY_TTL_SECONDS * 1000,
+      infrastructure.policy.idempotency.ttlSeconds * 1000,
     );
   }
 
@@ -60,21 +60,24 @@ export class SmsChallengeService {
       async () => {
         const deviceHash = this.crypto.hash(`device:${command.deviceId}`);
         const ipHash = this.crypto.hash(`ip:${command.ip}`);
-        const limits = this.infrastructure.environment;
+        const environment = this.infrastructure.environment;
+        const policy = this.infrastructure.policy.auth;
         const snapshots = await Promise.all([
-          this.limiter.consume('phone', phoneHash, limits.SMS_PHONE_RATE_PER_HOUR),
-          this.limiter.consume('device', deviceHash, limits.SMS_DEVICE_RATE_PER_HOUR),
-          this.limiter.consume('ip', ipHash, limits.SMS_IP_RATE_PER_HOUR),
+          this.limiter.consume('phone', phoneHash, policy.rateLimitsPerHour.phone),
+          this.limiter.consume('device', deviceHash, policy.rateLimitsPerHour.device),
+          this.limiter.consume('ip', ipHash, policy.rateLimitsPerHour.ip),
         ]);
         const rateLimit = snapshots.reduce((lowest, current) =>
           current.remaining < lowest.remaining ? current : lowest,
         );
         const challengeId = newId();
         const code =
-          limits.NODE_ENV === 'production' ? String(randomInt(0, 1_000_000)).padStart(6, '0') : '123456';
+          environment.NODE_ENV === 'production'
+            ? String(randomInt(0, 1_000_000)).padStart(6, '0')
+            : '123456';
         const now = Date.now();
-        const expiresAt = new Date(now + limits.OTP_TTL_SECONDS * 1000);
-        const resendAvailableAt = new Date(now + limits.OTP_RESEND_SECONDS * 1000);
+        const expiresAt = new Date(now + policy.otpTtlSeconds * 1000);
+        const resendAvailableAt = new Date(now + policy.otpResendSeconds * 1000);
         const phoneMasked = maskPhone(command.countryCode, command.nationalNumber);
         await this.infrastructure.database.insert(smsChallenges).values({
           id: challengeId,
@@ -85,14 +88,14 @@ export class SmsChallengeService {
           ipHash,
           purpose: command.purpose,
           codeHash: this.crypto.hashVerificationCode(challengeId, code),
-          maxAttempts: limits.OTP_MAX_ATTEMPTS,
+          maxAttempts: policy.otpMaxAttempts,
           expiresAt,
         });
         try {
           await this.gateway.sendVerificationCode({
             phone,
             code,
-            expiresInSeconds: limits.OTP_TTL_SECONDS,
+            expiresInSeconds: policy.otpTtlSeconds,
           });
         } catch {
           await this.infrastructure.database.delete(smsChallenges).where(eq(smsChallenges.id, challengeId));

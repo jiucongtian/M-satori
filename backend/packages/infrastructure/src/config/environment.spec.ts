@@ -6,11 +6,10 @@ import { validateEnvironment } from './environment.js';
 describe('runtime baseline', () => {
   it('uses auditable R1 defaults', () => {
     const environment = validateEnvironment({});
-    expect(environment.DAILY_INSIGHT_PRICE).toBe(1);
     expect(environment.QUEUE_JOB_TIMEOUT_MS).toBe(360_000);
-    expect(environment.REGISTRATION_REWARD_AMOUNT).toBe(18);
-    expect(environment.OTP_TTL_SECONDS).toBe(300);
-    expect(environment.ACCOUNT_DELETION_CANCELLATION_HOURS).toBe(168);
+    expect(environment.HOME_ENERGY_PREWARM_PROFILE).toBe('NORMAL');
+    expect(environment).not.toHaveProperty('DAILY_INSIGHT_PRICE');
+    expect(environment).not.toHaveProperty('FEATURE_DAILY_INSIGHT');
   });
 
   it('rejects invalid configuration', () => {
@@ -59,9 +58,17 @@ describe('runtime baseline', () => {
     expect(environment.HOME_ENERGY_SUMMARY_ENABLED).toBe(true);
     expect(environment.HOME_ENERGY_PREWARM_ENABLED).toBe(true);
     expect(environment.HOME_ENERGY_SUMMARY_MAX_ATTEMPTS).toBe(2);
-    expect(environment.HOME_ENERGY_PREWARM_DAYS).toBe(3);
-    expect(environment.HOME_ENERGY_PREWARM_CONCURRENCY).toBe(3);
-    expect(environment.HOME_ENERGY_PREWARM_SPACING_MS).toBe(5_000);
+    expect(environment.HOME_ENERGY_PREWARM_PROFILE).toBe('NORMAL');
+    expect(
+      validateEnvironment({
+        HOME_ENERGY_SUMMARY_ENABLED: 'true',
+        HOME_ENERGY_PREWARM_ENABLED: 'true',
+        HOME_ENERGY_PREWARM_PROFILE: 'CONSERVATIVE',
+        AQUA_BASE_URL: 'https://aqua.example.com',
+        AQUA_TENANT_SERVICE_KEY: 'test-tenant-service-key-safe-length',
+      }).HOME_ENERGY_PREWARM_PROFILE,
+    ).toBe('CONSERVATIVE');
+    expect(() => validateEnvironment({ HOME_ENERGY_PREWARM_PROFILE: 'AGGRESSIVE' })).toThrow();
     expect(() => validateEnvironment({ HOME_ENERGY_PREWARM_ENABLED: 'true' })).toThrow();
   });
 

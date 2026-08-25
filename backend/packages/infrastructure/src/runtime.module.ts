@@ -3,6 +3,7 @@ import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 import { validateEnvironment, type Environment } from './config/environment.js';
+import { R1_RUNTIME_POLICY, type RuntimePolicy } from './config/runtime-policy.js';
 import { createDatabase, type Database } from './database/client.js';
 import { closeQueueInfrastructure, createQueueInfrastructure } from './queue/client.js';
 import { FieldCipher } from './security/field-cipher.js';
@@ -10,6 +11,7 @@ import { FieldCipher } from './security/field-cipher.js';
 @Injectable()
 export class RuntimeInfrastructure implements OnApplicationShutdown {
   readonly environment: Environment;
+  readonly policy: RuntimePolicy;
   readonly pool: Pool;
   readonly database: Database;
   readonly redis: Redis;
@@ -17,8 +19,9 @@ export class RuntimeInfrastructure implements OnApplicationShutdown {
 
   constructor() {
     this.environment = validateEnvironment(process.env);
+    this.policy = R1_RUNTIME_POLICY;
     const databaseInfrastructure = createDatabase(this.environment);
-    const queueInfrastructure = createQueueInfrastructure(this.environment);
+    const queueInfrastructure = createQueueInfrastructure(this.environment, this.policy);
     this.pool = databaseInfrastructure.pool;
     this.database = databaseInfrastructure.database;
     this.redis = queueInfrastructure.redis;

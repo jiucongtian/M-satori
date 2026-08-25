@@ -31,7 +31,7 @@ export class GenerationTaskService {
   ) {
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
-      infrastructure.environment.IDEMPOTENCY_TTL_SECONDS * 1000,
+      infrastructure.policy.idempotency.ttlSeconds * 1000,
     );
   }
 
@@ -48,7 +48,7 @@ export class GenerationTaskService {
         ownerUserId: command.ownerUserId,
         targetType: command.targetType,
         targetId: command.targetId,
-        maxAttempts: command.maxAttempts ?? this.infrastructure.environment.QUEUE_MAX_ATTEMPTS,
+        maxAttempts: command.maxAttempts ?? this.infrastructure.policy.queue.maxAttempts,
       })
       .returning();
     await this.appendEvent(tx, id, 'generation.snapshot', this.taskDto(task!));

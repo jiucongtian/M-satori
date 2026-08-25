@@ -31,7 +31,7 @@ export class AccountDeletionService {
   ) {
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
-      infrastructure.environment.IDEMPOTENCY_TTL_SECONDS * 1000,
+      infrastructure.policy.idempotency.ttlSeconds * 1000,
     );
   }
 
@@ -93,7 +93,7 @@ export class AccountDeletionService {
               requestedAt,
               cancellableUntil: new Date(
                 requestedAt.getTime() +
-                  this.infrastructure.environment.ACCOUNT_DELETION_CANCELLATION_HOURS * 60 * 60 * 1000,
+                  this.infrastructure.policy.accountDeletion.cancellationHours * 60 * 60 * 1000,
               ),
               impactSnapshot: {
                 reason: input.reason,

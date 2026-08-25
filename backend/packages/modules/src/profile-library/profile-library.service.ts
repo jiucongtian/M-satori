@@ -30,7 +30,7 @@ export class ProfileLibraryService {
     this.cursors = new CursorCodec(infrastructure.environment.CURSOR_SIGNING_SECRET);
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
-      infrastructure.environment.IDEMPOTENCY_TTL_SECONDS * 1000,
+      infrastructure.policy.idempotency.ttlSeconds * 1000,
     );
   }
 
