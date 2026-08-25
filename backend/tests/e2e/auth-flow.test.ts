@@ -29,40 +29,40 @@ import { DailyInsightService } from '../../packages/modules/src/daily-insight/da
 import { AccountDeletionService } from '../../packages/modules/src/feedback/account-deletion.service.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
-const generateProfileFirstLook = vi.fn((input: {
-  cards: Record<'year' | 'month' | 'day' | 'hour', string>;
-}) => ({
-  content: {
-    schemaVersion: '1.0.0' as const,
-    status: 'complete' as const,
-    profileSummary: {
-      title: '真实初识测试标题',
-      description: '基于四张卡牌生成并持久化的初识测试摘要。',
-      keywords: ['真实接口', '四卡初识'],
-      outerTrait: '外在测试特质',
-      innerTrait: '内在测试特质',
+const generateProfileFirstLook = vi.fn(
+  (input: { cards: Record<'year' | 'month' | 'day' | 'hour', string> }) => ({
+    content: {
+      schemaVersion: '1.0.0' as const,
+      status: 'complete' as const,
+      profileSummary: {
+        title: '真实初识测试标题',
+        description: '基于四张卡牌生成并持久化的初识测试摘要。',
+        keywords: ['真实接口', '四卡初识'],
+        outerTrait: '外在测试特质',
+        innerTrait: '内在测试特质',
+      },
+      cards: [
+        firstLookCard('hour', '思想', input.cards.hour),
+        firstLookCard('day', '行为', input.cards.day),
+        firstLookCard('month', '事业', input.cards.month),
+        firstLookCard('year', '梦想目标', input.cards.year),
+      ],
+      knowledgeRelease: 'e2e',
+      notice: '这是一份基础认识，不是对你人生的定论。' as const,
     },
-    cards: [
-      firstLookCard('hour', '思想', input.cards.hour),
-      firstLookCard('day', '行为', input.cards.day),
-      firstLookCard('month', '事业', input.cards.month),
-      firstLookCard('year', '梦想目标', input.cards.year),
-    ],
-    knowledgeRelease: 'e2e',
-    notice: '这是一份基础认识，不是对你人生的定论。' as const,
-  },
-  manifest: {
-    workflowVersion: 'profile-four-card-first-look/1.0.7' as const,
-    skillVersion: '1.0.0-aqua.3' as const,
-    model: 'e2e-generator',
-    promptVersion: 'e2e-prompt',
-    outputSchemaVersion: 'e2e-schema',
-    contentPolicyVersion: 'e2e-policy',
-  },
-  providerRequestId: 'e2e-aqua-request',
-  providerExecutionId: null,
-  durationMs: 42,
-}));
+    manifest: {
+      workflowVersion: 'profile-four-card-first-look/1.0.7' as const,
+      skillVersion: '1.0.0-aqua.3' as const,
+      model: 'e2e-generator',
+      promptVersion: 'e2e-prompt',
+      outputSchemaVersion: 'e2e-schema',
+      contentPolicyVersion: 'e2e-policy',
+    },
+    providerRequestId: 'e2e-aqua-request',
+    providerExecutionId: null,
+    durationMs: 42,
+  }),
+);
 
 describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
   let app: NestFastifyApplication;
@@ -78,7 +78,15 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       .useValue({ generate: generateProfileFirstLook })
       .compile();
     app = module.createNestApplication<NestFastifyApplication>(createFastifyAdapter());
-    await configureApi(app, validateEnvironment(process.env));
+    await configureApi(
+      app,
+      validateEnvironment({
+        ...process.env,
+        SMS_DELIVERY_MODE: process.env.SMS_DELIVERY_MODE ?? 'FIXED_CODE',
+        AQUA_AI_BASE_URL: process.env.AQUA_AI_BASE_URL ?? 'https://aqua.example.com',
+        AQUA_AI_SERVICE_KEY: process.env.AQUA_AI_SERVICE_KEY ?? 'test-service-key-with-safe-length',
+      }),
+    );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     const infrastructure = app.get(RuntimeInfrastructure);
@@ -163,7 +171,16 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       data: {
         revisionId: string;
         inputFingerprint: string;
-        cards: { dimension: string; title: string; order: number; cardId: number; cardCode: string; ganzhi: string; assetUrl: string; deckCode: string }[];
+        cards: {
+          dimension: string;
+          title: string;
+          order: number;
+          cardId: number;
+          cardCode: string;
+          ganzhi: string;
+          assetUrl: string;
+          deckCode: string;
+        }[];
       };
     }>().data;
     expect(previewBody.cards.map((card) => card.dimension)).toEqual([
@@ -181,7 +198,9 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(previewBody.cards.map((card) => card.ganzhi)).toEqual(['庚午', '辛巳', '乙酉', '壬午']);
     expect(previewBody.cards.every((card) => card.cardId >= 1 && card.cardId <= 60)).toBe(true);
     expect(previewBody.cards.every((card) => card.deckCode === 'satori-default-v1')).toBe(true);
-    expect(previewBody.cards.every((card) => card.assetUrl.startsWith('/cards/satori-default-v1/'))).toBe(true);
+    expect(previewBody.cards.every((card) => card.assetUrl.startsWith('/cards/satori-default-v1/'))).toBe(
+      true,
+    );
 
     const replay = await app.inject({
       method: 'POST',
@@ -344,9 +363,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(home.statusCode).toBe(200);
-    expect(home.json<{ data: { profile: { displayName: string } } }>().data.profile.displayName).toBe(
-      'Fred',
-    );
+    expect(home.json<{ data: { profile: { displayName: string } } }>().data.profile.displayName).toBe('Fred');
     const list = await app.inject({
       method: 'GET',
       url: '/api/v1/me/life-profile/revisions?limit=20',
@@ -442,9 +459,9 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       headers: idempotentAuthHeaders('other-profile-first-look-01'),
     });
     expect(otherFirstLook.statusCode, otherFirstLook.body).toBe(200);
-    expect(
-      otherFirstLook.json<{ data: { status: string; profileRevisionId: string } }>().data,
-    ).toMatchObject({ status: 'READY', profileRevisionId: revision.revisionId });
+    expect(otherFirstLook.json<{ data: { status: string; profileRevisionId: string } }>().data).toMatchObject(
+      { status: 'READY', profileRevisionId: revision.revisionId },
+    );
     const persistedOtherFirstLook = await app.inject({
       method: 'GET',
       url: `/api/v1/me/life-profile/revisions/${revision.revisionId}/first-look`,

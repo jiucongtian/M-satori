@@ -6,7 +6,7 @@
  */
 export const R1_RUNTIME_POLICY = {
   /** 对外暴露的配置版本；客户端和运维可用它确认当前规则版本。 */
-  version: 'r1.0-2026-08-25.1',
+  version: 'r1.0-2026-08-25.2',
 
   auth: {
     /** Access Token 有效期（秒）；影响新签发 Token 的过期时间。 */
@@ -44,6 +44,8 @@ export const R1_RUNTIME_POLICY = {
   profile: {
     /** 档案预览结果有效期（秒）；过期后必须重新生成预览。 */
     previewTtlSeconds: 86_400,
+    /** PROFILE-11 生成记录超过该时长（毫秒）仍未完成时，可由后续请求接管恢复。 */
+    firstLookStaleAfterMs: 330_000,
   },
 
   dailyInsight: {

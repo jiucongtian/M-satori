@@ -48,7 +48,7 @@ export class ProfileFirstLookService {
     private readonly infrastructure: RuntimeInfrastructure,
     private readonly cipher: FieldCipher,
     @Inject(PROFILE_FIRST_LOOK_GENERATOR)
-    private readonly generator: ProfileFirstLookGenerator | null,
+    private readonly generator: ProfileFirstLookGenerator,
   ) {
     this.idempotency = new IdempotencyService(
       new PostgresIdempotencyStore(infrastructure.database, cipher),
@@ -69,12 +69,6 @@ export class ProfileFirstLookService {
   }
 
   async generate(input: { userId: string; revisionId: string; idempotencyKey: string }) {
-    if (!this.generator) {
-      throw new ServiceUnavailableException({
-        code: 'PROFILE_FIRST_LOOK_UNAVAILABLE',
-        message: 'Profile first-look generation is not enabled',
-      });
-    }
     const result = await this.idempotency.execute(
       {
         actorKey: `user:${input.userId}`,
@@ -131,7 +125,7 @@ export class ProfileFirstLookService {
     }
 
     try {
-      const generated = await this.generator!.generate({
+      const generated = await this.generator.generate({
         idempotencyKey: report.idempotencyKey,
         runReference: report.runReference,
         name: displayName,
@@ -241,10 +235,7 @@ export class ProfileFirstLookService {
   }
 
   private isStale(report: FirstLookReportRow) {
-    return (
-      Date.now() - report.updatedAt.getTime() >
-      this.infrastructure.environment.PROFILE_FIRST_LOOK_TIMEOUT_MS + 30_000
-    );
+    return Date.now() - report.updatedAt.getTime() > this.infrastructure.policy.profile.firstLookStaleAfterMs;
   }
 
   private toDto(report: FirstLookReportRow) {

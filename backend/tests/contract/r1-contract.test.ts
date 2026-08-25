@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DailyInsightContentSchema, validateDailyInsightResult } from '@satori/application';
-import { DeterministicDailyInsightGenerator } from '../../packages/modules/src/integrations/daily-insight/deterministic-daily-insight.generator.js';
 import { describe, expect, it } from 'vitest';
 
 const backendRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -97,49 +96,27 @@ describe('R1 delivery contract', () => {
     expect(openapi).toContain('notice: {const: 这是一份基础认识，不是对你人生的定论。}');
   });
 
-  it('keeps the Aqua replacement stub deterministic and schema-valid', async () => {
-    const generator = new DeterministicDailyInsightGenerator();
-    const input = {
-      dailyInsightId: '00000000-0000-7000-8000-000000000001',
-      localDate: '2026-08-10',
-      timezone: 'Asia/Shanghai',
-      profileRevisionId: '00000000-0000-7000-8000-000000000002',
-      astrologySnapshot: {},
-      cards: [],
+  it('validates provider-neutral daily-insight content', () => {
+    const result = {
+      content: {
+        theme: '保持清晰的边界',
+        insight: '今天适合观察自己的感受与选择。',
+        action: '选择一件真正重要的小事。',
+        reflectionQuestion: '今天什么事情最值得投入注意力？',
+        notice: '内容用于自我观察与成长参考。' as const,
+      },
+      manifest: {
+        generator: 'AQUA_AI',
+        modelVersion: 'contract-test',
+        promptVersion: 'daily-insight/1.0',
+        knowledgeVersion: 'knowledge/2026-08-10',
+        schemaVersion: 'daily-insight/1.0',
+        contentPolicyVersion: 'r1.0',
+        generatedAt: new Date(0).toISOString(),
+      },
     };
-    const first = await generator.generate(input);
-    const second = await generator.generate(input);
-    expect(first.content).toEqual(second.content);
-    expect(DailyInsightContentSchema.parse(first.content)).toEqual(first.content);
-    expect(validateDailyInsightResult(first)).toBe(first);
-    expect(first.manifest).toMatchObject({
-      generator: 'DETERMINISTIC_STUB',
-      schemaVersion: 'daily-insight/1.0',
-      contentPolicyVersion: 'r1.0',
-    });
-  });
-
-  it('exposes test-only deterministic generator fault modes', async () => {
-    const previousMode = process.env.DAILY_INSIGHT_STUB_MODE;
-    const generator = new DeterministicDailyInsightGenerator();
-    const input = {
-      dailyInsightId: '00000000-0000-7000-8000-000000000003',
-      localDate: '2026-08-10',
-      timezone: 'Asia/Shanghai',
-      profileRevisionId: '00000000-0000-7000-8000-000000000004',
-      astrologySnapshot: {},
-      cards: [],
-    };
-    try {
-      process.env.DAILY_INSIGHT_STUB_MODE = 'FAILURE';
-      await expect(generator.generate(input)).rejects.toMatchObject({
-        message: 'Test daily-insight generator failure',
-        code: 'TEST_GENERATION_FAILURE',
-      });
-    } finally {
-      if (previousMode === undefined) delete process.env.DAILY_INSIGHT_STUB_MODE;
-      else process.env.DAILY_INSIGHT_STUB_MODE = previousMode;
-    }
+    expect(DailyInsightContentSchema.parse(result.content)).toEqual(result.content);
+    expect(validateDailyInsightResult(result)).toBe(result);
   });
 
   it('does not log raw authentication or birth-data secrets', () => {
@@ -155,14 +132,9 @@ describe('R1 delivery contract', () => {
   });
 
   it('keeps /me nextAction aligned with pending registration rewards', () => {
-    const source = readFileSync(
-      `${backendRoot}/packages/modules/src/identity/me/me.service.ts`,
-      'utf8',
-    );
+    const source = readFileSync(`${backendRoot}/packages/modules/src/identity/me/me.service.ts`, 'utf8');
     expect(source).toContain('registrationRewards.status');
-    expect(source).toMatch(
-      /reward\?\.status === 'AVAILABLE' \? 'CLAIM_REGISTRATION_REWARD' : 'VIEW_HOME'/u,
-    );
+    expect(source).toMatch(/reward\?\.status === 'AVAILABLE' \? 'CLAIM_REGISTRATION_REWARD' : 'VIEW_HOME'/u);
     expect(source).toMatch(/nextAction = await this\.resolveNextAction/u);
   });
 });

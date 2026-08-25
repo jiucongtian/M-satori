@@ -28,7 +28,7 @@ import { MeService } from './me/me.service.js';
       provide: SMS_GATEWAY,
       inject: [RuntimeInfrastructure],
       useFactory: (infrastructure: RuntimeInfrastructure) =>
-        infrastructure.environment.NODE_ENV === 'production'
+        infrastructure.environment.SMS_DELIVERY_MODE === 'GATEWAY'
           ? new HttpSmsGateway(infrastructure)
           : new DevelopmentSmsGateway(),
     },

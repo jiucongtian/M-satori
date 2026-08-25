@@ -70,7 +70,14 @@ describe('foundation API integration', () => {
       ],
     }).compile();
     app = module.createNestApplication<NestFastifyApplication>(createFastifyAdapter());
-    await configureApi(app, validateEnvironment({}));
+    await configureApi(
+      app,
+      validateEnvironment({
+        SMS_DELIVERY_MODE: 'FIXED_CODE',
+        AQUA_AI_BASE_URL: 'https://aqua.example.com',
+        AQUA_AI_SERVICE_KEY: 'test-service-key-with-safe-length',
+      }),
+    );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });

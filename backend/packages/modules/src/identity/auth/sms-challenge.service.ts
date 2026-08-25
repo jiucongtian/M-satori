@@ -72,7 +72,9 @@ export class SmsChallengeService {
         );
         const challengeId = newId();
         const code =
-          environment.NODE_ENV === 'production' ? String(randomInt(0, 1_000_000)).padStart(6, '0') : '123456';
+          environment.SMS_DELIVERY_MODE === 'GATEWAY'
+            ? String(randomInt(0, 1_000_000)).padStart(6, '0')
+            : '123456';
         const now = Date.now();
         const expiresAt = new Date(now + policy.otpTtlSeconds * 1000);
         const resendAvailableAt = new Date(now + policy.otpResendSeconds * 1000);

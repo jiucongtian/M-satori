@@ -1,12 +1,12 @@
 name: satori-test
 
 x-app-environment: &app-environment
-  NODE_ENV: test
   HOST: 0.0.0.0
   PORT: 3000
   DATABASE_URL: postgresql://satori:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/satori
   REDIS_URL: redis://redis:6379
   COOKIE_SECURE: 'true'
+  SMS_DELIVERY_MODE: FIXED_CODE
 
 services:
   postgres:
