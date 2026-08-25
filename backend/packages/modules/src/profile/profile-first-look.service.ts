@@ -153,10 +153,7 @@ export class ProfileFirstLookService {
           updatedAt: completedAt,
         })
         .where(
-          and(
-            eq(profileFirstLookReports.id, report.id),
-            eq(profileFirstLookReports.ownerUserId, userId),
-          ),
+          and(eq(profileFirstLookReports.id, report.id), eq(profileFirstLookReports.ownerUserId, userId)),
         )
         .returning();
       if (!updated) throw new Error('Profile first-look report completion failed');
@@ -174,10 +171,7 @@ export class ProfileFirstLookService {
           updatedAt: new Date(),
         })
         .where(
-          and(
-            eq(profileFirstLookReports.id, report.id),
-            eq(profileFirstLookReports.ownerUserId, userId),
-          ),
+          and(eq(profileFirstLookReports.id, report.id), eq(profileFirstLookReports.ownerUserId, userId)),
         );
       throw toHttpException(failure);
     }
@@ -286,16 +280,17 @@ function normalizeFailure(error: unknown): StoredFailure {
     ...(typeof candidate?.providerExecutionId === 'string'
       ? { providerExecutionId: candidate.providerExecutionId }
       : {}),
-    ...(typeof candidate?.upstreamStatus === 'number'
-      ? { upstreamStatus: candidate.upstreamStatus }
-      : {}),
+    ...(typeof candidate?.upstreamStatus === 'number' ? { upstreamStatus: candidate.upstreamStatus } : {}),
     ...(typeof candidate?.retryAfter === 'string' ? { retryAfter: candidate.retryAfter } : {}),
     ...(typeof candidate?.elapsedMs === 'number' ? { elapsedMs: candidate.elapsedMs } : {}),
   };
 }
 
 function toHttpException(failure: StoredFailure) {
-  const details = { retryable: failure.retryable, ...(failure.retryAfter ? { retryAfter: failure.retryAfter } : {}) };
+  const details = {
+    retryable: failure.retryable,
+    ...(failure.retryAfter ? { retryAfter: failure.retryAfter } : {}),
+  };
   if (failure.upstreamStatus === 429) {
     return new HttpException(
       { code: 'PROFILE_FIRST_LOOK_RATE_LIMITED', message: '初识内容生成繁忙，请稍后手动重试', details },

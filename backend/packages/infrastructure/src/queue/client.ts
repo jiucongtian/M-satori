@@ -14,7 +14,10 @@ export function queueExecutionPolicy(environment: Environment): QueueExecutionPo
   return { concurrency: environment.QUEUE_CONCURRENCY, jobTimeoutMs: environment.QUEUE_JOB_TIMEOUT_MS };
 }
 
-export function createQueueInfrastructure(environment: Environment, policy: RuntimePolicy): {
+export function createQueueInfrastructure(
+  environment: Environment,
+  policy: RuntimePolicy,
+): {
   redis: Redis;
   generationQueue: Queue;
 } {

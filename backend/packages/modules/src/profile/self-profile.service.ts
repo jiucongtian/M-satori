@@ -104,7 +104,10 @@ export class SelfProfileService {
       .where(and(eq(subjects.id, profile.subjectId), eq(subjects.ownerUserId, userId)))
       .limit(1);
     if (!subject) {
-      throw new NotFoundException({ code: 'LIFE_PROFILE_SUBJECT_NOT_FOUND', message: 'Profile subject not found' });
+      throw new NotFoundException({
+        code: 'LIFE_PROFILE_SUBJECT_NOT_FOUND',
+        message: 'Profile subject not found',
+      });
     }
     const currentRevision = profile.activeRevisionId
       ? await this.getRevision(userId, profile.activeRevisionId)
@@ -609,38 +612,40 @@ async function createCards(chart: BirthChartResult, catalog: CardCatalogService)
       pillar: chart.calculationPreview.pillars.hour,
     },
   ];
-  return Promise.all(definitions.map(async (definition) => {
-    const card: ResolvedCard | null = definition.pillar
-      ? await catalog.resolveGanzhi(definition.pillar)
-      : null;
-    return {
-      dimension: definition.dimension,
-      title: `${definition.title}卡牌`,
-      order: definition.order,
-      cardId: card?.cardId ?? null,
-      cardCode: card?.cardCode ?? 'UNKNOWN',
-      ganzhi: card?.ganzhi ?? null,
-      zodiac: card?.zodiac ?? null,
-      season: card?.season ?? null,
-      talentMark: card?.talentMark ?? null,
-      abilityMark: card?.abilityMark ?? null,
-      journeyMark: card?.journeyMark ?? null,
-      deckCode: card?.deckCode ?? 'satori-default-v1',
-      deckVersion: card?.deckVersion ?? '1.0.0',
-      assetUrl: card?.assetUrl ?? null,
-      altText: card?.altText ?? '暂未确定的自我关系卡牌',
-      summary: card
-        ? `${card.ganzhi} · ${card.talentMark} · ${card.journeyMark}`
-        : '出生时间未知，暂不能确定自我关系卡牌',
-      uncertainty:
-        definition.dimension === 'SELF' && chart.calculationPreview.certainty === 'LOW'
-          ? '出生时间未知 · 暂按子时生成'
-          : null,
-      mappingVersion: 'pillar-card-map/2.0',
-      knowledgeVersion: 'relationship-card-knowledge/1.0',
-      snapshotPillar: definition.pillar ?? 'UNKNOWN',
-    };
-  }));
+  return Promise.all(
+    definitions.map(async (definition) => {
+      const card: ResolvedCard | null = definition.pillar
+        ? await catalog.resolveGanzhi(definition.pillar)
+        : null;
+      return {
+        dimension: definition.dimension,
+        title: `${definition.title}卡牌`,
+        order: definition.order,
+        cardId: card?.cardId ?? null,
+        cardCode: card?.cardCode ?? 'UNKNOWN',
+        ganzhi: card?.ganzhi ?? null,
+        zodiac: card?.zodiac ?? null,
+        season: card?.season ?? null,
+        talentMark: card?.talentMark ?? null,
+        abilityMark: card?.abilityMark ?? null,
+        journeyMark: card?.journeyMark ?? null,
+        deckCode: card?.deckCode ?? 'satori-default-v1',
+        deckVersion: card?.deckVersion ?? '1.0.0',
+        assetUrl: card?.assetUrl ?? null,
+        altText: card?.altText ?? '暂未确定的自我关系卡牌',
+        summary: card
+          ? `${card.ganzhi} · ${card.talentMark} · ${card.journeyMark}`
+          : '出生时间未知，暂不能确定自我关系卡牌',
+        uncertainty:
+          definition.dimension === 'SELF' && chart.calculationPreview.certainty === 'LOW'
+            ? '出生时间未知 · 暂按子时生成'
+            : null,
+        mappingVersion: 'pillar-card-map/2.0',
+        knowledgeVersion: 'relationship-card-knowledge/1.0',
+        snapshotPillar: definition.pillar ?? 'UNKNOWN',
+      };
+    }),
+  );
 }
 
 function validateBirthInput(input: BirthInput): void {

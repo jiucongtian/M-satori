@@ -1,9 +1,5 @@
 import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import {
-  homeEnergyPrewarmPolicy,
-  preferences,
-  RuntimeInfrastructure,
-} from '@satori/infrastructure';
+import { homeEnergyPrewarmPolicy, preferences, RuntimeInfrastructure } from '@satori/infrastructure';
 import { HomeEnergySummaryService } from './home-energy-summary.service.js';
 
 @Injectable()
@@ -43,11 +39,7 @@ export class HomeEnergySummaryPrewarmWorker implements OnModuleInit, OnApplicati
         timezoneRows.map((row) => row.timezone),
         prewarmPolicy.days,
       );
-      const report = await this.summaries.prewarm(
-        dates,
-        prewarmPolicy.concurrency,
-        prewarmPolicy.spacingMs,
-      );
+      const report = await this.summaries.prewarm(dates, prewarmPolicy.concurrency, prewarmPolicy.spacingMs);
       console.info('home_energy_summary_prewarm_completed', { dates, ...report });
     } catch (error) {
       console.error('home_energy_summary_prewarm_cycle_failed', {

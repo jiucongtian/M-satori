@@ -40,10 +40,7 @@ export class OutboxPublisher implements OnModuleInit, OnApplicationShutdown {
           published += 1;
         } catch (error) {
           const attempts = event.attempts + 1;
-          const backoffMs = Math.min(
-            60_000,
-            this.infrastructure.policy.queue.backoffMs * 2 ** attempts,
-          );
+          const backoffMs = Math.min(60_000, this.infrastructure.policy.queue.backoffMs * 2 ** attempts);
           await this.infrastructure.database
             .update(outbox)
             .set({ attempts, availableAt: new Date(Date.now() + backoffMs) })

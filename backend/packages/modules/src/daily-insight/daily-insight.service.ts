@@ -154,9 +154,7 @@ export class DailyInsightService implements OnModuleInit {
   async list(userId: string, input: { cursor?: string; limit?: number }) {
     const limit = normalizePageLimit(input.limit);
     const cursor = input.cursor ? this.cursors.decode(input.cursor) : null;
-    const cutoff = new Date(
-      Date.now() - this.infrastructure.policy.dailyInsight.historyDays * 86_400_000,
-    );
+    const cutoff = new Date(Date.now() - this.infrastructure.policy.dailyInsight.historyDays * 86_400_000);
     const rows = await this.infrastructure.database
       .select()
       .from(dailyInsights)
@@ -223,9 +221,7 @@ export class DailyInsightService implements OnModuleInit {
       ? await this.infrastructure.database
           .select({ id: revisions.id })
           .from(revisions)
-          .where(
-            and(eq(revisions.profileId, profileRow.profile.id), eq(revisions.status, 'CALCULATED')),
-          )
+          .where(and(eq(revisions.profileId, profileRow.profile.id), eq(revisions.status, 'CALCULATED')))
           .orderBy(desc(revisions.createdAt))
           .limit(1)
       : [undefined];

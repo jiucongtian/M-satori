@@ -25,10 +25,7 @@ describe('runtime baseline', () => {
     const example = readFileSync(resolve(process.cwd(), '.env.example'), 'utf8');
     for (const name of environmentVariableNames) {
       expect(example, `${name} must have complete comments`).toMatch(
-        new RegExp(
-          `# 用途：[^\\n]+\\n# 取值：[^\\n]+\\n# 影响：[^\\n]+\\n(?:# )?${name}=`,
-          'm',
-        ),
+        new RegExp(`# 用途：[^\\n]+\\n# 取值：[^\\n]+\\n# 影响：[^\\n]+\\n(?:# )?${name}=`, 'm'),
       );
     }
   });

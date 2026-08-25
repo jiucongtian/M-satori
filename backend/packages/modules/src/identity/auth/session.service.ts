@@ -231,11 +231,7 @@ export class SessionService {
       .innerJoin(subjects, eq(subjects.id, lifeProfiles.subjectId))
       .leftJoin(revisions, and(eq(revisions.profileId, lifeProfiles.id), eq(revisions.status, 'CALCULATED')))
       .where(
-        and(
-          eq(lifeProfiles.ownerUserId, userId),
-          eq(subjects.type, 'SELF'),
-          isNull(lifeProfiles.deletedAt),
-        ),
+        and(eq(lifeProfiles.ownerUserId, userId), eq(subjects.type, 'SELF'), isNull(lifeProfiles.deletedAt)),
       )
       .limit(1);
     if (!profile) return 'CREATE_PROFILE';
