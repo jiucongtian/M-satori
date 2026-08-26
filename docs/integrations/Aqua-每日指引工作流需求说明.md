@@ -4,7 +4,7 @@
 
 **适用版本：** Satori R1.0
 
-**事实核验日期：** 2026-08-13
+**事实核验日期：** 2026-08-26
 
 **代码基线：** `29ec485 feat(daily-insight): integrate Aqua AI workflow`
 
@@ -51,14 +51,15 @@ sequenceDiagram
 
 ## 3. 代码与职责映射
 
-| 路径                                                                                           | 当前职责                                                 |
-| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.ts`      | Aqua 输入转换、SDK 调用、响应校验、错误映射              |
-| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.spec.ts` | 输入、成功映射、活动版本、网络错误和 Schema 错误测试     |
-| `backend/packages/modules/src/integrations/integrations.module.ts`                             | 根据环境变量选择 Stub 或 Aqua，并创建 service-key 客户端 |
-| `backend/packages/application/src/daily-insight/daily-insight-generator.ts`                    | Satori 生成器接口、最终内容 Schema 和发布侧安全检查      |
-| `backend/packages/infrastructure/src/config/environment.ts`                                    | 环境变量校验和生产环境门禁                               |
-| `backend/vendor/aqua-ai-sdk-0.1.1.tgz`                                                         | 当前锁定的 Aqua SDK 交付包                               |
+| 路径                                                                                           | 当前职责                                               |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.ts`      | Aqua 输入转换、SDK 调用、响应校验、错误映射            |
+| `backend/packages/modules/src/integrations/daily-insight/aqua-daily-insight.generator.spec.ts` | 输入、成功映射、活动版本、网络错误和 Schema 错误测试   |
+| `backend/packages/modules/src/integrations/aqua/aqua-client.factory.ts`                        | 统一读取 Aqua 租户地址和 Service Key 并创建 SDK 客户端 |
+| `backend/packages/modules/src/integrations/integrations.module.ts`                             | 注入固定 Workflow 策略和统一 Aqua 客户端               |
+| `backend/packages/application/src/daily-insight/daily-insight-generator.ts`                    | Satori 生成器接口、最终内容 Schema 和发布侧安全检查    |
+| `backend/packages/infrastructure/src/config/environment.ts`                                    | 环境变量校验和生产环境门禁                             |
+| `backend/vendor/aqua-ai-sdk-0.1.1.tgz`                                                         | 当前锁定的 Aqua SDK 交付包                             |
 
 职责边界保持如下：
 
@@ -77,15 +78,14 @@ sequenceDiagram
 
 ```ts
 await aqua.workflows.run(workflowId, {
-  workflowVersion, // 可选；省略时使用 Aqua 当前激活版本
   idempotencyKey: `daily-insight:${dailyInsightId}`,
   runReference: dailyInsightId,
   input,
 });
 ```
 
-- `workflowId` 默认是 `daily-insight`；
-- `workflowVersion` 仅在配置 `AQUA_AI_WORKFLOW_VERSION` 时传入；
+- `workflowId` 由版本化策略固定为 `daily-insight`；
+- 当前不传 `workflowVersion`，统一使用 Aqua 当前激活版本；如需锁定或回滚版本，应通过代码策略和正常发版完成，不能单独修改服务器环境变量；
 - SDK 默认请求超时为 300 秒，当前 Satori 没有单独覆盖；
 - SDK 对工作流调用默认不自动重试；失败后的任务重试由 Satori Worker 依据错误的 `retryable` 属性处理；
 - 同一 `dailyInsightId` 始终产生相同的 Aqua 幂等键。
@@ -145,16 +145,14 @@ Satori 会将这些字段与 SDK 返回的 `requestId` 一并映射到正式生�
 
 ## 6. 配置与环境门禁
 
-| 环境变量                   | 规则                                           |
-| -------------------------- | ---------------------------------------------- |
-| `AQUA_AI_BASE_URL`         | 所有运行环境必填，必须为合法 URL               |
-| `AQUA_AI_SERVICE_KEY`      | 所有运行环境必填，至少 20 字符，只能服务端注入 |
-| `AQUA_AI_WORKFLOW_ID`      | 默认 `daily-insight`                           |
-| `AQUA_AI_WORKFLOW_VERSION` | 可选；省略时使用 Aqua 当前激活版本             |
+| 环境变量           | 规则                                                            |
+| ------------------ | --------------------------------------------------------------- |
+| `AQUA_BASE_URL`    | 所有运行环境必填，必须为合法 URL；由所有 Aqua Workflow 共用     |
+| `AQUA_SERVICE_KEY` | 所有运行环境必填，至少 20 字符；可调用同一租户下的全部 Workflow |
 
 所有运行环境统一要求：
 
-- 必须配置 Aqua base URL 和 service key；
+- 必须配置唯一的 Aqua Base URL 和 Service Key；每日指引与首页摘要共用同一连接工厂；
 - service key 不得进入前端、Git、日志、异常正文或普通交接文档；
 - 不同环境应使用独立租户凭据，并通过 Secret Manager 或等价设施轮换。
 
@@ -177,13 +175,13 @@ Satori 当前队列默认：任务超时 360 秒、最多 5 次尝试、2 秒起
 截至 2026-08-13：
 
 - Aqua 适配器单元测试覆盖 SDK 默认超时/零自动重试、输入映射、固定版本、活动版本、成功结果、网络错误和输出 Schema 错误；
-- 环境配置测试覆盖启用 Aqua 时缺少 URL/key 的拒绝，以及合法配置的解析；
+- 环境配置测试覆盖统一 Aqua URL/key 缺失时的拒绝，以及合法配置的解析；
 - 合并后后端 `typecheck` 通过，后端测试为 58 项通过、10 项环境相关跳过；
 - 以上测试使用 mock/fake 响应，不构成真实 Aqua Staging 证明。
 
 ## 9. Staging 待验收清单
 
-- [ ] 通过安全渠道配置测试租户 `AQUA_AI_BASE_URL` 与 `AQUA_AI_SERVICE_KEY`。
+- [ ] 通过安全渠道配置测试租户 `AQUA_BASE_URL` 与 `AQUA_SERVICE_KEY`。
 - [ ] 确认租户已授权 `daily-insight` 工作流，并决定固定版本还是使用当前激活版本。
 - [ ] 完成一条真实 Aqua 成功生成。
 - [ ] 核对输入映射、结果长度、固定 notice、manifest 全字段和 `requestId`。
@@ -209,7 +207,7 @@ Satori 当前队列默认：任务超时 360 秒、最多 5 次尝试、2 秒起
 ## 11. 待双方确认
 
 1. Aqua Staging 的实际 base URL、租户授权和 service key 下发/轮换流程。
-2. `daily-insight` 当前激活版本及生产是否必须固定 `AQUA_AI_WORKFLOW_VERSION`。
+2. `daily-insight` 当前激活版本及生产是否需要在版本化代码策略中固定 Workflow 版本。
 3. 真实工作流最大耗时、限流、并发、余额不足和幂等保留语义。
 4. manifest 各版本字段的发布与兼容规则。
 5. 输入、输出、日志和运行记录的保存期限及禁止训练/二次使用约束。

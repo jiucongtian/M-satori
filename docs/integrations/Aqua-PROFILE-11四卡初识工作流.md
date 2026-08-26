@@ -8,7 +8,7 @@
 - 固定版本：`profile-four-card-first-look/1.0.7`
 - Skill 版本：`1.0.0-aqua.3`
 - SDK：`@aqua-ai/sdk`
-- 认证：仅后端使用 `AQUA_AI_SERVICE_KEY`，不得进入代码、日志或前端包
+- 历史认证：仅后端使用 Aqua Service Key，不得进入代码、日志或前端包；旧变量名已经删除
 - 超时：300 秒
 - 重试：不自动重试；人工重试复用同一业务报告中持久化的 Aqua `idempotencyKey`
 

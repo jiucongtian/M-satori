@@ -2,7 +2,7 @@
 
 **适用版本：** Satori R1.0
 
-**事实核验日期：** 2026-08-17
+**事实核验日期：** 2026-08-26
 
 **当前状态：** 共享组合预热已部署并完成测试环境验收；未来三天均为 60/60，全新账号首次有效首页请求 19 毫秒返回共享 `READY` 且未新增用户级缓存
 
@@ -48,23 +48,16 @@ Satori 从 Aqua `result` 严格读取并映射：
 
 同一天的 `heaven_card` 固定，用户 `day_card` 只有六十甲子 60 种，因此 Worker 为每个目标日期预生成 60 个组合。校验成功后写入共享表 `daily_energy_home_summary_cache`，唯一键为日期、日卡和工作流版本。默认覆盖各活跃用户时区的今天及未来两天；时区落在不同自然日时自动取日期并集。
 
-`home-overview` 只按用户当天日期和日卡读取共享缓存，不在请求链路调用 Aqua；命中后在内存中补上当前用户称呼并返回 `dailyEnergySummary.state=READY`。预热尚未完成或 Aqua 失败时立即返回 `UNAVAILABLE`，前端不等待 LLM，也不展示写死建议。旧的 `daily_energy_home_summaries` 仅用于平滑兼容已经生成的用户级缓存；关闭预热开关时保留原按用户即时生成模式。
+`home-overview` 只按用户当天日期和日卡读取共享缓存，不在请求链路调用 Aqua；命中后在内存中补上当前用户称呼并返回 `dailyEnergySummary.state=READY`。预热尚未完成或 Aqua 失败时立即返回 `UNAVAILABLE`，前端不等待 LLM，也不展示写死建议。旧的 `daily_energy_home_summaries` 仅用于平滑兼容已经生成的用户级缓存；系统不再提供关闭预热后按用户即时生成的环境分支。
 
 ## 4. 配置与安全
 
-| 环境变量 | 规则 |
-| --- | --- |
-| `HOME_ENERGY_SUMMARY_ENABLED` | 默认 `false`；测试/生产启用时设为 `true` |
-| `AQUA_BASE_URL` | 启用时必填，合法 URL |
-| `AQUA_TENANT_SERVICE_KEY` | 启用时必填，至少 20 字符，只能注入服务端 |
-| `HOME_ENERGY_SUMMARY_TIMEOUT_MS` | 默认 15 秒 |
-| `HOME_ENERGY_SUMMARY_MAX_ATTEMPTS` | 默认 2，最大 3 |
-| `HOME_ENERGY_SUMMARY_RETRY_BACKOFF_MS` | 默认 250 毫秒 |
-| `HOME_ENERGY_PREWARM_ENABLED` | 默认 `false`；启用后首页只读共享缓存，Aqua 调用由 Worker 执行 |
-| `HOME_ENERGY_PREWARM_DAYS` | 默认 3，表示今天起连续三天，范围 1—7 |
-| `HOME_ENERGY_PREWARM_CONCURRENCY` | 默认 3，范围 1—10 |
-| `HOME_ENERGY_PREWARM_SPACING_MS` | 默认 5000 毫秒；通过 Redis 在多 Worker 间统一限制 Aqua 请求启动速率。按最多一次重试计算，最坏约 24 次/分钟，低于工作流 30 次/分钟限制 |
-| `HOME_ENERGY_PREWARM_INTERVAL_MS` | 默认每小时补齐一次，最小 60 秒 |
+| 环境变量           | 规则                                                      |
+| ------------------ | --------------------------------------------------------- |
+| `AQUA_BASE_URL`    | 所有环境必填；与完整每日指引共用同一租户地址              |
+| `AQUA_SERVICE_KEY` | 所有环境必填，至少 20 字符；可调用该租户下的全部 Workflow |
+
+Workflow ID/版本、15 秒请求超时、最多 2 次尝试、250 毫秒退避，以及“3 天、并发 3、5 秒间隔、每小时运行”的预热规则统一保存在 `runtime-policy.ts`。它们是业务运行基线，不允许测试和生产通过环境变量形成不同逻辑。Worker 始终负责预热，API 始终只读共享缓存。
 
 service key 不进入前端构建、OpenAPI、数据库业务内容或普通日志。
 
@@ -93,6 +86,6 @@ service key 不进入前端构建、OpenAPI、数据库业务内容或普通日�
 
 2026-08-17 测试环境验收记录：`release/r1.0@a2e8102` 已部署至 `test-satori.shenxinyou.com`，迁移、API 健康检查、静态前端和真实账号首页请求均已执行。首次请求曾因 Aqua 租户授权返回非重试错误 `WORKFLOW_SCOPE_DENIED`，Satori 正确降级为 `UNAVAILABLE`；授权完成后复验返回 `READY`，问候、指引、能量等级、适合事项、注意事项及规则/文案版本均完整。隔离账号连续请求两次的响应完全一致，最近五分钟数据库仅新增一条 `daily_energy_home_summaries` 记录，证明同日第二次请求复用了缓存。公网首页和 bootstrap 均返回 HTTP 200。
 
-2026-08-17 共享预热验收记录：后端 `ba9b51d` 已部署，迁移 `0006_known_ultimates.sql` 成功。Aqua 工作流限制确认为每分钟 30 次；Satori 使用 Redis 全局 5 秒发车间隔，按最多一次重试计算最坏约 24 次/分钟。Aqua 内部 LLM 配置修复后缓存恢复增长；隔离新账号确认档案后的首次首页请求 19 毫秒返回 `READY`，第二次响应一致，字段完整，`daily_energy_home_summaries` 新增数为 0，证明请求链路只读共享缓存且没有同步调用 Aqua。测试环境将后台客户端超时放宽为 60 秒、可重试退避设为 10 秒，以容纳预热场景的慢响应。
+2026-08-17 共享预热验收记录：后端 `ba9b51d` 已部署，迁移 `0006_known_ultimates.sql` 成功。Aqua 工作流限制确认为每分钟 30 次；Satori 使用 Redis 全局 5 秒发车间隔，按最多一次重试计算最坏约 24 次/分钟。Aqua 内部 LLM 配置修复后缓存恢复增长；隔离新账号确认档案后的首次首页请求 19 毫秒返回 `READY`，第二次响应一致，字段完整，`daily_energy_home_summaries` 新增数为 0，证明请求链路只读共享缓存且没有同步调用 Aqua。2026-08-26 起测试与生产统一采用版本化的 15 秒超时和 250 毫秒退避，不再允许服务器单独覆盖。
 
 最终缓存验收：`2026-08-17`、`2026-08-18`、`2026-08-19` 均为 60 条，共 180 条。Aqua 内部执行截止的少数组合通过后续补洞轮次恢复；最终一轮报告为 `requested=180`、`generated=1`、`cached=179`、`locked=0`、`failed=0`。
