@@ -26,8 +26,36 @@ describe('shared home energy summaries', () => {
   it('personalizes only the response copy without mutating shared cache content', () => {
     expect(personalizeGreeting(sharedSummary, ' 小满 ')).toMatchObject({ greeting: '小满，你好' });
     expect(sharedSummary.greeting).toBe('你好');
-    expect(personalizeGreeting({ ...sharedSummary, greeting: '朋友，你好' }, 'Fred').greeting).toBe('Fred，你好');
+    expect(personalizeGreeting({ ...sharedSummary, greeting: '朋友，你好' }, 'Fred').greeting).toBe(
+      'Fred，你好',
+    );
     expect(personalizeGreeting({ ...sharedSummary, greeting: '早上好' }, '  ').greeting).toBe('你好');
+  });
+
+  it('returns immediately on a cache miss without calling Aqua from the HTTP path', async () => {
+    const generate = vi.fn();
+    const infrastructure = {
+      policy: {
+        aqua: { homeEnergySummary: { workflowVersion: 'daily-energy-home-summary/1.0.3' } },
+      },
+      database: {
+        select: vi.fn(() => ({
+          from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
+        })),
+      },
+    };
+    const service = new HomeEnergySummaryService(infrastructure as never, { generate });
+
+    await expect(
+      service.get({
+        userId: 'user-1',
+        userName: '小满',
+        profileRevisionId: 'revision-1',
+        localDate: '2026-08-18',
+        cards: [{ dimension: 'FAMILY', snapshotPillar: '甲子' }],
+      }),
+    ).resolves.toEqual({ state: 'UNAVAILABLE', data: null });
+    expect(generate).not.toHaveBeenCalled();
   });
 
   it('prewarms exactly 60 anonymous shared combinations for one date', async () => {
@@ -38,7 +66,9 @@ describe('shared home energy summaries', () => {
       }),
     );
     const infrastructure = {
-      environment: { HOME_ENERGY_SUMMARY_ENABLED: true },
+      policy: {
+        aqua: { homeEnergySummary: { workflowVersion: 'daily-energy-home-summary/1.0.3' } },
+      },
       redis: { set: vi.fn().mockResolvedValue('OK'), eval: vi.fn().mockResolvedValue(0) },
       database: {
         select: vi.fn(() => ({

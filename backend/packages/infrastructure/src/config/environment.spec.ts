@@ -7,15 +7,14 @@ import { environmentVariableNames, validateEnvironment } from './environment.js'
 
 const aquaEnvironment = {
   SMS_DELIVERY_MODE: 'FIXED_CODE',
-  AQUA_AI_BASE_URL: 'https://aqua.example.com',
-  AQUA_AI_SERVICE_KEY: 'test-service-key-with-safe-length',
+  AQUA_BASE_URL: 'https://aqua.example.com',
+  AQUA_SERVICE_KEY: 'test-service-key-with-safe-length',
 };
 
 describe('runtime baseline', () => {
   it('uses auditable R1 defaults', () => {
     const environment = validateEnvironment(aquaEnvironment);
     expect(environment.QUEUE_JOB_TIMEOUT_MS).toBe(360_000);
-    expect(environment.HOME_ENERGY_PREWARM_PROFILE).toBe('NORMAL');
     expect(environment).not.toHaveProperty('DAILY_INSIGHT_PRICE');
     expect(environment).not.toHaveProperty('FEATURE_DAILY_INSIGHT');
   });
@@ -35,10 +34,12 @@ describe('runtime baseline', () => {
     }
   });
 
-  it('requires Aqua daily-insight configuration without accepting a JWT signing secret', () => {
+  it('requires one Aqua tenant connection without accepting duplicate credentials', () => {
     const environment = validateEnvironment(aquaEnvironment);
-    expect(environment.AQUA_AI_WORKFLOW_ID).toBe('daily-insight');
+    expect(environment.AQUA_BASE_URL).toBe('https://aqua.example.com');
     expect(environment).not.toHaveProperty('AQUA_JWT_SECRET');
+    expect(environment).not.toHaveProperty('AQUA_AI_SERVICE_KEY');
+    expect(environment).not.toHaveProperty('AQUA_TENANT_SERVICE_KEY');
   });
 
   it('requires provider credentials only for real SMS delivery', () => {
@@ -50,35 +51,6 @@ describe('runtime baseline', () => {
       SMS_GATEWAY_API_KEY: 'test-sms-key-safe-length',
     });
     expect(gateway.SMS_DELIVERY_MODE).toBe('GATEWAY');
-  });
-
-  it('requires server-only Aqua credentials when home energy summaries are enabled', () => {
-    expect(() => validateEnvironment({ ...aquaEnvironment, HOME_ENERGY_SUMMARY_ENABLED: 'true' })).toThrow();
-    const environment = validateEnvironment({
-      ...aquaEnvironment,
-      HOME_ENERGY_SUMMARY_ENABLED: 'true',
-      HOME_ENERGY_PREWARM_ENABLED: 'true',
-      AQUA_BASE_URL: 'https://aqua.example.com',
-      AQUA_TENANT_SERVICE_KEY: 'test-tenant-service-key-safe-length',
-    });
-    expect(environment.HOME_ENERGY_SUMMARY_ENABLED).toBe(true);
-    expect(environment.HOME_ENERGY_PREWARM_ENABLED).toBe(true);
-    expect(environment.HOME_ENERGY_SUMMARY_MAX_ATTEMPTS).toBe(2);
-    expect(environment.HOME_ENERGY_PREWARM_PROFILE).toBe('NORMAL');
-    expect(
-      validateEnvironment({
-        ...aquaEnvironment,
-        HOME_ENERGY_SUMMARY_ENABLED: 'true',
-        HOME_ENERGY_PREWARM_ENABLED: 'true',
-        HOME_ENERGY_PREWARM_PROFILE: 'CONSERVATIVE',
-        AQUA_BASE_URL: 'https://aqua.example.com',
-        AQUA_TENANT_SERVICE_KEY: 'test-tenant-service-key-safe-length',
-      }).HOME_ENERGY_PREWARM_PROFILE,
-    ).toBe('CONSERVATIVE');
-    expect(() =>
-      validateEnvironment({ ...aquaEnvironment, HOME_ENERGY_PREWARM_PROFILE: 'AGGRESSIVE' }),
-    ).toThrow();
-    expect(() => validateEnvironment({ ...aquaEnvironment, HOME_ENERGY_PREWARM_ENABLED: 'true' })).toThrow();
   });
 
   it('generates UUIDv7 identifiers', () => {

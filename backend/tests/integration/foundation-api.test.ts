@@ -74,8 +74,8 @@ describe('foundation API integration', () => {
       app,
       validateEnvironment({
         SMS_DELIVERY_MODE: 'FIXED_CODE',
-        AQUA_AI_BASE_URL: 'https://aqua.example.com',
-        AQUA_AI_SERVICE_KEY: 'test-service-key-with-safe-length',
+        AQUA_BASE_URL: 'https://aqua.example.com',
+        AQUA_SERVICE_KEY: 'test-service-key-with-safe-length',
       }),
     );
     await app.init();

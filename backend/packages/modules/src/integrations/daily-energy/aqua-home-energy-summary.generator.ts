@@ -1,6 +1,5 @@
 import { AquaAIError, type AquaAIClient, type WorkflowRunResponse } from '@aqua-ai/sdk';
 import {
-  HOME_ENERGY_WORKFLOW_VERSION,
   SEXAGENARY_CYCLE,
   type HomeEnergySummary,
   type HomeEnergySummaryGenerator,
@@ -8,7 +7,6 @@ import {
 } from '@satori/application';
 import { z } from 'zod';
 
-const WORKFLOW_ID = 'daily-energy-home-summary';
 const IDEMPOTENCY_VALUE = /^[A-Za-z0-9:._/-]{1,128}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,16 +45,24 @@ type AquaOutput = z.infer<typeof aquaResultSchema>;
 export class AquaHomeEnergySummaryGenerator implements HomeEnergySummaryGenerator {
   constructor(
     private readonly client: AquaWorkflowClient,
-    private readonly options: { maxAttempts: number; retryBackoffMs: number },
+    private readonly options: {
+      workflowId: string;
+      workflowVersion: string;
+      maxAttempts: number;
+      retryBackoffMs: number;
+    },
   ) {}
 
   async generate(input: HomeEnergySummaryInput) {
-    const request = toRequest(input);
+    const request = toRequest(input, this.options.workflowVersion);
     let attempt = 0;
     while (attempt < this.options.maxAttempts) {
       attempt += 1;
       try {
-        const response = await this.client.workflows.run<AquaInput, AquaOutput>(WORKFLOW_ID, request);
+        const response = await this.client.workflows.run<AquaInput, AquaOutput>(
+          this.options.workflowId,
+          request,
+        );
         return toResult(response, input);
       } catch (error) {
         const failure = normalizeFailure(error);
@@ -75,7 +81,7 @@ export class AquaHomeEnergySummaryGenerator implements HomeEnergySummaryGenerato
   }
 }
 
-function toRequest(input: HomeEnergySummaryInput) {
+function toRequest(input: HomeEnergySummaryInput, workflowVersion: string) {
   const name = input.userName?.trim();
   if (name && name.length > 64) throw inputError('name must not exceed 64 characters');
   if (!isValidDate(input.date)) {
@@ -89,7 +95,7 @@ function toRequest(input: HomeEnergySummaryInput) {
     throw inputError('idempotencyKey or runReference is invalid');
   }
   return {
-    workflowVersion: HOME_ENERGY_WORKFLOW_VERSION,
+    workflowVersion,
     idempotencyKey,
     runReference: input.runReference,
     input: {
@@ -184,5 +190,7 @@ function isValidDate(value: string) {
   const day = parts[2];
   if (year === undefined || month === undefined || day === undefined) return false;
   const parsed = new Date(Date.UTC(year, month - 1, day));
-  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+  return (
+    parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day
+  );
 }

@@ -1,5 +1,4 @@
 import { Global, Module } from '@nestjs/common';
-import { AquaAIClient } from '@aqua-ai/sdk';
 import {
   DAILY_INSIGHT_GENERATOR,
   HOME_ENERGY_SUMMARY_GENERATOR,
@@ -7,6 +6,7 @@ import {
   PROFILE_FIRST_LOOK_GENERATOR,
 } from '@satori/application';
 import { RuntimeInfrastructure } from '@satori/infrastructure';
+import { AquaClientFactory } from './aqua/aqua-client.factory.js';
 import { AquaDailyInsightGenerator } from './daily-insight/aqua-daily-insight.generator.js';
 import { AquaHomeEnergySummaryGenerator } from './daily-energy/aqua-home-energy-summary.generator.js';
 import { LocationController } from './locations/location.controller.js';
@@ -17,6 +17,7 @@ import { DeterministicProfileFirstLookGenerator } from './profile-first-look/det
 @Module({
   controllers: [LocationController],
   providers: [
+    AquaClientFactory,
     { provide: LOCATION_PROVIDER, useClass: LocalLocationProvider },
     {
       provide: PROFILE_FIRST_LOOK_GENERATOR,
@@ -24,35 +25,26 @@ import { DeterministicProfileFirstLookGenerator } from './profile-first-look/det
     },
     {
       provide: HOME_ENERGY_SUMMARY_GENERATOR,
-      inject: [RuntimeInfrastructure],
-      useFactory: (infrastructure: RuntimeInfrastructure) => {
-        const environment = infrastructure.environment;
-        if (!environment.HOME_ENERGY_SUMMARY_ENABLED) return null;
-        const client = new AquaAIClient({
-          baseUrl: environment.AQUA_BASE_URL!,
-          auth: { type: 'serviceKey', serviceKey: environment.AQUA_TENANT_SERVICE_KEY! },
-          timeoutMs: environment.HOME_ENERGY_SUMMARY_TIMEOUT_MS,
-        });
+      inject: [RuntimeInfrastructure, AquaClientFactory],
+      useFactory: (infrastructure: RuntimeInfrastructure, clients: AquaClientFactory) => {
+        const policy = infrastructure.policy.aqua.homeEnergySummary;
+        const client = clients.create({ timeoutMs: policy.requestTimeoutMs });
         return new AquaHomeEnergySummaryGenerator(client, {
-          maxAttempts: environment.HOME_ENERGY_SUMMARY_MAX_ATTEMPTS,
-          retryBackoffMs: environment.HOME_ENERGY_SUMMARY_RETRY_BACKOFF_MS,
+          workflowId: policy.workflowId,
+          workflowVersion: policy.workflowVersion,
+          maxAttempts: policy.maxAttempts,
+          retryBackoffMs: policy.retryBackoffMs,
         });
       },
     },
     {
       provide: DAILY_INSIGHT_GENERATOR,
-      inject: [RuntimeInfrastructure],
-      useFactory: (infrastructure: RuntimeInfrastructure) => {
-        const environment = infrastructure.environment;
-        const client = new AquaAIClient({
-          baseUrl: environment.AQUA_AI_BASE_URL!,
-          auth: { type: 'serviceKey', serviceKey: environment.AQUA_AI_SERVICE_KEY! },
-        });
+      inject: [RuntimeInfrastructure, AquaClientFactory],
+      useFactory: (infrastructure: RuntimeInfrastructure, clients: AquaClientFactory) => {
+        const policy = infrastructure.policy.aqua.dailyInsight;
+        const client = clients.create();
         return new AquaDailyInsightGenerator(client, {
-          workflowId: environment.AQUA_AI_WORKFLOW_ID,
-          ...(environment.AQUA_AI_WORKFLOW_VERSION === undefined
-            ? {}
-            : { workflowVersion: environment.AQUA_AI_WORKFLOW_VERSION }),
+          workflowId: policy.workflowId,
         });
       },
     },

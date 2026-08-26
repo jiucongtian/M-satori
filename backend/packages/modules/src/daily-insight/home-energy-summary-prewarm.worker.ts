@@ -1,5 +1,5 @@
 import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import { homeEnergyPrewarmPolicy, preferences, RuntimeInfrastructure } from '@satori/infrastructure';
+import { preferences, RuntimeInfrastructure } from '@satori/infrastructure';
 import { HomeEnergySummaryService } from './home-energy-summary.service.js';
 
 @Injectable()
@@ -13,9 +13,7 @@ export class HomeEnergySummaryPrewarmWorker implements OnModuleInit, OnApplicati
   ) {}
 
   onModuleInit(): void {
-    const environment = this.infrastructure.environment;
-    if (!environment.HOME_ENERGY_SUMMARY_ENABLED || !environment.HOME_ENERGY_PREWARM_ENABLED) return;
-    const prewarmPolicy = homeEnergyPrewarmPolicy(environment.HOME_ENERGY_PREWARM_PROFILE);
+    const prewarmPolicy = this.infrastructure.policy.aqua.homeEnergySummary.prewarm;
     void this.run();
     this.timer = setInterval(() => void this.run(), prewarmPolicy.intervalMs);
   }
@@ -28,9 +26,7 @@ export class HomeEnergySummaryPrewarmWorker implements OnModuleInit, OnApplicati
     if (this.running) return;
     this.running = true;
     try {
-      const prewarmPolicy = homeEnergyPrewarmPolicy(
-        this.infrastructure.environment.HOME_ENERGY_PREWARM_PROFILE,
-      );
+      const prewarmPolicy = this.infrastructure.policy.aqua.homeEnergySummary.prewarm;
       const timezoneRows = await this.infrastructure.database
         .selectDistinct({ timezone: preferences.timezone })
         .from(preferences);

@@ -6,7 +6,7 @@
  */
 export const R1_RUNTIME_POLICY = {
   /** 对外暴露的配置版本；客户端和运维可用它确认当前规则版本。 */
-  version: 'r1.0-2026-08-25.2',
+  version: 'r1.0-2026-08-26.1',
 
   auth: {
     /** Access Token 有效期（秒）；影响新签发 Token 的过期时间。 */
@@ -41,6 +41,35 @@ export const R1_RUNTIME_POLICY = {
     backoffMs: 2_000,
   },
 
+  aqua: {
+    dailyInsight: {
+      /** 完整每日指引固定调用的 Aqua Workflow；所有环境保持一致。 */
+      workflowId: 'daily-insight',
+    },
+    homeEnergySummary: {
+      /** 首页能量摘要固定调用的 Aqua Workflow。 */
+      workflowId: 'daily-energy-home-summary',
+      /** 首页摘要缓存与请求使用的固定 Workflow 版本。 */
+      workflowVersion: 'daily-energy-home-summary/1.0.3',
+      /** 单次首页摘要 Aqua 请求超时（毫秒）。 */
+      requestTimeoutMs: 15_000,
+      /** 首页摘要遇到可重试错误时的最大尝试次数。 */
+      maxAttempts: 2,
+      /** 首页摘要重试的基础退避时间（毫秒）。 */
+      retryBackoffMs: 250,
+      prewarm: {
+        /** 每轮预生成的自然日数量。 */
+        days: 3,
+        /** 同时发起的 Aqua 摘要请求数量。 */
+        concurrency: 3,
+        /** 相邻预热请求的最小间隔（毫秒）。 */
+        spacingMs: 5_000,
+        /** 两轮预热任务之间的间隔（毫秒）。 */
+        intervalMs: 3_600_000,
+      },
+    },
+  },
+
   profile: {
     /** 档案预览结果有效期（秒）；过期后必须重新生成预览。 */
     previewTtlSeconds: 86_400,
@@ -69,34 +98,4 @@ export const R1_RUNTIME_POLICY = {
   },
 } as const;
 
-/** 首页能量摘要预热档位；用经过验证的组合替代四个可任意组合的环境变量。 */
-export const HOME_ENERGY_PREWARM_PROFILES = {
-  CONSERVATIVE: {
-    /** 每轮预生成的自然日数量。 */
-    days: 2,
-    /** 同时发起的 Aqua 摘要请求数量。 */
-    concurrency: 1,
-    /** 相邻预热批次的最小间隔（毫秒）。 */
-    spacingMs: 10_000,
-    /** 两轮预热任务之间的间隔（毫秒）。 */
-    intervalMs: 7_200_000,
-  },
-  NORMAL: {
-    /** 每轮预生成的自然日数量。 */
-    days: 3,
-    /** 同时发起的 Aqua 摘要请求数量。 */
-    concurrency: 3,
-    /** 相邻预热批次的最小间隔（毫秒）。 */
-    spacingMs: 5_000,
-    /** 两轮预热任务之间的间隔（毫秒）。 */
-    intervalMs: 3_600_000,
-  },
-} as const;
-
 export type RuntimePolicy = typeof R1_RUNTIME_POLICY;
-export type HomeEnergyPrewarmProfileName = keyof typeof HOME_ENERGY_PREWARM_PROFILES;
-
-/** 根据已校验的环境变量档位返回不可变的预热参数组合。 */
-export function homeEnergyPrewarmPolicy(profile: HomeEnergyPrewarmProfileName) {
-  return HOME_ENERGY_PREWARM_PROFILES[profile];
-}

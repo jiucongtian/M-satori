@@ -1,5 +1,4 @@
 export const HOME_ENERGY_SUMMARY_GENERATOR = Symbol('HOME_ENERGY_SUMMARY_GENERATOR');
-export const HOME_ENERGY_WORKFLOW_VERSION = 'daily-energy-home-summary/1.0.3';
 export const SEXAGENARY_CYCLE = Object.freeze(
   Array.from({ length: 60 }, (_, index) => {
     const stems = '甲乙丙丁戊己庚辛壬癸';

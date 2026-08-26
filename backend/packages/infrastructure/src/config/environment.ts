@@ -27,18 +27,8 @@ const environmentShape = {
   SMS_GATEWAY_URL: z.string().url().optional(),
   SMS_GATEWAY_API_KEY: z.string().min(16).optional(),
   SMS_GATEWAY_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
-  AQUA_AI_BASE_URL: z.string().url().optional(),
-  AQUA_AI_SERVICE_KEY: z.string().min(20).optional(),
-  AQUA_AI_WORKFLOW_ID: z.string().min(1).default('daily-insight'),
-  AQUA_AI_WORKFLOW_VERSION: z.string().min(1).optional(),
-  HOME_ENERGY_SUMMARY_ENABLED: booleanFromString,
-  HOME_ENERGY_SUMMARY_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
-  HOME_ENERGY_SUMMARY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(2),
-  HOME_ENERGY_SUMMARY_RETRY_BACKOFF_MS: z.coerce.number().int().min(0).default(250),
-  HOME_ENERGY_PREWARM_ENABLED: booleanFromString,
-  HOME_ENERGY_PREWARM_PROFILE: z.enum(['CONSERVATIVE', 'NORMAL']).default('NORMAL'),
-  AQUA_BASE_URL: z.string().url().optional(),
-  AQUA_TENANT_SERVICE_KEY: z.string().min(20).optional(),
+  AQUA_BASE_URL: z.string().url(),
+  AQUA_SERVICE_KEY: z.string().min(20),
 } as const;
 
 /** 需要在 `.env.example` 中逐项说明的部署环境变量名称。 */
@@ -56,30 +46,6 @@ export const environmentSchema = z.object(environmentShape).superRefine((environ
       code: 'custom',
       path: ['SMS_GATEWAY_URL'],
       message: 'SMS gateway URL and API key are required in GATEWAY mode',
-    });
-  }
-  if (!environment.AQUA_AI_BASE_URL || !environment.AQUA_AI_SERVICE_KEY) {
-    context.addIssue({
-      code: 'custom',
-      path: ['AQUA_AI_BASE_URL'],
-      message: 'Aqua AI base URL and service key are required for daily insight generation',
-    });
-  }
-  if (
-    environment.HOME_ENERGY_SUMMARY_ENABLED &&
-    (!environment.AQUA_BASE_URL || !environment.AQUA_TENANT_SERVICE_KEY)
-  ) {
-    context.addIssue({
-      code: 'custom',
-      path: ['AQUA_BASE_URL'],
-      message: 'Aqua base URL and tenant service key are required for home energy summaries',
-    });
-  }
-  if (environment.HOME_ENERGY_PREWARM_ENABLED && !environment.HOME_ENERGY_SUMMARY_ENABLED) {
-    context.addIssue({
-      code: 'custom',
-      path: ['HOME_ENERGY_PREWARM_ENABLED'],
-      message: 'Home energy summary prewarming requires home energy summaries to be enabled',
     });
   }
 });

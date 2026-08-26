@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   HOME_ENERGY_SUMMARY_GENERATOR,
-  HOME_ENERGY_WORKFLOW_VERSION,
   SEXAGENARY_CYCLE,
   type HomeEnergySummary,
   type HomeEnergySummaryGenerator,
@@ -43,7 +42,7 @@ export class HomeEnergySummaryService {
   constructor(
     private readonly infrastructure: RuntimeInfrastructure,
     @Inject(HOME_ENERGY_SUMMARY_GENERATOR)
-    private readonly generator: HomeEnergySummaryGenerator | null,
+    private readonly generator: HomeEnergySummaryGenerator,
   ) {}
 
   async get(context: HomeEnergySummaryContext): Promise<HomeEnergySummaryProjection> {
@@ -58,13 +57,7 @@ export class HomeEnergySummaryService {
     const legacy = await this.findLegacyCached(context.userId, context.localDate);
     if (legacy) return { state: 'READY', data: personalizeGreeting(legacy, context.userName) };
 
-    if (!this.generator || !this.infrastructure.environment.HOME_ENERGY_SUMMARY_ENABLED) {
-      return { state: 'UNAVAILABLE', data: null };
-    }
-    if (this.infrastructure.environment.HOME_ENERGY_PREWARM_ENABLED) {
-      return { state: 'UNAVAILABLE', data: null };
-    }
-    return this.generateLegacy(context as HomeEnergySummaryContext & { localDate: string; profileRevisionId: string }, dayCard);
+    return { state: 'UNAVAILABLE', data: null };
   }
 
   async prewarm(dates: string[], concurrency: number, spacingMs = 0): Promise<HomeEnergyPrewarmReport> {
@@ -99,9 +92,9 @@ export class HomeEnergySummaryService {
     spacingMs: number,
   ): Promise<'generated' | 'cached' | 'locked' | 'failed'> {
     if (await this.findSharedCached(localDate, dayCard)) return 'cached';
-    if (!this.generator || !this.infrastructure.environment.HOME_ENERGY_SUMMARY_ENABLED) return 'failed';
+    const workflowVersion = this.infrastructure.policy.aqua.homeEnergySummary.workflowVersion;
 
-    const lockKey = `home-energy-prewarm:${HOME_ENERGY_WORKFLOW_VERSION}:${localDate}:${dayCard}`;
+    const lockKey = `home-energy-prewarm:${workflowVersion}:${localDate}:${dayCard}`;
     const lockToken = newId();
     const acquired = await this.infrastructure.redis.set(lockKey, lockToken, 'PX', CACHE_LOCK_MS, 'NX');
     if (!acquired) return 'locked';
@@ -123,7 +116,7 @@ export class HomeEnergySummaryService {
           localDate,
           dayCard,
           heavenCard,
-          workflowVersion: HOME_ENERGY_WORKFLOW_VERSION,
+          workflowVersion,
           content: generated.summary,
           providerRequestId: generated.providerRequestId,
         })
@@ -153,48 +146,12 @@ export class HomeEnergySummaryService {
       await this.infrastructure.redis.eval(
         "local now=tonumber(ARGV[1]); local spacing=tonumber(ARGV[2]); local next=tonumber(redis.call('get',KEYS[1]) or '0'); local slot=now; if next>slot then slot=next end; redis.call('set',KEYS[1],tostring(slot+spacing),'PX',math.max(spacing*100,60000)); return slot-now",
         1,
-        `home-energy-prewarm-rate:${HOME_ENERGY_WORKFLOW_VERSION}`,
+        `home-energy-prewarm-rate:${this.infrastructure.policy.aqua.homeEnergySummary.workflowVersion}`,
         Date.now(),
         spacingMs,
       ),
     );
     if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-
-  private async generateLegacy(
-    context: HomeEnergySummaryContext & { localDate: string; profileRevisionId: string },
-    dayCard: string,
-  ): Promise<HomeEnergySummaryProjection> {
-    try {
-      const generated = await this.generator!.generate({
-        runReference: context.userId,
-        userName: context.userName,
-        dayCard,
-        heavenCard: heavenCardFor(context.localDate),
-        date: context.localDate,
-      });
-      const inserted = await this.infrastructure.database
-        .insert(dailyEnergyHomeSummaries)
-        .values({
-          id: newId(),
-          ownerUserId: context.userId,
-          profileRevisionId: context.profileRevisionId,
-          localDate: context.localDate,
-          workflowVersion: HOME_ENERGY_WORKFLOW_VERSION,
-          content: generated.summary,
-          providerRequestId: generated.providerRequestId,
-        })
-        .onConflictDoNothing()
-        .returning({ content: dailyEnergyHomeSummaries.content });
-      const content = inserted[0]?.content as HomeEnergySummary | undefined;
-      if (content) return { state: 'READY', data: personalizeGreeting(content, context.userName) };
-      const concurrent = await this.findLegacyCached(context.userId, context.localDate);
-      return concurrent
-        ? { state: 'READY', data: personalizeGreeting(concurrent, context.userName) }
-        : { state: 'UNAVAILABLE', data: null };
-    } catch {
-      return { state: 'UNAVAILABLE', data: null };
-    }
   }
 
   private async findSharedCached(localDate: string, dayCard: string): Promise<HomeEnergySummary | null> {
@@ -205,7 +162,10 @@ export class HomeEnergySummaryService {
         and(
           eq(dailyEnergyHomeSummaryCache.localDate, localDate),
           eq(dailyEnergyHomeSummaryCache.dayCard, dayCard),
-          eq(dailyEnergyHomeSummaryCache.workflowVersion, HOME_ENERGY_WORKFLOW_VERSION),
+          eq(
+            dailyEnergyHomeSummaryCache.workflowVersion,
+            this.infrastructure.policy.aqua.homeEnergySummary.workflowVersion,
+          ),
         ),
       )
       .limit(1);
@@ -220,7 +180,10 @@ export class HomeEnergySummaryService {
         and(
           eq(dailyEnergyHomeSummaries.ownerUserId, userId),
           eq(dailyEnergyHomeSummaries.localDate, localDate),
-          eq(dailyEnergyHomeSummaries.workflowVersion, HOME_ENERGY_WORKFLOW_VERSION),
+          eq(
+            dailyEnergyHomeSummaries.workflowVersion,
+            this.infrastructure.policy.aqua.homeEnergySummary.workflowVersion,
+          ),
         ),
       )
       .limit(1);

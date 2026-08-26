@@ -1,5 +1,5 @@
 import { AquaAIError } from '@aqua-ai/sdk';
-import { HOME_ENERGY_WORKFLOW_VERSION, type HomeEnergySummaryInput } from '@satori/application';
+import type { HomeEnergySummaryInput } from '@satori/application';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AquaHomeEnergySummaryGenerator } from './aqua-home-energy-summary.generator.js';
 
@@ -9,6 +9,13 @@ const input: HomeEnergySummaryInput = {
   dayCard: '癸丑',
   heavenCard: '丙辰',
   date: '2026-08-13',
+};
+
+const options = {
+  workflowId: 'daily-energy-home-summary',
+  workflowVersion: 'daily-energy-home-summary/1.0.3',
+  maxAttempts: 2,
+  retryBackoffMs: 0,
 };
 
 const result = {
@@ -32,10 +39,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
 
   it('runs the frozen stateless workflow request and maps all result fields', async () => {
     const run = vi.fn().mockResolvedValue({ requestId: 'aqua-home-request-1', result, manifest: {} });
-    const generator = new AquaHomeEnergySummaryGenerator(
-      { workflows: { run } },
-      { maxAttempts: 2, retryBackoffMs: 0 },
-    );
+    const generator = new AquaHomeEnergySummaryGenerator({ workflows: { run } }, options);
 
     await expect(generator.generate(input)).resolves.toEqual({
       providerRequestId: 'aqua-home-request-1',
@@ -55,7 +59,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
       },
     });
     expect(run).toHaveBeenCalledWith('daily-energy-home-summary', {
-      workflowVersion: HOME_ENERGY_WORKFLOW_VERSION,
+      workflowVersion: options.workflowVersion,
       idempotencyKey: `daily-energy-${input.date}-${input.runReference}`,
       runReference: input.runReference,
       input: {
@@ -69,10 +73,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
 
   it('supports a shared prewarm request without sending a user name', async () => {
     const run = vi.fn().mockResolvedValue({ requestId: 'aqua-shared-request', result, manifest: {} });
-    const generator = new AquaHomeEnergySummaryGenerator(
-      { workflows: { run } },
-      { maxAttempts: 2, retryBackoffMs: 0 },
-    );
+    const generator = new AquaHomeEnergySummaryGenerator({ workflows: { run } }, options);
 
     await generator.generate({
       runReference: 'shared-00',
@@ -106,10 +107,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
         }),
       )
       .mockResolvedValueOnce({ requestId: 'request-success', result, manifest: {} });
-    const generator = new AquaHomeEnergySummaryGenerator(
-      { workflows: { run } },
-      { maxAttempts: 2, retryBackoffMs: 0 },
-    );
+    const generator = new AquaHomeEnergySummaryGenerator({ workflows: { run } }, options);
 
     await expect(generator.generate(input)).resolves.toMatchObject({ providerRequestId: 'request-success' });
     expect(run).toHaveBeenCalledTimes(2);
@@ -134,7 +132,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
     );
     const generator = new AquaHomeEnergySummaryGenerator(
       { workflows: { run } },
-      { maxAttempts: 3, retryBackoffMs: 0 },
+      { ...options, maxAttempts: 3 },
     );
 
     await expect(generator.generate(input)).rejects.toMatchObject({
@@ -151,10 +149,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
       result: { ...result, heaven_card: '丁巳' },
       manifest: {},
     });
-    const generator = new AquaHomeEnergySummaryGenerator(
-      { workflows: { run } },
-      { maxAttempts: 2, retryBackoffMs: 0 },
-    );
+    const generator = new AquaHomeEnergySummaryGenerator({ workflows: { run } }, options);
 
     await expect(generator.generate(input)).rejects.toMatchObject({
       code: 'AQUA_HOME_ENERGY_RESPONSE_INVALID',
@@ -165,10 +160,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
 
   it('rejects invalid dates and cards before calling Aqua', async () => {
     const run = vi.fn();
-    const generator = new AquaHomeEnergySummaryGenerator(
-      { workflows: { run } },
-      { maxAttempts: 2, retryBackoffMs: 0 },
-    );
+    const generator = new AquaHomeEnergySummaryGenerator({ workflows: { run } }, options);
 
     await expect(generator.generate({ ...input, date: '2026-02-31' })).rejects.toMatchObject({
       code: 'AQUA_HOME_ENERGY_INPUT_INVALID',
