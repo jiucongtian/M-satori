@@ -12,7 +12,7 @@ const tabs: Array<{ label: AppTab; icon: string }> = [
 
 export function AppBottomNav({ active, onNavigate }: { active: AppTab; onNavigate: (tab: AppTab) => void }) {
   return <nav className="app-bottom-nav" aria-label="主导航">
-    {tabs.map(({ label, icon }) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => onNavigate(label)}>
+    {tabs.map(({ label, icon }) => <button type="button" key={label} className={active === label ? "active" : ""} onClick={() => active !== label && onNavigate(label)}>
       <i>{icon}</i><span>{label}</span>
     </button>)}
   </nav>;

@@ -5,14 +5,14 @@ import { api,type DailyInsight,type HomeOverview,type WisdomSeedAccount,type Wis
 import { LegacyDomainRoute } from "@/src/features/legacy/LegacyDomainRoute";
 import { ComingSoonPage,MyHome,MyReports,MySeeds,MySettings,MySupport,type HomeNavTarget } from "@/src/features/legacy/LegacyProfileFlow";
 import { ProtectedRoute } from "@/src/shared/guards";
-import { queryOnce } from "@/src/shared/query";
+import { queryOnce,readQueryCache } from "@/src/shared/query";
 import { dailyReportPath,ROUTES,withReturnPath } from "@/src/shared/routes";
 import { RouteError,RouteFrame,RouteSkeleton } from "@/src/shared/shell";
 import { useSession } from "@/src/shared/session";
 import { apiMessage } from "@/src/shared/ui";
 
 export function MyHomeScreen(){
-  const[home,setHome]=useState<HomeOverview|null>(null);const[state,setState]=useState<"home"|"settings"|"support"|"成长"|"关系">("home");const[error,setError]=useState("");const router=useRouter();const{logout}=useSession();
+  const[home,setHome]=useState<HomeOverview|null>(()=>readQueryCache<HomeOverview>("my:home")??readQueryCache<HomeOverview>("home:overview")??null);const[state,setState]=useState<"home"|"settings"|"support"|"成长"|"关系">("home");const[error,setError]=useState("");const router=useRouter();const{logout}=useSession();
   useEffect(()=>{let active=true;void queryOnce("my:home",()=>api.home()).then(v=>active&&setHome(v)).catch(e=>active&&setError(apiMessage(e)));return()=>{active=false;};},[]);
   if(error)return <RouteError message={error}/>;if(!home)return <ProtectedRoute><RouteSkeleton/></ProtectedRoute>;
   const open=(action:string)=>{if(action==="home")router.push(ROUTES.home);else if(action==="daily")router.push(ROUTES.daily);else if(action==="profile")router.push(ROUTES.myProfile);else if(action==="benefits")router.push(withReturnPath(ROUTES.myBenefits,ROUTES.my));else if(action==="membership")router.push(withReturnPath(ROUTES.serviceMembership,ROUTES.my));else if(action==="services")router.push(withReturnPath(ROUTES.services,ROUTES.my));else if(action==="orders")router.push(withReturnPath(ROUTES.myOrders,ROUTES.my));else if(action==="seeds")router.push(ROUTES.mySeeds);else if(action==="settings")setState("settings");else if(action==="support")setState("support");else if(action==="archive")router.push(ROUTES.myArchive);};

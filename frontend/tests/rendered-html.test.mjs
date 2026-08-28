@@ -379,7 +379,7 @@ test("预告页保持单屏且底部导航位置稳定", async () => {
 
 test("五个根页面切换时不重新执行整页入场动画", async () => {
   const css = await readCssSources();
-  assert.match(css, /\.today-home,\.my-home\{animation:none\}/);
+  assert.match(css, /\.phone>\.today-home,\.phone>\.reading-home\.root-tab-page,\.phone>\.my-home\{animation:none\}/);
   assert.doesNotMatch(css, /\.coming-soon-page\{[^}]*animation:page-in/);
 });
 

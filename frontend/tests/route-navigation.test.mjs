@@ -124,6 +124,22 @@ test("首页与我的底部导航使用具名目标而非易漂移的数字步�
   assert.doesNotMatch(my, /step===29|step===43|step===44/);
 });
 
+test("一级页面切换不重复恢复 Session 或闪回加载态", async () => {
+  const [session, nav, home, my, query] = await Promise.all([
+    readFile(new URL("../src/shared/session.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/shared/AppBottomNav.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/home/HomeScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/my/MyScreens.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/shared/query.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(session, /routeDiagnostic\(window\.location\.pathname, "recovery", "restored"\)/);
+  assert.doesNotMatch(session, /\}, \[pathname\]\);/);
+  assert.match(nav, /active !== label && onNavigate\(label\)/);
+  assert.match(query, /export function readQueryCache/);
+  assert.match(home, /readQueryCache<HomeOverview>\("home:overview"\).*readQueryCache<HomeOverview>\("my:home"\)/);
+  assert.match(my, /readQueryCache<HomeOverview>\("my:home"\).*readQueryCache<HomeOverview>\("home:overview"\)/);
+});
+
 test("R1.1 问事首页、输入与历史使用独立真实路由", async () => {
   const [routes, home, readingHome, readingNew, readingHistory] = await Promise.all([
     readFile(new URL("../src/shared/routes.ts", import.meta.url), "utf8"),

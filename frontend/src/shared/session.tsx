@@ -38,7 +38,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const current = await api.me();
       setMe(current);
       setStatus("authenticated");
-      routeDiagnostic(pathname, "recovery", "restored");
+      routeDiagnostic(window.location.pathname, "recovery", "restored");
       return "authenticated";
     } catch (error) {
       if (error instanceof ApiError && error.code === "CONSENT_REQUIRED") {
@@ -49,7 +49,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setStatus("anonymous");
       return "anonymous";
     }
-  }, [pathname]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void resolve(), 0);
