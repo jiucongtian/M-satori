@@ -13,6 +13,7 @@ import { createDatabase } from '../../packages/infrastructure/src/database/clien
 import { FieldCipher } from '../../packages/infrastructure/src/security/field-cipher.js';
 import { OrderApplicationService } from '../../packages/modules/src/order/application/index.js';
 import { DrizzleOrderRepository } from '../../packages/modules/src/order/repository-adapter/index.js';
+import { CommerceOperationsService } from '../../packages/modules/src/operations/commerce/commerce-operations.service.js';
 import { EntitlementApplicationService } from '../../packages/modules/src/entitlement/application/index.js';
 import { PostgresEntitlementRepository } from '../../packages/modules/src/entitlement/repository-adapter/index.js';
 import { FulfillmentApplicationService } from '../../packages/modules/src/fulfillment/application/index.js';
@@ -22,6 +23,8 @@ import {
   DeterministicFakePaymentProvider,
   DrizzlePaymentRepository,
 } from '../../packages/modules/src/payment/repository-adapter/index.js';
+import { RefundApplicationService } from '../../packages/modules/src/refund/application/index.js';
+import { PostgresRefundRepository } from '../../packages/modules/src/refund/repository-adapter/index.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
 
@@ -33,6 +36,10 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
   let provider: DeterministicFakePaymentProvider;
   let seeds: FakeSeedPromotionLifecycle;
   let fulfillment: FulfillmentApplicationService;
+  let entitlements: EntitlementApplicationService;
+  let refunds: RefundApplicationService;
+  let operations: CommerceOperationsService;
+  let paymentRepository: DrizzlePaymentRepository;
   const userId = randomUUID();
   const offeringId = randomUUID();
   const versionId = randomUUID();
@@ -69,15 +76,12 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
     const runtime = { database, pool } as never;
     orders = new OrderApplicationService(new DrizzleOrderRepository(runtime), seeds, { now: () => now });
     provider = new DeterministicFakePaymentProvider('PENDING');
-    payments = new PaymentApplicationService(
-      new DrizzlePaymentRepository(
-        runtime,
-        new FieldCipher('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'),
-      ),
-      provider,
-      seeds,
+    paymentRepository = new DrizzlePaymentRepository(
+      runtime,
+      new FieldCipher('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'),
     );
-    const entitlements = new EntitlementApplicationService(
+    payments = new PaymentApplicationService(paymentRepository, provider, seeds);
+    entitlements = new EntitlementApplicationService(
       new PostgresEntitlementRepository(runtime),
       'fulfillment-integration-cursor-secret',
       new SystemClock(),
@@ -87,6 +91,13 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       entitlements,
       new FakeMembershipGrant(),
     );
+    refunds = new RefundApplicationService(
+      new PostgresRefundRepository(runtime),
+      provider,
+      entitlements,
+      new SystemClock(),
+    );
+    operations = new CommerceOperationsService(runtime, entitlements, {} as never, {} as never);
   });
 
   afterAll(async () => {
@@ -100,6 +111,11 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
     );
     await pool.query(
       'delete from fulfillment_jobs where order_id in (select id from money_orders where owner_user_id=$1)',
+      [userId],
+    );
+    await pool.query('delete from refunds where owner_user_id=$1', [userId]);
+    await pool.query(
+      'delete from reconciliation_cases where resource_id in (select id::text from money_orders where owner_user_id=$1)',
       [userId],
     );
     const grants = await pool.query<{ id: string }>(
@@ -230,6 +246,99 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
     expect(await orders.get(userId, orderId)).toMatchObject({ status: 'FULFILLED' });
   });
 
+  it('detects and reverses a duplicate provider charge without revoking delivered entitlements', async () => {
+    const source = (
+      await pool.query<{ source_id: string }>(
+        "select source_id from entitlement_grants where owner_user_id=$1 and source_type='PURCHASE' limit 1",
+        [userId],
+      )
+    ).rows[0]!;
+    const attemptId = randomUUID();
+    await pool.query(
+      `insert into payment_attempts
+       (id,order_id,owner_user_id,provider,provider_attempt_id,status,amount_minor,idempotency_key,
+        request_hash,request_id,expires_at)
+       select $1,id,owner_user_id,'FAKE',$2,'PENDING',amount_minor,$3,$4,$5,expires_at
+       from money_orders where id=$6`,
+      [
+        attemptId,
+        `duplicate-${attemptId}`,
+        `duplicate-${attemptId}`,
+        randomUUID(),
+        randomUUID(),
+        source.source_id,
+      ],
+    );
+    const duplicate = await paymentRepository.applyResult(attemptId, {
+      providerAttemptId: `duplicate-${attemptId}`,
+      state: 'SUCCEEDED',
+      orderId: source.source_id,
+      amountMinor: 2190,
+      currency: 'CNY',
+      providerOccurredAt: new Date(),
+    });
+    expect(duplicate.status).toBe('FAILED');
+    expect(
+      Number(
+        (
+          await pool.query<{ count: string }>(
+            "select count(*)::text count from outbox where aggregate_id=$1 and event_type='commerce.payment.duplicate.detected'",
+            [attemptId],
+          )
+        ).rows[0]!.count,
+      ),
+    ).toBe(1);
+    await refunds.reverseDuplicate(source.source_id, attemptId);
+    expect(await orders.get(userId, source.source_id)).toMatchObject({ status: 'FULFILLED' });
+    expect(await entitlements.summarizeBySource(source.source_id)).toMatchObject({ totalQuantity: 10 });
+  });
+
+  it('quotes and processes an unused ordinary refund exactly once with reverse entries', async () => {
+    const source = (
+      await pool.query<{ source_id: string }>(
+        "select source_id from entitlement_grants where owner_user_id=$1 and source_type='PURCHASE' limit 1",
+        [userId],
+      )
+    ).rows[0]!;
+    const fulfilled = await orders.get(userId, source.source_id);
+    const candidate = (
+      await entitlements.listCandidates({
+        userId,
+        businessSpace: 'SATORI',
+        serviceType: 'CARD_READING',
+        unit: 'READING_CREDIT',
+        quantity: 1,
+        businessContext: { type: 'READING', id: randomUUID() },
+      })
+    )[0]!;
+    const reservation = await entitlements.reserve(candidate, randomUUID());
+    await expect(refunds.quote(userId, fulfilled.orderId)).rejects.toMatchObject({
+      code: 'REFUND_ENTITLEMENT_ALREADY_USED',
+    });
+    await entitlements.release(reservation.reservationId, { type: 'READING', id: randomUUID() });
+    expect(await refunds.quote(userId, fulfilled.orderId)).toMatchObject({
+      eligible: true,
+      amount: { amount: 2190, currency: 'CNY' },
+      policyVersion: 'refund-v1',
+    });
+    const first = await refunds.request(userId, fulfilled.orderId, randomUUID());
+    const replay = await refunds.request(userId, fulfilled.orderId, randomUUID());
+    expect(replay?.refundId).toBe(first?.refundId);
+    expect(await orders.get(userId, fulfilled.orderId)).toMatchObject({ status: 'REFUNDED' });
+    expect(
+      Number(
+        (
+          await pool.query<{ count: string }>(
+            `select count(*)::text count from entitlement_usage_entries e
+             join entitlement_grants g on g.id=e.grant_id
+             where g.source_id=$1 and e.entry_type='REVERSE'`,
+            [fulfilled.orderId],
+          )
+        ).rows[0]!.count,
+      ),
+    ).toBe(1);
+  });
+
   it('delivers a membership order only once when the outbox event is redelivered', async () => {
     const { orderId, paymentAttemptId } = await createPaidOrder('membership');
     await pool.query(
@@ -250,6 +359,9 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
     );
     expect(await service.process(orderId, paymentAttemptId)).toBeNull();
     expect(memberships.activations).toBe(1);
+    await expect(refunds.quote(userId, orderId)).rejects.toMatchObject({
+      code: 'MEMBERSHIP_REFUND_NOT_SUPPORTED',
+    });
   });
 
   it('requests one reversal and keeps a terminally failed paid purchase committed', async () => {
@@ -277,6 +389,14 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
         ).rows[0]!.count,
       ),
     ).toBe(1);
+    expect(await operations.orderView(orderId)).toMatchObject({
+      order_id: orderId,
+      order_status: 'EXCEPTION',
+    });
+    expect((await operations.reconcile()).detected).toBeGreaterThanOrEqual(1);
+    const reversal = await refunds.reverseExceptional(orderId, 'FULFILLMENT_FAILED');
+    expect(typeof reversal?.refundId).toBe('string');
+    expect(await orders.get(userId, orderId)).toMatchObject({ status: 'REFUNDED' });
   });
 
   it('closes expired unpaid orders and releases promotion reservations once', async () => {
@@ -312,7 +432,8 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       },
       validityDays: 30,
       purchaseLimit: {},
-      refundPolicy: {},
+      refundPolicyVersion: 'refund-v1',
+      refundPolicy: { eligibility: 'UNUSED_ONLY', refundableBasisPoints: 10_000 },
       termsVersion: 'terms-v1',
     };
     await pool.query(
@@ -416,6 +537,9 @@ class FlakyEntitlementGrant implements EntitlementGrantPort {
   summarizeBySource() {
     return Promise.resolve({ totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0 });
   }
+  reverseAvailableBySource() {
+    return Promise.resolve(0);
+  }
 }
 
 class TerminalEntitlementGrant implements EntitlementGrantPort {
@@ -436,5 +560,8 @@ class TerminalEntitlementGrant implements EntitlementGrantPort {
   }
   summarizeBySource() {
     return Promise.resolve({ totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0 });
+  }
+  reverseAvailableBySource() {
+    return Promise.resolve(0);
   }
 }

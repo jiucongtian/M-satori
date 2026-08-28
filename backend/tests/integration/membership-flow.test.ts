@@ -357,4 +357,7 @@ class FailingEntitlementPort implements EntitlementGrantPort {
   summarizeBySource(sourceId: string) {
     return this.delegate.summarizeBySource(sourceId);
   }
+  reverseAvailableBySource(sourceId: string, businessKey: string, requestId: string) {
+    return this.delegate.reverseAvailableBySource(sourceId, businessKey, requestId);
+  }
 }

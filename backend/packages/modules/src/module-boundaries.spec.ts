@@ -13,6 +13,7 @@ const commerceModuleNames = [
   'pricing',
   'order',
   'payment',
+  'refund',
   'fulfillment',
   'membership',
   'entitlement',

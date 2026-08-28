@@ -16,6 +16,7 @@ import { OperationsModule } from './operations/operations.module.js';
 import { OrderModule } from './order/index.js';
 import { PaymentModule } from './payment/index.js';
 import { PricingModule } from './pricing/index.js';
+import { RefundModule } from './refund/index.js';
 import { ProfileLibraryModule } from './profile-library/profile-library.module.js';
 import { ProfileModule } from './profile/profile.module.js';
 import { SeedLedgerModule } from './seed-ledger/seed-ledger.module.js';
@@ -40,6 +41,7 @@ export {
   OrderModule,
   PaymentModule,
   PricingModule,
+  RefundModule,
   ProfileLibraryModule,
   ProfileModule,
   SeedLedgerModule,
@@ -51,6 +53,7 @@ export const R11CommerceModules: Type<unknown>[] = [
   ComplimentarySeedModule,
   PricingModule,
   PaymentModule,
+  RefundModule,
   FulfillmentModule,
   MembershipModule,
   EntitlementModule,

@@ -151,8 +151,29 @@ export class DrizzlePaymentRepository implements PaymentRepository {
           .from(paymentAttempts)
           .where(and(eq(paymentAttempts.orderId, order.id), eq(paymentAttempts.status, 'SUCCEEDED')))
           .limit(1);
-        if (other && other.id !== attempt.id)
-          throw new PaymentError('ORDER_ALREADY_PAID', 'Order already has a successful payment');
+        if (other && other.id !== attempt.id) {
+          const [duplicate] = await tx
+            .update(paymentAttempts)
+            .set({
+              status: 'FAILED',
+              failure: { code: 'DUPLICATE_CHARGE', authoritativePaymentAttemptId: other.id },
+              updatedAt: new Date(),
+            })
+            .where(eq(paymentAttempts.id, attempt.id))
+            .returning();
+          await tx.insert(outbox).values({
+            id: newId(),
+            aggregateType: 'PAYMENT_ATTEMPT',
+            aggregateId: attempt.id,
+            eventType: 'commerce.payment.duplicate.detected',
+            producer: 'payment',
+            requestId: attempt.requestId,
+            correlationId: order.id,
+            causationId: attempt.id,
+            payload: { orderId: order.id, paymentAttemptId: attempt.id },
+          });
+          return this.toView(duplicate!, order);
+        }
         const now = result.providerOccurredAt ?? new Date();
         const [updated] = await tx
           .update(paymentAttempts)

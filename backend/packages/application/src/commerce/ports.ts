@@ -20,6 +20,7 @@ export const CONSUMPTION_OUTCOME_QUERY_PORT = Symbol('CONSUMPTION_OUTCOME_QUERY_
 export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
 export const MEMBERSHIP_GRANT_PORT = Symbol('MEMBERSHIP_GRANT_PORT');
 export const FULFILLMENT_COMMAND_PORT = Symbol('FULFILLMENT_COMMAND_PORT');
+export const REFUND_COMMAND_PORT = Symbol('REFUND_COMMAND_PORT');
 
 export interface OfferingQuoteSnapshot {
   readonly offeringId: string;
@@ -238,6 +239,7 @@ export interface EntitlementGrantPort {
     availableQuantity: number;
     reservedQuantity: number;
   }>;
+  reverseAvailableBySource(sourceId: string, businessKey: string, requestId: string): Promise<number>;
 }
 
 export interface MembershipGrantCommand {
@@ -259,4 +261,9 @@ export interface MembershipGrantPort {
 
 export interface FulfillmentCommandPort {
   process(orderId: string, paymentAttemptId: string): Promise<Record<string, unknown> | null>;
+}
+
+export interface RefundCommandPort {
+  reverseExceptional(orderId: string, reasonCode: string): Promise<{ refundId: string } | null>;
+  reverseDuplicate(orderId: string, paymentAttemptId: string): Promise<{ refundId: string }>;
 }

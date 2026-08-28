@@ -10,13 +10,12 @@ describe('R1.1 commerce module assembly', () => {
     });
     builder.overrideProvider(RuntimeInfrastructure).useValue({
       environment: {
-        DATA_ENCRYPTION_KEY:
-          '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
+        DATA_ENCRYPTION_KEY: '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
       },
     });
     const testingModule = await builder.compile();
 
-    expect(R11CommerceModules).toHaveLength(9);
+    expect(R11CommerceModules).toHaveLength(10);
     for (const domainModule of R11CommerceModules) {
       expect(R1DomainModules).toContain(domainModule);
       expect(() => testingModule.select(domainModule)).not.toThrow();

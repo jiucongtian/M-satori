@@ -1,0 +1,2 @@
+ALTER TABLE "entitlement_grants" DROP CONSTRAINT "entitlement_grants_balance_ck";--> statement-breakpoint
+ALTER TABLE "entitlement_grants" ADD CONSTRAINT "entitlement_grants_balance_ck" CHECK ("entitlement_grants"."total_quantity" >= 0 and "entitlement_grants"."available_quantity" >= 0 and "entitlement_grants"."reserved_quantity" >= 0 and "entitlement_grants"."available_quantity" + "entitlement_grants"."reserved_quantity" <= "entitlement_grants"."total_quantity");

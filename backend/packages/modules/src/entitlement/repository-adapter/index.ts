@@ -141,6 +141,42 @@ export class PostgresEntitlementRepository implements EntitlementRepository {
     };
   }
 
+  async reverseAvailableBySource(sourceId: string, businessKey: string, requestId: string) {
+    const grants = await this.infrastructure.pool.query<{
+      id: string;
+      available_quantity: number;
+      reserved_quantity: number;
+      grant_entry_id: string;
+    }>(
+      `select g.id,g.available_quantity,g.reserved_quantity,e.id grant_entry_id
+       from entitlement_grants g
+       join entitlement_usage_entries e on e.grant_id=g.id and e.entry_type='GRANT'
+       where g.source_id=$1 order by g.id`,
+      [sourceId],
+    );
+    if (grants.rows.some((grant) => grant.reserved_quantity > 0)) {
+      throw new EntitlementLedgerError(
+        'ENTITLEMENT_HAS_ACTIVE_RESERVATIONS',
+        'Active reservations must settle before reversal',
+      );
+    }
+    let reversed = 0;
+    for (const grant of grants.rows) {
+      if (grant.available_quantity < 1) continue;
+      await this.reverse({
+        grantId: grant.id,
+        originalEntryId: grant.grant_entry_id,
+        quantity: grant.available_quantity,
+        businessKey: `${businessKey}:${grant.id}`,
+        requestId,
+        businessContext: { type: 'ENTITLEMENT_SOURCE', id: sourceId },
+        reasonCode: 'MONEY_REFUND_SUCCEEDED',
+      });
+      reversed += 1;
+    }
+    return reversed;
+  }
+
   async reserve(candidate: BenefitCandidate, intentId: string): Promise<BenefitReservation> {
     return this.transaction(async (client) => {
       await advisoryLock(client, `entitlement-intent:${intentId}`);
@@ -394,7 +430,8 @@ export class PostgresEntitlementRepository implements EntitlementRepository {
         available += command.quantity;
         effect = 'RESTORE_AVAILABLE';
       }
-      const status = batch.status === 'FROZEN' ? 'FROZEN' : activeProjectionStatus(available);
+      const status =
+        total === 0 ? 'FORFEITED' : batch.status === 'FROZEN' ? 'FROZEN' : activeProjectionStatus(available);
       await client.query(
         `update entitlement_grants set total_quantity=$2,available_quantity=$3,status=$4,
          version=version+1,updated_at=now() where id=$1`,

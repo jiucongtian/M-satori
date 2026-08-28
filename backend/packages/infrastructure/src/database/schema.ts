@@ -1089,7 +1089,7 @@ export const entitlementGrants = pgTable(
     ),
     check(
       'entitlement_grants_balance_ck',
-      sql`${table.totalQuantity} > 0 and ${table.availableQuantity} >= 0 and ${table.reservedQuantity} >= 0 and ${table.availableQuantity} + ${table.reservedQuantity} <= ${table.totalQuantity}`,
+      sql`${table.totalQuantity} >= 0 and ${table.availableQuantity} >= 0 and ${table.reservedQuantity} >= 0 and ${table.availableQuantity} + ${table.reservedQuantity} <= ${table.totalQuantity}`,
     ),
     check(
       'entitlement_grants_period_ck',
@@ -1682,6 +1682,27 @@ export const operatorAdjustments = pgTable(
     ),
     check('operator_adjustments_direction_ck', sql`${table.direction} in ('INCREASE', 'DECREASE')`),
     check('operator_adjustments_quantity_ck', sql`${table.quantity} > 0`),
+  ],
+);
+
+export const operatorRoles = pgTable(
+  'operator_roles',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: varchar('role', { length: 24 }).notNull(),
+    grantedByUserId: uuid('granted_by_user_id').references(() => users.id),
+    grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('operator_roles_active_uq')
+      .on(table.userId, table.role)
+      .where(sql`${table.revokedAt} is null`),
+    index('operator_roles_user_idx').on(table.userId, table.grantedAt),
+    check('operator_roles_role_ck', sql`${table.role} in ('ADMIN','FINANCE','SUPPORT')`),
   ],
 );
 

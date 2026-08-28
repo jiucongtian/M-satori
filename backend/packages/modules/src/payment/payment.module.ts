@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import {
   PAYMENT_PROVIDER,
   SEED_PROMOTION_LIFECYCLE_PORT,
@@ -9,6 +9,7 @@ import { PAYMENT_REPOSITORY, PaymentApplicationService } from './application/ind
 import { PaymentController } from './controller/index.js';
 import { DeterministicFakePaymentProvider, DrizzlePaymentRepository } from './repository-adapter/index.js';
 
+@Global()
 @Module({
   controllers: [PaymentController],
   providers: [

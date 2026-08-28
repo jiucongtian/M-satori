@@ -197,6 +197,16 @@ export class ComplimentarySeedApplicationService
     return this.repository.expireDue(now, requestId);
   }
 
+  adjust(
+    grantId: string,
+    quantity: number,
+    direction: 'INCREASE' | 'DECREASE',
+    reasonCode: string,
+    requestId: string,
+  ) {
+    return this.repository.adjust(grantId, quantity, direction, reasonCode, requestId);
+  }
+
   reconcile(ownerUserId: string) {
     return this.repository.reconcile(ownerUserId);
   }

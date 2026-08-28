@@ -102,6 +102,7 @@ export interface EntitlementRepository {
     availableQuantity: number;
     reservedQuantity: number;
   }>;
+  reverseAvailableBySource(sourceId: string, businessKey: string, requestId: string): Promise<number>;
 }
 
 export class EntitlementApplicationService implements BenefitSourcePort, EntitlementGrantPort {
@@ -202,6 +203,10 @@ export class EntitlementApplicationService implements BenefitSourcePort, Entitle
 
   summarizeBySource(sourceId: string) {
     return this.repository.summarizeBySource(sourceId);
+  }
+
+  reverseAvailableBySource(sourceId: string, businessKey: string, requestId: string) {
+    return this.repository.reverseAvailableBySource(sourceId, businessKey, requestId);
   }
 
   reconcile(now = this.clock.now()) {
