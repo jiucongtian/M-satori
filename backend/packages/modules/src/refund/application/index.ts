@@ -164,15 +164,26 @@ export class RefundApplicationService implements RefundCommandPort {
       (await this.repository.factsByAttempt(refund.orderId, refund.paymentAttemptId)) ??
       (await this.requireFacts(null, refund.orderId));
     try {
-      const result = await this.provider.refund({
-        refundId: refund.refundId,
-        orderId: refund.orderId,
-        providerAttemptId: facts.providerAttemptId,
-        amountMinor: refund.amountMinor,
-        currency: 'CNY',
-        reasonCode: refund.reasonCode,
-      });
-      await this.repository.recordProvider(refund.refundId, result.providerRefundId);
+      const result = refund.providerRefundId
+        ? await this.queryProviderRefund(refund.providerRefundId)
+        : await this.provider.refund({
+            refundId: refund.refundId,
+            orderId: refund.orderId,
+            providerAttemptId: facts.providerAttemptId,
+            amountMinor: refund.amountMinor,
+            originalAmountMinor: facts.amountMinor,
+            currency: 'CNY',
+            reasonCode: refund.reasonCode,
+          });
+      if (!refund.providerRefundId)
+        await this.repository.recordProvider(refund.refundId, result.providerRefundId);
+      if (result.state === 'PROCESSING') return this.repository.get(refund.refundId);
+      if (result.state !== 'SUCCEEDED') {
+        throw new RefundError(
+          'PROVIDER_REFUND_NOT_SUCCEEDED',
+          `Payment provider refund is ${result.state.toLowerCase()}`,
+        );
+      }
       if (refund.reasonCode !== 'DUPLICATE_CHARGE') {
         await this.entitlements.reverseAvailableBySource(
           refund.orderId,
@@ -200,6 +211,16 @@ export class RefundApplicationService implements RefundCommandPort {
 
   list(ownerUserId: string) {
     return this.repository.listOwned(ownerUserId);
+  }
+
+  private queryProviderRefund(providerRefundId: string) {
+    if (!this.provider.queryRefund) {
+      throw new RefundError(
+        'PROVIDER_REFUND_QUERY_UNSUPPORTED',
+        'Payment provider refund query is unavailable',
+      );
+    }
+    return this.provider.queryRefund(providerRefundId);
   }
 
   private async ordinaryEligibility(facts: RefundOrderFacts) {

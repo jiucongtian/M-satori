@@ -105,7 +105,7 @@
 - [x] 9.2 实现未支付订单 30 分钟自动关闭及种子活动 reservation 的准确释放
 - [x] 9.3 定义 PaymentProvider 并实现确定性 Fake、故障注入和 WeChat Pay 适配器配置
 - [ ] 9.4 实现创建 PaymentAttempt、客户端支付参数、主动查单和支付状态查询
-- [ ] 9.5 实现微信支付回调验签、商户/订单/金额/币种复核、原文最小化保存和 provider event 去重
+- [x] 9.5 实现微信支付回调验签、商户/订单/金额/币种复核、原文最小化保存和 provider event 去重
 - [x] 9.6 实现一个订单最多一个成功资金事实和重复/乱序回调安全处理
 - [x] 9.7 在支付成功事务内更新支付事实、消耗活动种子 reservation 并写入 FulfillmentRequested Outbox
 - [x] 9.8 实现订单列表/详情、支付尝试和支付结果接口，区分 paid 与 fulfilled

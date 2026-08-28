@@ -155,14 +155,23 @@ export interface ProviderRefundRequest {
   readonly orderId: string;
   readonly providerAttemptId: string;
   readonly amountMinor: number;
+  readonly originalAmountMinor: number;
   readonly currency: 'CNY';
   readonly reasonCode: string;
+}
+
+export type ProviderRefundState = 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'CLOSED' | 'ABNORMAL';
+
+export interface ProviderRefundResult {
+  readonly providerRefundId: string;
+  readonly state: ProviderRefundState;
 }
 
 export interface PaymentProvider {
   createPayment(request: CreatePaymentRequest): Promise<ProviderPaymentResult>;
   queryPayment(providerAttemptId: string): Promise<ProviderPaymentResult>;
-  refund(request: ProviderRefundRequest): Promise<{ providerRefundId: string }>;
+  refund(request: ProviderRefundRequest): Promise<ProviderRefundResult>;
+  queryRefund?(providerRefundId: string): Promise<ProviderRefundResult>;
   verifyWebhook?(headers: Readonly<Record<string, string>>, body: string): Promise<ProviderWebhookEvent>;
 }
 

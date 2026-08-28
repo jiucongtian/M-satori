@@ -10,9 +10,24 @@ import {
   RuntimeInfrastructure,
 } from '@satori/infrastructure';
 import { and, eq } from 'drizzle-orm';
-import { randomUUID, verify, type KeyObject } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { PaymentAttemptView, PaymentRepository } from '../application/index.js';
 import { PaymentError } from '../domain/index.js';
+import {
+  parseWechatWebhook,
+  queryWechatPayment,
+  queryWechatRefund,
+  requestWechatRefund,
+  type WechatPayConfig,
+} from './wechat-pay.js';
+
+export {
+  buildWechatAuthorization,
+  decryptWechatResource,
+  merchantReference,
+  parseWechatWebhook,
+  verifyWechatSignature,
+} from './wechat-pay.js';
 
 @Injectable()
 export class DrizzlePaymentRepository implements PaymentRepository {
@@ -270,7 +285,13 @@ export class DeterministicFakePaymentProvider implements PaymentProvider {
     return Promise.resolve(result);
   }
   refund(request: Parameters<PaymentProvider['refund']>[0]) {
-    return Promise.resolve({ providerRefundId: `fake-refund-${request.refundId}` });
+    return Promise.resolve({
+      providerRefundId: `fake-refund-${request.refundId}`,
+      state: 'SUCCEEDED' as const,
+    });
+  }
+  queryRefund(providerRefundId: string) {
+    return Promise.resolve({ providerRefundId, state: 'SUCCEEDED' as const });
   }
   setResult(providerAttemptId: string, state: ProviderPaymentResult['state']) {
     const current = this.results.get(providerAttemptId);
@@ -293,7 +314,15 @@ export class PaymentRuntimeAdapter {
       return new DeterministicFakePaymentProvider();
     return new WechatPayAdapter({
       merchantId: environment.WECHAT_MERCHANT_ID!,
+      appId: environment.WECHAT_APP_ID!,
+      apiV3Key: environment.WECHAT_API_V3_KEY!,
+      merchantPrivateKey: Buffer.from(environment.WECHAT_MERCHANT_PRIVATE_KEY_BASE64!, 'base64').toString(
+        'utf8',
+      ),
+      merchantSerialNo: environment.WECHAT_MERCHANT_SERIAL_NO!,
       publicKey: Buffer.from(environment.WECHAT_PLATFORM_PUBLIC_KEY_BASE64!, 'base64').toString('utf8'),
+      publicKeyId: environment.WECHAT_PUBLIC_KEY_ID!,
+      notifyUrl: environment.WECHAT_NOTIFY_URL!,
     });
   }
 
@@ -308,66 +337,25 @@ export class PaymentRuntimeAdapter {
 }
 
 export class WechatPayAdapter implements PaymentProvider {
-  constructor(private readonly config: { merchantId: string; publicKey: string | KeyObject }) {}
+  constructor(private readonly config: WechatPayConfig) {}
   createPayment(): never {
-    throw new PaymentError('WECHAT_PAY_CLIENT_NOT_CONFIGURED', 'WeChat client is not configured');
+    throw new PaymentError(
+      'WECHAT_PAYMENT_SCENE_NOT_CONFIGURED',
+      'WeChat JSAPI or H5 payment scene is not configured',
+    );
   }
-  queryPayment(): never {
-    throw new PaymentError('WECHAT_PAY_CLIENT_NOT_CONFIGURED', 'WeChat client is not configured');
+  queryPayment(providerAttemptId: string) {
+    return queryWechatPayment(this.config, providerAttemptId);
   }
-  refund(): never {
-    throw new PaymentError('WECHAT_PAY_CLIENT_NOT_CONFIGURED', 'WeChat client is not configured');
+  refund(request: Parameters<PaymentProvider['refund']>[0]) {
+    return requestWechatRefund(this.config, request);
+  }
+  queryRefund(providerRefundId: string) {
+    return queryWechatRefund(this.config, providerRefundId);
   }
   verifyWebhook(headers: Readonly<Record<string, string>>, body: string): Promise<ProviderWebhookEvent> {
     return parseWechatWebhook(this.config, headers, body);
   }
-}
-
-export function parseWechatWebhook(
-  config: { merchantId: string; publicKey: string | KeyObject },
-  headers: Readonly<Record<string, string>>,
-  body: string,
-): Promise<ProviderWebhookEvent> {
-  const timestamp = headers['wechatpay-timestamp'];
-  const nonce = headers['wechatpay-nonce'];
-  const signature = headers['wechatpay-signature'];
-  if (!timestamp || !nonce || !signature)
-    throw new PaymentError('WECHAT_SIGNATURE_INVALID', 'WeChat signature headers are missing');
-  if (!verifyWechatSignature(config.publicKey, timestamp, nonce, body, signature))
-    throw new PaymentError('WECHAT_SIGNATURE_INVALID', 'WeChat signature is invalid');
-  const value = JSON.parse(body) as Record<string, unknown>;
-  if (value.merchantId !== config.merchantId)
-    throw new PaymentError('WECHAT_MERCHANT_MISMATCH', 'WeChat merchant does not match');
-  return Promise.resolve({
-    providerEventId: String(value.eventId),
-    providerAttemptId: String(value.providerAttemptId),
-    orderId: String(value.orderId),
-    state: String(value.state) as ProviderWebhookEvent['state'],
-    amountMinor: Number(value.amountMinor),
-    currency: 'CNY',
-    occurredAt: new Date(String(value.occurredAt)),
-    verificationSnapshot: { algorithm: 'RSA-SHA256', merchantId: config.merchantId },
-    minimalPayload: JSON.stringify({
-      eventId: value.eventId,
-      providerAttemptId: value.providerAttemptId,
-      state: value.state,
-    }),
-  });
-}
-
-export function verifyWechatSignature(
-  publicKey: string | KeyObject,
-  timestamp: string,
-  nonce: string,
-  body: string,
-  signature: string,
-) {
-  return verify(
-    'RSA-SHA256',
-    Buffer.from(`${timestamp}\n${nonce}\n${body}\n`),
-    publicKey,
-    Buffer.from(signature, 'base64'),
-  );
 }
 
 function asStringRecord(value: unknown): Record<string, string> | null {

@@ -42,7 +42,9 @@ const environmentShape = {
   WECHAT_APP_ID: z.string().min(6).optional(),
   WECHAT_API_V3_KEY: z.string().length(32).optional(),
   WECHAT_MERCHANT_PRIVATE_KEY_BASE64: z.string().min(100).optional(),
+  WECHAT_MERCHANT_SERIAL_NO: z.string().min(8).optional(),
   WECHAT_PLATFORM_PUBLIC_KEY_BASE64: z.string().min(100).optional(),
+  WECHAT_PUBLIC_KEY_ID: z.string().min(8).optional(),
   WECHAT_NOTIFY_URL: z.string().url().optional(),
   WECHAT_WEBHOOK_ALLOWED_IPS: z.string().default('127.0.0.1,::1'),
 } as const;
@@ -70,7 +72,9 @@ export const environmentSchema = z.object(environmentShape).superRefine((environ
       'WECHAT_APP_ID',
       'WECHAT_API_V3_KEY',
       'WECHAT_MERCHANT_PRIVATE_KEY_BASE64',
+      'WECHAT_MERCHANT_SERIAL_NO',
       'WECHAT_PLATFORM_PUBLIC_KEY_BASE64',
+      'WECHAT_PUBLIC_KEY_ID',
       'WECHAT_NOTIFY_URL',
     ] as const) {
       if (!environment[key]) {

@@ -26,5 +26,7 @@ describe('API protocol', () => {
       host,
     );
     expect(reply.status).toHaveBeenLastCalledWith(503);
+    filter.catch(Object.assign(new Error('wechat unavailable'), { code: 'WECHAT_API_UNAVAILABLE' }), host);
+    expect(reply.status).toHaveBeenLastCalledWith(503);
   });
 });

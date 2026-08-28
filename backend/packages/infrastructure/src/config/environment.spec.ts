@@ -69,7 +69,9 @@ describe('runtime baseline', () => {
       WECHAT_APP_ID: 'wx-app-10001',
       WECHAT_API_V3_KEY: '12345678901234567890123456789012',
       WECHAT_MERCHANT_PRIVATE_KEY_BASE64: 'x'.repeat(120),
+      WECHAT_MERCHANT_SERIAL_NO: 'MERCHANTSERIAL001',
       WECHAT_PLATFORM_PUBLIC_KEY_BASE64: 'y'.repeat(120),
+      WECHAT_PUBLIC_KEY_ID: 'PUB_KEY_ID_001',
       WECHAT_NOTIFY_URL: 'https://pay.example.com/api/v1/internal/payment-webhooks/wechat',
     });
     expect(payment.PAYMENT_PROVIDER_MODE).toBe('WECHAT_PAY');

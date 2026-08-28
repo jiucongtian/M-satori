@@ -60,6 +60,12 @@ export class ApiExceptionFilter implements ExceptionFilter {
               domainCode === 'INVALID_ADJUSTMENT' ||
               domainCode === 'WECHAT_SIGNATURE_INVALID' ||
               domainCode === 'WECHAT_MERCHANT_MISMATCH' ||
+              domainCode === 'WECHAT_APP_MISMATCH' ||
+              domainCode === 'WECHAT_RESOURCE_INVALID' ||
+              domainCode === 'WECHAT_RESOURCE_DECRYPTION_FAILED' ||
+              domainCode === 'WECHAT_NOTIFICATION_INVALID' ||
+              domainCode === 'WECHAT_NOTIFICATION_UNSUPPORTED' ||
+              domainCode === 'WECHAT_PAYMENT_FACT_INVALID' ||
               domainCode === 'PAYMENT_FACT_MISMATCH'
             ? HttpStatus.BAD_REQUEST
             : domainCode?.startsWith('ENTITLEMENT_') || domainCode === 'CONSUMPTION_ALREADY_SETTLED'
@@ -76,9 +82,12 @@ export class ApiExceptionFilter implements ExceptionFilter {
                 : domainCode === 'IDEMPOTENCY_KEY_REUSED' || domainCode === 'IDEMPOTENCY_IN_PROGRESS'
                   ? HttpStatus.CONFLICT
                   : domainCode === 'PAYMENT_WEBHOOK_UNSUPPORTED' ||
-                      domainCode === 'WECHAT_PAY_CLIENT_NOT_CONFIGURED'
+                      domainCode === 'WECHAT_PAY_CLIENT_NOT_CONFIGURED' ||
+                      domainCode === 'WECHAT_PAYMENT_SCENE_NOT_CONFIGURED' ||
+                      domainCode === 'WECHAT_API_ERROR' ||
+                      domainCode === 'WECHAT_API_UNAVAILABLE'
                     ? HttpStatus.SERVICE_UNAVAILABLE
-                  : HttpStatus.INTERNAL_SERVER_ERROR;
+                    : HttpStatus.INTERNAL_SERVER_ERROR;
     const status = exception instanceof HttpException ? exception.getStatus() : domainStatus;
     if (status === 500) {
       console.error('unhandled_api_exception', {
