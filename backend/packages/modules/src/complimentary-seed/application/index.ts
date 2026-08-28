@@ -2,8 +2,10 @@ import type {
   BenefitCandidate,
   BenefitReservation,
   BenefitSourcePort,
+  ReserveSeedPromotionCommand,
   SeedBatchAccountView,
   SeedBatchProjectionQueryPort,
+  SeedPromotionLifecyclePort,
 } from '@satori/application';
 import type { BusinessContext, ServiceRequirement, ServiceType } from '@satori/domain';
 import type { ComplimentarySeedGrantView, ComplimentarySeedSourceType } from '../domain/index.js';
@@ -100,7 +102,9 @@ export interface ComplimentarySeedRepository extends SeedBatchProjectionQueryPor
   listGrants(ownerUserId: string): Promise<readonly ComplimentarySeedGrantView[]>;
 }
 
-export class ComplimentarySeedApplicationService implements BenefitSourcePort, SeedBatchProjectionQueryPort {
+export class ComplimentarySeedApplicationService
+  implements BenefitSourcePort, SeedBatchProjectionQueryPort, SeedPromotionLifecyclePort
+{
   constructor(private readonly repository: ComplimentarySeedRepository) {}
 
   grant(command: GrantComplimentarySeedsCommand, idempotencyKey: string) {
@@ -132,6 +136,37 @@ export class ComplimentarySeedApplicationService implements BenefitSourcePort, S
 
   reservePromotion(command: SeedReservationCommand) {
     return this.repository.reserve(command);
+  }
+
+  reserveForOrderCreation(command: ReserveSeedPromotionCommand) {
+    return this.repository.reserve({
+      ownerUserId: command.ownerUserId,
+      businessSpace: 'SATORI',
+      serviceType: command.serviceType,
+      quantity: command.quantity,
+      businessKey: `money-order:${command.orderId}:seed-promotion`,
+      businessContext: { type: 'MONEY_ORDER', id: command.orderId },
+      expiresAt: command.reservationExpiresAt,
+      requestId: command.requestId,
+    });
+  }
+
+  consumeAfterPaymentSuccess(reservationId: string, paymentAttemptId: string, requestId: string) {
+    return this.repository.settle(
+      reservationId,
+      'CONSUME',
+      { type: 'PAYMENT_ATTEMPT', id: paymentAttemptId },
+      requestId,
+    );
+  }
+
+  releaseAfterOrderClosure(
+    reservationId: string,
+    orderId: string,
+    reason: 'ORDER_CANCELLED' | 'ORDER_EXPIRED' | 'PAYMENT_FAILED',
+    requestId: string,
+  ) {
+    return this.repository.settle(reservationId, 'RELEASE', { type: reason, id: orderId }, requestId);
   }
 
   consumePromotion(reservationId: string, businessContext: BusinessContext, requestId: string) {

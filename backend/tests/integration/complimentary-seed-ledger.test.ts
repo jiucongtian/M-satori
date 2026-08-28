@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validateEnvironment } from '../../packages/infrastructure/src/config/environment.js';
 import { createDatabase } from '../../packages/infrastructure/src/database/client.js';
+import { ComplimentarySeedApplicationService } from '../../packages/modules/src/complimentary-seed/application/index.js';
 import { PostgresComplimentarySeedRepository } from '../../packages/modules/src/complimentary-seed/repository-adapter/index.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
@@ -11,6 +12,7 @@ const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
 describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
   let pool: Pool;
   let repository: PostgresComplimentarySeedRepository;
+  let seeds: ComplimentarySeedApplicationService;
   const userId = randomUUID();
   const migrationUserId = randomUUID();
   const concurrencyUserId = randomUUID();
@@ -32,6 +34,7 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
       concurrencyUserId,
     ]);
     repository = new PostgresComplimentarySeedRepository({ pool } as never);
+    seeds = new ComplimentarySeedApplicationService(repository);
   });
 
   afterAll(async () => {
@@ -128,21 +131,45 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
 
   it('reserves promotion seeds idempotently and releases the exact allocation', async () => {
     await grant('daily-promotion', ['DAILY_INSIGHT'], 10, '2026-12-01T00:00:00.000Z');
+    const orderId = randomUUID();
     const command = {
       ownerUserId: userId,
       businessSpace: 'SATORI' as const,
       serviceType: 'DAILY_INSIGHT' as const,
       quantity: 4,
-      businessKey: 'order-promotion:reserve',
-      businessContext: { type: 'MONEY_ORDER', id: randomUUID() },
+      orderId,
+      reservationExpiresAt: new Date(Date.now() + 30 * 60_000),
       requestId: randomUUID(),
     };
-    const reserved = await repository.reserve(command);
-    expect((await repository.reserve({ ...command, requestId: randomUUID() })).reservationId).toBe(
+    const reserved = await seeds.reserveForOrderCreation(command);
+    expect(
+      (await seeds.reserveForOrderCreation({ ...command, requestId: randomUUID() })).reservationId,
+    ).toBe(reserved.reservationId);
+    await seeds.releaseAfterOrderClosure(
       reserved.reservationId,
+      orderId,
+      'ORDER_EXPIRED',
+      randomUUID(),
     );
-    await repository.settle(reserved.reservationId, 'RELEASE', command.businessContext, randomUUID());
+    await seeds.releaseAfterOrderClosure(
+      reserved.reservationId,
+      orderId,
+      'ORDER_EXPIRED',
+      randomUUID(),
+    );
     expect(await repository.getAccount(userId)).toMatchObject({ available: 18, reserved: 0 });
+
+    const paidOrderId = randomUUID();
+    const paid = await seeds.reserveForOrderCreation({
+      ...command,
+      orderId: paidOrderId,
+      quantity: 3,
+      requestId: randomUUID(),
+    });
+    const paymentAttemptId = randomUUID();
+    await seeds.consumeAfterPaymentSuccess(paid.reservationId, paymentAttemptId, randomUUID());
+    await seeds.consumeAfterPaymentSuccess(paid.reservationId, paymentAttemptId, randomUUID());
+    expect(await repository.getAccount(userId)).toMatchObject({ available: 15, reserved: 0, totalSpent: 3 });
   });
 
   it('migrates legacy totals idempotently and blocks cutover while legacy reservations remain', async () => {

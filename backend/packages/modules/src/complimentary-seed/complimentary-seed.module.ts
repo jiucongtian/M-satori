@@ -3,6 +3,7 @@ import {
   COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT,
   SEED_BATCH_PROJECTION_QUERY_PORT,
   SEED_ELIGIBILITY_PORT,
+  SEED_PROMOTION_LIFECYCLE_PORT,
 } from '@satori/application';
 import { COMPLIMENTARY_SEED_REPOSITORY, ComplimentarySeedApplicationService } from './application/index.js';
 import { PostgresComplimentarySeedRepository } from './repository-adapter/index.js';
@@ -24,12 +25,14 @@ import { PostgresComplimentarySeedRepository } from './repository-adapter/index.
       useExisting: ComplimentarySeedApplicationService,
     },
     { provide: SEED_BATCH_PROJECTION_QUERY_PORT, useExisting: ComplimentarySeedApplicationService },
+    { provide: SEED_PROMOTION_LIFECYCLE_PORT, useExisting: ComplimentarySeedApplicationService },
   ],
   exports: [
     ComplimentarySeedApplicationService,
     COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT,
     SEED_BATCH_PROJECTION_QUERY_PORT,
     SEED_ELIGIBILITY_PORT,
+    SEED_PROMOTION_LIFECYCLE_PORT,
   ],
 })
 export class ComplimentarySeedModule {}

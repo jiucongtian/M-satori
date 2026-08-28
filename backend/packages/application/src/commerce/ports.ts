@@ -14,6 +14,7 @@ export const ENTITLEMENT_GRANT_PORT = Symbol('ENTITLEMENT_GRANT_PORT');
 export const ENTITLEMENT_BENEFIT_SOURCE_PORT = Symbol('ENTITLEMENT_BENEFIT_SOURCE_PORT');
 export const COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT = Symbol('COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT');
 export const SEED_BATCH_PROJECTION_QUERY_PORT = Symbol('SEED_BATCH_PROJECTION_QUERY_PORT');
+export const SEED_PROMOTION_LIFECYCLE_PORT = Symbol('SEED_PROMOTION_LIFECYCLE_PORT');
 
 export interface OfferingQuoteSnapshot {
   readonly offeringId: string;
@@ -76,6 +77,34 @@ export interface SeedBatchProjectionQueryPort {
     cursor: { readonly createdAt: Date; readonly id: string } | null,
     limit: number,
   ): Promise<{ readonly rows: readonly SeedBatchTransactionView[]; readonly hasMore: boolean }>;
+}
+
+export interface ReserveSeedPromotionCommand {
+  readonly ownerUserId: string;
+  readonly businessSpace: BusinessSpace;
+  readonly serviceType: ServiceType;
+  readonly orderId: string;
+  readonly quantity: number;
+  readonly reservationExpiresAt: Date;
+  readonly requestId: string;
+}
+
+export interface SeedPromotionLifecyclePort {
+  reserveForOrderCreation(command: ReserveSeedPromotionCommand): Promise<{
+    readonly reservationId: string;
+    readonly quantity: number;
+  }>;
+  consumeAfterPaymentSuccess(
+    reservationId: string,
+    paymentAttemptId: string,
+    requestId: string,
+  ): Promise<void>;
+  releaseAfterOrderClosure(
+    reservationId: string,
+    orderId: string,
+    reason: 'ORDER_CANCELLED' | 'ORDER_EXPIRED' | 'PAYMENT_FAILED',
+    requestId: string,
+  ): Promise<void>;
 }
 
 export type PaymentAttemptState = 'CREATED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
