@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { AppBottomNav, type AppTab } from "@/src/shared/AppBottomNav";
 import { ROUTES } from "@/src/shared/routes";
 
 export function ReadingHeader({ backHref }: { backHref?: string }) {
@@ -11,12 +12,12 @@ export function ReadingHeader({ backHref }: { backHref?: string }) {
 export function RouteMainNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const tabs = [
-    ["今日", ROUTES.home, "◉"],
-    ["问事", ROUTES.readings, "◇"],
-    ["成长", ROUTES.home, "❧"],
-    ["关系", ROUTES.home, "∞"],
-    ["我的", ROUTES.my, "○"],
-  ] as const;
-  return <nav className="main-nav" aria-label="主导航">{tabs.map(([label,href,icon])=><button type="button" key={label} className={pathname.startsWith(href)&&href===ROUTES.readings?"active":pathname===href&&label!=="问事"?"active":""} onClick={()=>router.push(href)}><i>{icon}</i><span>{label}</span></button>)}</nav>;
+  const active: AppTab = pathname.startsWith(ROUTES.readings) ? "问事" : "今日";
+  const navigate = (tab: AppTab) => {
+    if (tab === "问事") router.push(ROUTES.readings);
+    else if (tab === "我的") router.push(ROUTES.my);
+    else if (tab === "今日") router.push(ROUTES.home);
+    else router.push(`${ROUTES.home}?tab=${tab === "关系" ? "relationship" : "growth"}`);
+  };
+  return <AppBottomNav active={active} onNavigate={navigate}/>;
 }
