@@ -462,7 +462,15 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
     finally { setApiBusy(false); }
   }
 
-  function navigateR1(target: number) {
+  function navigateR1(target: number | string) {
+    const routeByAction: Record<string, string> = {
+      profile: "/my/profile", archive: "/my/archive", orders: "/my/orders", membership: "/services/membership",
+      benefits: "/my/benefits", seeds: "/my/seeds", services: "/services", settings: "/my", support: "/my/support",
+    };
+    if (typeof target === "string") {
+      if (routeByAction[target] && onNavigateRoute) return onNavigateRoute(routeByAction[target]);
+      return;
+    }
     const routeByStep: Record<number, string> = { 10: "/home", 11: "/daily", 21: "/my", 22: "/my/profile", 23: "/my/seeds", 24: "/my/reports", 111: "/my/archive" };
     if (routeByStep[target] && onNavigateRoute) return onNavigateRoute(routeByStep[target]);
     if (r1StepIds.has(profileSteps[target])) setStep(target);
