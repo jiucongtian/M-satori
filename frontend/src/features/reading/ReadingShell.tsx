@@ -17,7 +17,7 @@ export function RouteMainNav() {
     if (tab === "问事") router.push(ROUTES.readings);
     else if (tab === "我的") router.push(ROUTES.my);
     else if (tab === "今日") router.push(ROUTES.home);
-    else router.push(`${ROUTES.home}?tab=${tab === "关系" ? "relationship" : "growth"}`);
+    else router.push(`${ROUTES.home}?tab=${tab === "关系" ? "relationship" : "growth"}&source=tabbar`);
   };
   return <AppBottomNav active={active} onNavigate={navigate}/>;
 }
