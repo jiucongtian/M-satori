@@ -55,7 +55,12 @@ export class FulfillmentApplicationService {
       await this.repository.fail(
         claim.jobId,
         {
-          code: error instanceof FulfillmentError ? error.code : 'FULFILLMENT_FAILED',
+          code:
+            error instanceof FulfillmentError
+              ? error.code
+              : typeof (error as { code?: unknown } | null)?.code === 'string'
+                ? (error as { code: string }).code
+                : 'FULFILLMENT_FAILED',
           message: failure.message,
         },
         retryable,

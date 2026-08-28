@@ -410,6 +410,12 @@ class FlakyEntitlementGrant implements EntitlementGrantPort {
   forfeitBySource() {
     return Promise.resolve();
   }
+  expireDue() {
+    return Promise.resolve(0);
+  }
+  summarizeBySource() {
+    return Promise.resolve({ totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0 });
+  }
 }
 
 class TerminalEntitlementGrant implements EntitlementGrantPort {
@@ -424,5 +430,11 @@ class TerminalEntitlementGrant implements EntitlementGrantPort {
   }
   forfeitBySource() {
     return Promise.resolve();
+  }
+  expireDue() {
+    return Promise.resolve(0);
+  }
+  summarizeBySource() {
+    return Promise.resolve({ totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0 });
   }
 }

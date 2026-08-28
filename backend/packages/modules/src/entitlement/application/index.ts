@@ -97,6 +97,11 @@ export interface EntitlementRepository {
   ): Promise<EntitlementPage<EntitlementUsageView>>;
   expireDue(now: Date, requestId: string): Promise<number>;
   reconcile(now: Date, requestId: string): Promise<EntitlementReconciliationReport>;
+  summarizeBySource(sourceId: string): Promise<{
+    totalQuantity: number;
+    availableQuantity: number;
+    reservedQuantity: number;
+  }>;
 }
 
 export class EntitlementApplicationService implements BenefitSourcePort, EntitlementGrantPort {
@@ -193,6 +198,10 @@ export class EntitlementApplicationService implements BenefitSourcePort, Entitle
 
   expireDue(now = this.clock.now()) {
     return this.repository.expireDue(now, randomUUID());
+  }
+
+  summarizeBySource(sourceId: string) {
+    return this.repository.summarizeBySource(sourceId);
   }
 
   reconcile(now = this.clock.now()) {

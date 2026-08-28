@@ -46,7 +46,7 @@ export class PostgresEntitlementRepository implements EntitlementRepository {
          (id,owner_user_id,business_space,service_type,unit,source_type,source_id,total_quantity,
           available_quantity,reserved_quantity,status,effective_at,expires_at,granted_at,
           expiry_timezone,rule_version,request_id)
-         values($1,$2,$3,$4,$5,$6,$7,$8,$8,0,'ACTIVE',$9,$10,$9,'Asia/Shanghai',$11,$12)
+         values($1,$2,$3,$4,$5,$6,$7,$8,$8,0,$13,$9,$10,$9,'Asia/Shanghai',$11,$12)
          on conflict (source_type,source_id,service_type) do nothing returning id`,
         [
           grantId,
@@ -61,6 +61,7 @@ export class PostgresEntitlementRepository implements EntitlementRepository {
           command.expiresAt,
           command.ruleVersion,
           command.requestId,
+          command.initialStatus ?? 'ACTIVE',
         ],
       );
       if (!inserted.rows[0]) {
@@ -118,6 +119,26 @@ export class PostgresEntitlementRepository implements EntitlementRepository {
       grantedAt: row.granted_at,
       ruleVersion: row.rule_version,
     }));
+  }
+
+  async summarizeBySource(sourceId: string) {
+    const result = await this.infrastructure.pool.query<{
+      total_quantity: string;
+      available_quantity: string;
+      reserved_quantity: string;
+    }>(
+      `select coalesce(sum(total_quantity),0)::text total_quantity,
+              coalesce(sum(available_quantity),0)::text available_quantity,
+              coalesce(sum(reserved_quantity),0)::text reserved_quantity
+       from entitlement_grants where source_id=$1`,
+      [sourceId],
+    );
+    const row = result.rows[0]!;
+    return {
+      totalQuantity: Number(row.total_quantity),
+      availableQuantity: Number(row.available_quantity),
+      reservedQuantity: Number(row.reserved_quantity),
+    };
   }
 
   async reserve(candidate: BenefitCandidate, intentId: string): Promise<BenefitReservation> {

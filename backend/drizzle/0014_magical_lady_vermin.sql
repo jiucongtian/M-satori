@@ -1,0 +1,2 @@
+ALTER TABLE "membership_subscriptions" DROP CONSTRAINT "membership_subscriptions_status_ck";--> statement-breakpoint
+ALTER TABLE "membership_subscriptions" ADD CONSTRAINT "membership_subscriptions_status_ck" CHECK ("membership_subscriptions"."status" in ('PREPARING', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'CANCELLED'));

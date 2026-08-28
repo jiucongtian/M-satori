@@ -1492,7 +1492,7 @@ export const membershipSubscriptions = pgTable(
     index('membership_subscriptions_owner_cursor_idx').on(table.ownerUserId, table.createdAt, table.id),
     check(
       'membership_subscriptions_status_ck',
-      sql`${table.status} in ('ACTIVE', 'EXPIRED', 'TERMINATED', 'CANCELLED')`,
+      sql`${table.status} in ('PREPARING', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'CANCELLED')`,
     ),
     check('membership_subscriptions_period_ck', sql`${table.endsAt} > ${table.startsAt}`),
   ],

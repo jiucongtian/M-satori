@@ -224,6 +224,7 @@ export interface EntitlementGrantCommand {
   readonly effectiveAt: Date;
   readonly expiresAt: Date;
   readonly ruleVersion: string;
+  readonly initialStatus?: 'ACTIVE' | 'FROZEN';
 }
 
 export interface EntitlementGrantPort {
@@ -231,6 +232,12 @@ export interface EntitlementGrantPort {
   freezeBySource(sourceId: string, reasonCode: string): Promise<void>;
   unfreezeBySource(sourceId: string, reasonCode: string): Promise<void>;
   forfeitBySource(sourceId: string, reasonCode: string): Promise<void>;
+  expireDue(now: Date): Promise<number>;
+  summarizeBySource(sourceId: string): Promise<{
+    totalQuantity: number;
+    availableQuantity: number;
+    reservedQuantity: number;
+  }>;
 }
 
 export interface MembershipGrantCommand {

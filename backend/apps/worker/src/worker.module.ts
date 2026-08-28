@@ -16,6 +16,7 @@ import { EntitlementMaintenanceWorker } from '../../../packages/modules/src/enti
 import { ComplimentarySeedMaintenanceWorker } from '../../../packages/modules/src/complimentary-seed/complimentary-seed-maintenance.worker.js';
 import { ConsumptionMaintenanceWorker } from '../../../packages/modules/src/consumption/consumption-maintenance.worker.js';
 import { FulfillmentMaintenanceWorker } from '../../../packages/modules/src/fulfillment/fulfillment-maintenance.worker.js';
+import { MembershipMaintenanceWorker } from '../../../packages/modules/src/membership/membership-maintenance.worker.js';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { FulfillmentMaintenanceWorker } from '../../../packages/modules/src/fulf
     ComplimentarySeedMaintenanceWorker,
     ConsumptionMaintenanceWorker,
     FulfillmentMaintenanceWorker,
+    MembershipMaintenanceWorker,
   ],
 })
 export class WorkerModule {}
