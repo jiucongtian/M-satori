@@ -21,13 +21,13 @@ export class MembershipController {
 
   @Get('memberships/current')
   async current(@Req() request: AuthRequest) {
-    return { data: await this.memberships.getCurrent(request.auth.userId) };
+    return { data: serializeSubscription(await this.memberships.getCurrent(request.auth.userId)) };
   }
 
   @Get('memberships/periods')
   async periods(@Req() request: AuthRequest) {
     return {
-      data: await this.memberships.listPeriods(request.auth.userId),
+      data: (await this.memberships.listPeriods(request.auth.userId)).map(serializePeriod),
       meta: { hasMore: false, nextCursor: null },
     };
   }
@@ -63,4 +63,32 @@ export class MembershipController {
       meta: { hasMore: false, nextCursor: null },
     };
   }
+}
+
+function serializeSubscription(value: Record<string, unknown> | null) {
+  if (!value) return null;
+  const periods = Array.isArray(value.periods) ? value.periods.map(serializePeriod) : [];
+  return {
+    subscriptionId: String(value.subscriptionId),
+    activePeriod: periods.find((period) => period.status === 'ACTIVE') ?? null,
+    periods,
+  };
+}
+
+function serializePeriod(value: unknown) {
+  const row = value as Record<string, unknown>;
+  const rawStatus = String(row.status);
+  return {
+    periodId: String(row.periodId),
+    planCode: String(row.planCode),
+    status:
+      rawStatus === 'QUEUED'
+        ? 'SCHEDULED'
+        : rawStatus === 'TERMINATED'
+          ? 'TERMINATED_BY_UPGRADE'
+          : rawStatus,
+    startsAt: row.startsAt,
+    endsAt: row.endsAt,
+    entitlementIds: Array.isArray(row.entitlementIds) ? row.entitlementIds : [],
+  };
 }

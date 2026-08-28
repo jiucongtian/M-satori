@@ -528,46 +528,49 @@ paths:
       responses:
         '200': {description: Formal business execution started, content: {application/json: {schema: {$ref: '#/components/schemas/ConsumptionIntentEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
-  /membership-subscriptions/current:
+  /memberships/current:
     get:
       tags: [Membership]
       operationId: getCurrentMembershipSubscription
       responses:
         '200': {description: Active and scheduled membership periods, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipSubscriptionEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
-  /membership-upgrade-quotes:
-    post:
-      tags: [Membership]
-      operationId: createMembershipUpgradeQuote
-      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateMembershipUpgradeQuoteRequest'}}}}
-      responses:
-        '201': {description: Full-price replacement quote without refund fields, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradeQuoteEnvelope'}}}}
-        default: {$ref: '#/components/responses/Error'}
-  /membership-upgrades/{upgradeId}:
+  /memberships/periods:
     get:
       tags: [Membership]
-      operationId: getMembershipUpgrade
-      parameters: [{$ref: '#/components/parameters/MembershipUpgradeId'}]
+      operationId: listMembershipPeriods
       responses:
-        '200': {description: Upgrade fulfillment status, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradeEnvelope'}}}}
+        '200': {description: Membership periods with separately issued benefits, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipPeriodListEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
-  /money-orders/{orderId}/refund-quotes:
+  /membership-upgrades/preview:
+    post:
+      tags: [Membership]
+      operationId: previewMembershipUpgrade
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradePreviewRequest'}}}}
+      responses:
+        '201': {description: Full-price replacement preview containing only customer-visible replacement facts, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradePreviewEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /membership-upgrades:
+    post:
+      tags: [Membership]
+      operationId: registerMembershipUpgrade
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RegisterMembershipUpgradeRequest'}}}}
+      responses:
+        '201': {description: Replacement registered against the full-price new order, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradeRegistrationEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    get:
+      tags: [Membership]
+      operationId: listMembershipUpgrades
+      responses:
+        '200': {description: Replacement lifecycle history, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradeListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /refund-quotes:
     post:
       tags: [Refunds]
       operationId: createRefundQuote
-      parameters: [{$ref: '#/components/parameters/OrderId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OrderRefundRequest'}}}}
       responses:
         '201': {description: Ordinary-order refund quote, content: {application/json: {schema: {$ref: '#/components/schemas/RefundQuoteEnvelope'}}}}
-        default: {$ref: '#/components/responses/Error'}
-  /money-orders/{orderId}/refund-requests:
-    post:
-      tags: [Refunds]
-      operationId: createRefundRequest
-      parameters: [{$ref: '#/components/parameters/OrderId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateRefundRequest'}}}}
-      responses:
-        '202': {description: Ordinary-order refund accepted after entitlement freeze, content: {application/json: {schema: {$ref: '#/components/schemas/RefundEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
   /refunds:
     get:
@@ -577,13 +580,12 @@ paths:
       responses:
         '200': {description: Current user's ordinary refunds, content: {application/json: {schema: {$ref: '#/components/schemas/RefundListEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
-  /refunds/{refundId}:
-    get:
+    post:
       tags: [Refunds]
-      operationId: getRefund
-      parameters: [{$ref: '#/components/parameters/RefundId'}]
+      operationId: createRefundRequest
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OrderRefundRequest'}}}}
       responses:
-        '200': {description: Ordinary refund detail, content: {application/json: {schema: {$ref: '#/components/schemas/RefundEnvelope'}}}}
+        '201': {description: Ordinary-order refund processed after entitlement freeze, content: {application/json: {schema: {$ref: '#/components/schemas/RefundEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
   /feedback:
     post:
@@ -824,10 +826,11 @@ components:
     ServiceOffering:
       type: object
       additionalProperties: false
-      required: [offeringId, offeringVersion, businessSpace, code, name, kind, serviceType, status, price, benefits, validityDays, refundPolicyVersion]
+      required: [offeringId, offeringVersion, offeringVersionId, businessSpace, code, name, kind, serviceType, status, price, benefits, validityDays, refundPolicyVersion]
       properties:
         offeringId: {type: string}
         offeringVersion: {type: string}
+        offeringVersionId: {type: string, format: uuid}
         businessSpace: {$ref: '#/components/schemas/BusinessSpace'}
         code: {type: string}
         name: {type: string}
@@ -883,15 +886,19 @@ components:
     ConsumptionIntentEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ConsumptionIntent'}}}
     MembershipPeriod: {type: object, additionalProperties: false, required: [periodId, planCode, status, startsAt, endsAt, entitlementIds], properties: {periodId: {type: string}, planCode: {type: string, enum: [GLOW, SERENITY, FREEDOM]}, status: {type: string, enum: [SCHEDULED, ACTIVE, EXPIRED, TERMINATED_BY_UPGRADE, CANCELLED]}, startsAt: {type: string, format: date-time}, endsAt: {type: string, format: date-time}, entitlementIds: {type: array, items: {type: string}}}}
     MembershipSubscription: {type: object, additionalProperties: false, required: [subscriptionId, periods], properties: {subscriptionId: {type: string}, activePeriod: {oneOf: [{$ref: '#/components/schemas/MembershipPeriod'}, {type: 'null'}]}, periods: {type: array, items: {$ref: '#/components/schemas/MembershipPeriod'}}}}
-    MembershipSubscriptionEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipSubscription'}}}
-    CreateMembershipUpgradeQuoteRequest: {type: object, additionalProperties: false, required: [newPlanOfferingId], properties: {newPlanOfferingId: {type: string}}}
-    MembershipUpgradeQuote: {type: object, additionalProperties: false, required: [quote, oldPlanEndsImmediately, unusedBenefitsCarryOver, notice], properties: {quote: {$ref: '#/components/schemas/CheckoutQuote'}, oldPlanEndsImmediately: {const: true}, unusedBenefitsCarryOver: {const: false}, notice: {type: string}}}
-    MembershipUpgradeQuoteEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipUpgradeQuote'}}}
-    MembershipUpgrade: {type: object, additionalProperties: false, required: [upgradeId, oldSubscriptionId, newOrderId, status, createdAt], properties: {upgradeId: {type: string}, oldSubscriptionId: {type: string}, newOrderId: {type: string}, newSubscriptionId: {type: [string, 'null']}, status: {type: string, enum: [QUOTED, AWAITING_PAYMENT, FULFILLING, COMPLETED, FAILED]}, createdAt: {type: string, format: date-time}, completedAt: {type: [string, 'null'], format: date-time}}}
-    MembershipUpgradeEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipUpgrade'}}}
-    RefundQuote: {type: object, additionalProperties: false, required: [refundQuoteId, orderId, amount, policyVersion, expiresAt], properties: {refundQuoteId: {type: string}, orderId: {type: string}, amount: {$ref: '#/components/schemas/Money'}, policyVersion: {type: string}, expiresAt: {type: string, format: date-time}}}
+    MembershipSubscriptionEnvelope: {type: object, required: [data], properties: {data: {oneOf: [{$ref: '#/components/schemas/MembershipSubscription'}, {type: 'null'}]}}}
+    MembershipPeriodListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/MembershipPeriod'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    MembershipUpgradePreviewRequest: {type: object, additionalProperties: false, required: [previousSubscriptionId, targetPlanVersionId], properties: {previousSubscriptionId: {type: string, format: uuid}, targetPlanVersionId: {type: string, format: uuid}}}
+    MembershipUpgradePreview: {type: object, additionalProperties: false, required: [previousSubscriptionId, targetPlanVersionId, payableAmount, confirmation], properties: {previousSubscriptionId: {type: string, format: uuid}, targetPlanVersionId: {type: string, format: uuid}, payableAmount: {$ref: '#/components/schemas/Money'}, confirmation: {type: string}}}
+    MembershipUpgradePreviewEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipUpgradePreview'}}}
+    RegisterMembershipUpgradeRequest: {type: object, additionalProperties: false, required: [previousSubscriptionId, targetPlanVersionId, newOrderId, confirmationAccepted], properties: {previousSubscriptionId: {type: string, format: uuid}, targetPlanVersionId: {type: string, format: uuid}, newOrderId: {type: string, format: uuid}, confirmationAccepted: {const: true}}}
+    MembershipUpgradeRegistration: {type: object, additionalProperties: false, required: [upgradeId, status, confirmation], properties: {upgradeId: {type: string, format: uuid}, status: {type: string, enum: [ORDER_CREATED, FULFILLING, COMPLETED, FAILED]}, confirmation: {type: string}}}
+    MembershipUpgradeRegistrationEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipUpgradeRegistration'}}}
+    MembershipUpgrade: {type: object, additionalProperties: false, required: [upgradeId, previousSubscriptionId, newOrderId, status, requestedAt], properties: {upgradeId: {type: string, format: uuid}, previousSubscriptionId: {type: string, format: uuid}, newOrderId: {type: string, format: uuid}, newSubscriptionId: {type: [string, 'null'], format: uuid}, status: {type: string}, requestedAt: {type: string, format: date-time}, completedAt: {type: [string, 'null'], format: date-time}}}
+    MembershipUpgradeListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/MembershipUpgrade'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    OrderRefundRequest: {type: object, additionalProperties: false, required: [orderId], properties: {orderId: {type: string, format: uuid}}}
+    RefundQuote: {type: object, additionalProperties: false, required: [refundQuoteId, orderId, eligible, amount, policyVersion, expiresAt], properties: {refundQuoteId: {type: string}, orderId: {type: string}, eligible: {const: true}, amount: {$ref: '#/components/schemas/Money'}, policyVersion: {type: string}, expiresAt: {type: string, format: date-time}}}
     RefundQuoteEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/RefundQuote'}}}
-    CreateRefundRequest: {type: object, additionalProperties: false, required: [refundQuoteId, reasonCode], properties: {refundQuoteId: {type: string}, reasonCode: {type: string}, note: {type: [string, 'null'], maxLength: 500}}}
     Refund: {type: object, additionalProperties: false, required: [refundId, orderId, amount, status, createdAt], properties: {refundId: {type: string}, orderId: {type: string}, amount: {$ref: '#/components/schemas/Money'}, status: {type: string, enum: [REQUESTED, PROCESSING, SUCCEEDED, FAILED, CANCELLED]}, createdAt: {type: string, format: date-time}, completedAt: {type: [string, 'null'], format: date-time}}}
     RefundEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Refund'}}}
     RefundListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/Refund'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}

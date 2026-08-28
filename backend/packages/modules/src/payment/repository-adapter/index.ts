@@ -283,6 +283,30 @@ export class DeterministicFakePaymentProvider implements PaymentProvider {
   }
 }
 
+@Injectable()
+export class PaymentRuntimeAdapter {
+  constructor(@Inject(RuntimeInfrastructure) private readonly infrastructure: RuntimeInfrastructure) {}
+
+  provider(): PaymentProvider {
+    const environment = this.infrastructure.environment;
+    if ((environment.PAYMENT_PROVIDER_MODE ?? 'FAKE') === 'FAKE')
+      return new DeterministicFakePaymentProvider();
+    return new WechatPayAdapter({
+      merchantId: environment.WECHAT_MERCHANT_ID!,
+      publicKey: Buffer.from(environment.WECHAT_PLATFORM_PUBLIC_KEY_BASE64!, 'base64').toString('utf8'),
+    });
+  }
+
+  webhookAllowedIps() {
+    return new Set(
+      (this.infrastructure.environment.WECHAT_WEBHOOK_ALLOWED_IPS ?? '127.0.0.1,::1')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
+  }
+}
+
 export class WechatPayAdapter implements PaymentProvider {
   constructor(private readonly config: { merchantId: string; publicKey: string | KeyObject }) {}
   createPayment(): never {

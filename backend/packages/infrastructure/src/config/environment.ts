@@ -31,6 +31,14 @@ const environmentShape = {
   SMS_GATEWAY_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   AQUA_BASE_URL: z.string().url(),
   AQUA_SERVICE_KEY: z.string().min(20),
+  PAYMENT_PROVIDER_MODE: z.enum(['FAKE', 'WECHAT_PAY']).default('FAKE'),
+  WECHAT_MERCHANT_ID: z.string().min(6).optional(),
+  WECHAT_APP_ID: z.string().min(6).optional(),
+  WECHAT_API_V3_KEY: z.string().length(32).optional(),
+  WECHAT_MERCHANT_PRIVATE_KEY_BASE64: z.string().min(100).optional(),
+  WECHAT_PLATFORM_PUBLIC_KEY_BASE64: z.string().min(100).optional(),
+  WECHAT_NOTIFY_URL: z.string().url().optional(),
+  WECHAT_WEBHOOK_ALLOWED_IPS: z.string().default('127.0.0.1,::1'),
 } as const;
 
 /** 需要在 `.env.example` 中逐项说明的部署环境变量名称。 */
@@ -49,6 +57,20 @@ export const environmentSchema = z.object(environmentShape).superRefine((environ
       path: ['SMS_GATEWAY_URL'],
       message: 'SMS gateway URL and API key are required in GATEWAY mode',
     });
+  }
+  if (environment.PAYMENT_PROVIDER_MODE === 'WECHAT_PAY') {
+    for (const key of [
+      'WECHAT_MERCHANT_ID',
+      'WECHAT_APP_ID',
+      'WECHAT_API_V3_KEY',
+      'WECHAT_MERCHANT_PRIVATE_KEY_BASE64',
+      'WECHAT_PLATFORM_PUBLIC_KEY_BASE64',
+      'WECHAT_NOTIFY_URL',
+    ] as const) {
+      if (!environment[key]) {
+        context.addIssue({ code: 'custom', path: [key], message: `${key} is required in WECHAT_PAY mode` });
+      }
+    }
   }
 });
 

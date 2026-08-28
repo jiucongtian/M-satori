@@ -15,6 +15,15 @@ export const ROUTES = {
   myArchive: "/my/archive",
   mySupport: "/my/support",
   legal: "/legal",
+  shop: "/shop",
+  shopDetail: "/shop/detail",
+  checkout: "/checkout",
+  paymentResult: "/payment/result",
+  readingPrepare: "/reading/prepare",
+  myBenefits: "/my/benefits",
+  myOrders: "/my/orders",
+  myMembership: "/my/membership",
+  myRefunds: "/my/refunds",
 } as const;
 
 export type RouteId = keyof typeof ROUTES;
@@ -43,6 +52,15 @@ export const PROTECTED_PATHS = new Set<AppPath>([
   ROUTES.myReports,
   ROUTES.myArchive,
   ROUTES.mySupport,
+  ROUTES.shop,
+  ROUTES.shopDetail,
+  ROUTES.checkout,
+  ROUTES.paymentResult,
+  ROUTES.readingPrepare,
+  ROUTES.myBenefits,
+  ROUTES.myOrders,
+  ROUTES.myMembership,
+  ROUTES.myRefunds,
 ]);
 
 const SAFE_NEXT_PATHS = new Set<AppPath>([...PROTECTED_PATHS]);
@@ -52,6 +70,15 @@ const SENSITIVE_QUERY_KEYS = new Set([
 ]);
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-([012]\d|3[01])$/;
 const DOCUMENT_ID = /^[a-zA-Z0-9_-]{1,128}$/;
+const COMMERCE_QUERY_KEYS: Partial<Record<AppPath, ReadonlySet<string>>> = {
+  [ROUTES.shop]: new Set(["returnTo"]),
+  [ROUTES.shopDetail]: new Set(["offeringId", "returnTo"]),
+  [ROUTES.checkout]: new Set(["offeringId", "returnTo", "previousSubscriptionId", "targetPlanVersionId"]),
+  [ROUTES.paymentResult]: new Set(["orderId", "paymentAttemptId"]),
+  [ROUTES.myOrders]: new Set(["orderId"]),
+  [ROUTES.myRefunds]: new Set(["orderId"]),
+};
+const COMMERCE_RETURN_PATHS = new Set<string>([ROUTES.home, ROUTES.readingPrepare, ROUTES.shop]);
 
 export function isIsoDate(value: string | null): value is string {
   if (!value || !ISO_DATE.test(value)) return false;
@@ -84,12 +111,18 @@ export function safeNextPath(value: string | null | undefined, fallback: AppPath
   if (parsed.origin !== "https://fresh.local" || !SAFE_NEXT_PATHS.has(parsed.pathname as AppPath)) return fallback;
   for (const key of parsed.searchParams.keys()) {
     if (SENSITIVE_QUERY_KEYS.has(key)) return fallback;
-    if (parsed.pathname !== ROUTES.dailyReport || !["date", "from"].includes(key)) return fallback;
+    const commerceKeys = COMMERCE_QUERY_KEYS[parsed.pathname as AppPath];
+    if (parsed.pathname !== ROUTES.dailyReport && !commerceKeys?.has(key)) return fallback;
+    if (parsed.pathname === ROUTES.dailyReport && !["date", "from"].includes(key)) return fallback;
   }
   if (parsed.pathname === ROUTES.dailyReport && parsed.search) {
     if (!isIsoDate(parsed.searchParams.get("date"))) return fallback;
     const source = parsed.searchParams.get("from");
     if (source && source !== "my-reports") return fallback;
+  }
+  for (const [key, value] of parsed.searchParams) {
+    if (key === "returnTo" && !COMMERCE_RETURN_PATHS.has(value)) return fallback;
+    if (key !== "returnTo" && parsed.pathname !== ROUTES.dailyReport && !isDocumentId(value)) return fallback;
   }
   return `${parsed.pathname}${parsed.search}`;
 }

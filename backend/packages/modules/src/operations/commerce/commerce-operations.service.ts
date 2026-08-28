@@ -229,12 +229,35 @@ export class CommerceOperationsService {
       paid_unfulfilled: string;
       refund_failures: string;
       stale_reservations: string;
+      quotes_24h: string;
+      orders_24h: string;
+      quote_conversion_basis_points: string;
+      payment_succeeded_24h: string;
+      payment_failed_24h: string;
+      fulfillment_p95_ms: string;
+      fulfillment_backlog: string;
+      ledger_inconsistencies: string;
+      membership_missed_grants: string;
+      critical_reconciliation_cases: string;
     }>(
       `select
        (select count(*) from reconciliation_cases where status='OPEN')::text open_cases,
        (select count(*) from money_orders where status in ('PAID','FULFILLING','EXCEPTION'))::text paid_unfulfilled,
        (select count(*) from refunds where status='FAILED')::text refund_failures,
-       (select count(*) from consumption_intents where status='RESERVED' and reservation_deadline<now())::text stale_reservations`,
+       (select count(*) from consumption_intents where status='RESERVED' and reservation_deadline<now())::text stale_reservations,
+       (select count(*) from checkout_quotes where created_at>=now()-interval '24 hours')::text quotes_24h,
+       (select count(*) from money_orders where created_at>=now()-interval '24 hours')::text orders_24h,
+       (select case when count(*)=0 then 0 else round(10000.0*count(consumed_at)/count(*)) end
+          from checkout_quotes where created_at>=now()-interval '24 hours')::text quote_conversion_basis_points,
+       (select count(*) from payment_attempts where status='SUCCEEDED' and succeeded_at>=now()-interval '24 hours')::text payment_succeeded_24h,
+       (select count(*) from payment_attempts where status in ('FAILED','CANCELLED','CLOSED') and updated_at>=now()-interval '24 hours')::text payment_failed_24h,
+       coalesce((select round(extract(epoch from percentile_cont(0.95) within group(order by completed_at-created_at))*1000)
+         from fulfillment_jobs where completed_at is not null and completed_at>=now()-interval '24 hours'),0)::text fulfillment_p95_ms,
+       (select count(*) from fulfillment_jobs where status in ('PENDING','RUNNING','RETRY_WAIT'))::text fulfillment_backlog,
+       (select count(*) from reconciliation_cases where status='OPEN' and
+          (case_type like 'ENTITLEMENT_%' or case_type like 'SEED_%'))::text ledger_inconsistencies,
+       (select count(*) from reconciliation_cases where status='OPEN' and case_type='MEMBERSHIP_PERIOD_GRANT_MISSING')::text membership_missed_grants,
+       (select count(*) from reconciliation_cases where status='OPEN' and severity='CRITICAL')::text critical_reconciliation_cases`,
     );
     const row = result.rows[0]!;
     return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, Number(value)]));

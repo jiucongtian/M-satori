@@ -51,14 +51,30 @@ function serialize(order: MoneyOrderView) {
   return {
     orderId: order.orderId,
     orderNumber: order.orderNumber,
-    status: order.status,
+    status: orderStatus(order.status),
     offeringSnapshot: order.offeringSnapshot,
     amount: order.amount,
     paymentStatus: order.paymentStatus,
-    fulfillmentStatus: order.fulfillmentStatus,
+    fulfillmentStatus: fulfillmentStatus(order.fulfillmentStatus),
     businessContext: order.businessContext,
     createdAt: order.createdAt.toISOString(),
     expiresAt: order.expiresAt.toISOString(),
     paidAt: order.paidAt?.toISOString() ?? null,
   };
+}
+
+function orderStatus(status: string) {
+  if (status === 'PENDING_PAYMENT' || status === 'PAYMENT_PROCESSING') return 'AWAITING_PAYMENT';
+  if (status === 'EXCEPTION') return 'FULFILLMENT_FAILED';
+  return status;
+}
+
+function fulfillmentStatus(status: string) {
+  const statuses: Record<string, string> = {
+    RETRY_WAIT: 'RETRY_WAITING',
+    FAILED: 'FAILED_FINAL',
+    COMPENSATING: 'REVERSING',
+    COMPENSATED: 'REVERSED',
+  };
+  return statuses[status] ?? status;
 }

@@ -33,6 +33,8 @@ export interface RefundRecord {
   refundPolicyVersion: string;
   providerRefundId: string | null;
   requestId: string;
+  createdAt: Date;
+  completedAt: Date | null;
 }
 
 export interface RefundRepository {

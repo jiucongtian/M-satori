@@ -53,6 +53,22 @@ describe('runtime baseline', () => {
     expect(gateway.SMS_DELIVERY_MODE).toBe('GATEWAY');
   });
 
+  it('requires all payment secrets together and keeps the fake adapter credential-free', () => {
+    expect(validateEnvironment(aquaEnvironment).PAYMENT_PROVIDER_MODE).toBe('FAKE');
+    expect(() => validateEnvironment({ ...aquaEnvironment, PAYMENT_PROVIDER_MODE: 'WECHAT_PAY' })).toThrow();
+    const payment = validateEnvironment({
+      ...aquaEnvironment,
+      PAYMENT_PROVIDER_MODE: 'WECHAT_PAY',
+      WECHAT_MERCHANT_ID: 'merchant-10001',
+      WECHAT_APP_ID: 'wx-app-10001',
+      WECHAT_API_V3_KEY: '12345678901234567890123456789012',
+      WECHAT_MERCHANT_PRIVATE_KEY_BASE64: 'x'.repeat(120),
+      WECHAT_PLATFORM_PUBLIC_KEY_BASE64: 'y'.repeat(120),
+      WECHAT_NOTIFY_URL: 'https://pay.example.com/api/v1/internal/payment-webhooks/wechat',
+    });
+    expect(payment.PAYMENT_PROVIDER_MODE).toBe('WECHAT_PAY');
+  });
+
   it('generates UUIDv7 identifiers', () => {
     const generated = newId();
     expect(validateUuid(generated)).toBe(true);

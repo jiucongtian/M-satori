@@ -56,8 +56,9 @@ export class PricingController {
 function toOfferingResponse(offering: OfferingQuoteSnapshot) {
   return {
     offeringId: offering.offeringId,
+    offeringVersionId: offering.offeringVersionId,
     offeringVersion: String(offering.offeringVersion),
-    businessSpace: offering.businessSpace,
+    businessSpace: 'C_CONSUMER',
     code: offering.offeringCode,
     name: offering.displayName,
     kind:
@@ -66,16 +67,31 @@ function toOfferingResponse(offering: OfferingQuoteSnapshot) {
         : offering.offeringKind === 'PACKAGE'
           ? 'SERVICE_PACK'
           : 'MEMBERSHIP_PLAN',
-    serviceType: offering.serviceType,
+    serviceType: toPublicServiceType(offering.serviceType),
     status: 'ACTIVE',
     price: { amount: offering.amountMinor, currency: offering.currency },
-    benefits: Array.isArray(offering.entitlementSpec.benefits) ? offering.entitlementSpec.benefits : [],
+    benefits: Array.isArray(offering.entitlementSpec.benefits)
+      ? offering.entitlementSpec.benefits.map(toPublicBenefit)
+      : [],
     validityDays: offering.validityDays,
     purchaseLimit:
       typeof offering.purchaseLimit.lifetime === 'number' ? offering.purchaseLimit.lifetime : null,
     refundPolicyVersion: offering.refundPolicyVersion,
     agreementVersion: offering.termsVersion,
   };
+}
+
+function toPublicBenefit(value: unknown) {
+  const benefit = value as Record<string, unknown>;
+  return {
+    serviceType: toPublicServiceType(String(benefit.serviceType)),
+    unit: 'COUNT',
+    quantity: Number(benefit.quantity),
+  };
+}
+
+function toPublicServiceType(value: string) {
+  return value === 'DAILY_INSIGHT' ? 'DAILY_ENERGY' : 'CARD_READING';
 }
 
 function validUuid(value: string | undefined): value is string {

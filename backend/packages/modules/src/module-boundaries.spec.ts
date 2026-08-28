@@ -70,6 +70,13 @@ describe('domain module boundaries', () => {
       );
     }
   });
+
+  it.each(commerceModuleNames)('%s cannot read divination question or generated-report content', (moduleName) => {
+    const source = readModuleSources(moduleName);
+    expect(source, moduleName).not.toMatch(
+      /\b(?:question|questionText|question_text|prompt|reportBody|report_body|generatedContent|generated_content)\b/i,
+    );
+  });
 });
 
 function readModuleSources(moduleName: string): string {

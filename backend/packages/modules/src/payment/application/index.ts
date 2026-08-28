@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { PaymentError } from '../domain/index.js';
 
 export const PAYMENT_REPOSITORY = Symbol('PAYMENT_REPOSITORY');
+export const WECHAT_WEBHOOK_ALLOWED_IPS = Symbol('WECHAT_WEBHOOK_ALLOWED_IPS');
 
 export interface PaymentAttemptView {
   paymentAttemptId: string;

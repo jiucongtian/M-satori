@@ -820,7 +820,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/membership-subscriptions/current": {
+    "/memberships/current": {
         parameters: {
             query?: never;
             header?: never;
@@ -836,30 +836,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/membership-upgrade-quotes": {
+    "/memberships/periods": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        post: operations["createMembershipUpgradeQuote"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/membership-upgrades/{upgradeId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getMembershipUpgrade"];
+        get: operations["listMembershipPeriods"];
         put?: never;
         post?: never;
         delete?: never;
@@ -868,7 +852,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/money-orders/{orderId}/refund-quotes": {
+    "/membership-upgrades/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewMembershipUpgrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/membership-upgrades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMembershipUpgrades"];
+        put?: never;
+        post: operations["registerMembershipUpgrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/refund-quotes": {
         parameters: {
             query?: never;
             header?: never;
@@ -884,22 +900,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/money-orders/{orderId}/refund-requests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["createRefundRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/refunds": {
         parameters: {
             query?: never;
@@ -909,23 +909,7 @@ export interface paths {
         };
         get: operations["listRefunds"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/refunds/{refundId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getRefund"];
-        put?: never;
-        post?: never;
+        post: operations["createRefundRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1507,6 +1491,8 @@ export interface components {
         ServiceOffering: {
             offeringId: string;
             offeringVersion: string;
+            /** Format: uuid */
+            offeringVersionId: string;
             businessSpace: components["schemas"]["BusinessSpace"];
             code: string;
             name: string;
@@ -1736,40 +1722,77 @@ export interface components {
             periods: components["schemas"]["MembershipPeriod"][];
         };
         MembershipSubscriptionEnvelope: {
-            data: components["schemas"]["MembershipSubscription"];
+            data: components["schemas"]["MembershipSubscription"] | null;
         };
-        CreateMembershipUpgradeQuoteRequest: {
-            newPlanOfferingId: string;
+        MembershipPeriodListEnvelope: {
+            data: components["schemas"]["MembershipPeriod"][];
+            meta: components["schemas"]["PageMeta"];
         };
-        MembershipUpgradeQuote: {
-            quote: components["schemas"]["CheckoutQuote"];
+        MembershipUpgradePreviewRequest: {
+            /** Format: uuid */
+            previousSubscriptionId: string;
+            /** Format: uuid */
+            targetPlanVersionId: string;
+        };
+        MembershipUpgradePreview: {
+            /** Format: uuid */
+            previousSubscriptionId: string;
+            /** Format: uuid */
+            targetPlanVersionId: string;
+            payableAmount: components["schemas"]["Money"];
+            confirmation: string;
+        };
+        MembershipUpgradePreviewEnvelope: {
+            data: components["schemas"]["MembershipUpgradePreview"];
+        };
+        RegisterMembershipUpgradeRequest: {
+            /** Format: uuid */
+            previousSubscriptionId: string;
+            /** Format: uuid */
+            targetPlanVersionId: string;
+            /** Format: uuid */
+            newOrderId: string;
             /** @constant */
-            oldPlanEndsImmediately: true;
-            /** @constant */
-            unusedBenefitsCarryOver: false;
-            notice: string;
+            confirmationAccepted: true;
         };
-        MembershipUpgradeQuoteEnvelope: {
-            data: components["schemas"]["MembershipUpgradeQuote"];
+        MembershipUpgradeRegistration: {
+            /** Format: uuid */
+            upgradeId: string;
+            /** @enum {string} */
+            status: "ORDER_CREATED" | "FULFILLING" | "COMPLETED" | "FAILED";
+            confirmation: string;
+        };
+        MembershipUpgradeRegistrationEnvelope: {
+            data: components["schemas"]["MembershipUpgradeRegistration"];
         };
         MembershipUpgrade: {
+            /** Format: uuid */
             upgradeId: string;
-            oldSubscriptionId: string;
+            /** Format: uuid */
+            previousSubscriptionId: string;
+            /** Format: uuid */
             newOrderId: string;
+            /** Format: uuid */
             newSubscriptionId?: string | null;
-            /** @enum {string} */
-            status: "QUOTED" | "AWAITING_PAYMENT" | "FULFILLING" | "COMPLETED" | "FAILED";
+            status: string;
             /** Format: date-time */
-            createdAt: string;
+            requestedAt: string;
             /** Format: date-time */
             completedAt?: string | null;
         };
-        MembershipUpgradeEnvelope: {
-            data: components["schemas"]["MembershipUpgrade"];
+        MembershipUpgradeListEnvelope: {
+            data: components["schemas"]["MembershipUpgrade"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        OrderRefundRequest: {
+            /** Format: uuid */
+            orderId: string;
         };
         RefundQuote: {
             refundQuoteId: string;
             orderId: string;
+            /** @constant */
+            eligible: true;
             amount: components["schemas"]["Money"];
             policyVersion: string;
             /** Format: date-time */
@@ -1777,11 +1800,6 @@ export interface components {
         };
         RefundQuoteEnvelope: {
             data: components["schemas"]["RefundQuote"];
-        };
-        CreateRefundRequest: {
-            refundQuoteId: string;
-            reasonCode: string;
-            note?: string | null;
         };
         Refund: {
             refundId: string;
@@ -3437,51 +3455,93 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    createMembershipUpgradeQuote: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateMembershipUpgradeQuoteRequest"];
-            };
-        };
-        responses: {
-            /** @description Full-price replacement quote without refund fields */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MembershipUpgradeQuoteEnvelope"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    getMembershipUpgrade: {
+    listMembershipPeriods: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                upgradeId: components["parameters"]["MembershipUpgradeId"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Upgrade fulfillment status */
+            /** @description Membership periods with separately issued benefits */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MembershipUpgradeEnvelope"];
+                    "application/json": components["schemas"]["MembershipPeriodListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewMembershipUpgrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipUpgradePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Full-price replacement preview containing only customer-visible replacement facts */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipUpgradePreviewEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMembershipUpgrades: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Replacement lifecycle history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipUpgradeListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    registerMembershipUpgrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterMembershipUpgradeRequest"];
+            };
+        };
+        responses: {
+            /** @description Replacement registered against the full-price new order */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipUpgradeRegistrationEnvelope"];
                 };
             };
             default: components["responses"]["Error"];
@@ -3490,15 +3550,15 @@ export interface operations {
     createRefundQuote: {
         parameters: {
             query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                orderId: components["parameters"]["OrderId"];
-            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderRefundRequest"];
+            };
+        };
         responses: {
             /** @description Ordinary-order refund quote */
             201: {
@@ -3507,35 +3567,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundQuoteEnvelope"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    createRefundRequest: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                orderId: components["parameters"]["OrderId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRefundRequest"];
-            };
-        };
-        responses: {
-            /** @description Ordinary-order refund accepted after entitlement freeze */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RefundEnvelope"];
                 };
             };
             default: components["responses"]["Error"];
@@ -3565,19 +3596,21 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    getRefund: {
+    createRefundRequest: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                refundId: components["parameters"]["RefundId"];
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderRefundRequest"];
+            };
+        };
         responses: {
-            /** @description Ordinary refund detail */
-            200: {
+            /** @description Ordinary-order refund processed after entitlement freeze */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

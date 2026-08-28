@@ -31,7 +31,7 @@ class BusinessContextDto {
 }
 
 class CreateResolutionDto {
-  @IsIn(['DAILY_INSIGHT', 'CARD_READING']) serviceType!: 'DAILY_INSIGHT' | 'CARD_READING';
+  @IsIn(['DAILY_ENERGY', 'CARD_READING']) serviceType!: 'DAILY_ENERGY' | 'CARD_READING';
   @Type(() => Number) @IsInt() @Min(1) quantity!: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(5) cardCount?: number | null;
   @ValidateNested() @Type(() => BusinessContextDto) businessContext!: BusinessContextDto;
@@ -55,7 +55,7 @@ export class ConsumptionController {
       {
         userId: request.auth.userId,
         businessSpace: 'SATORI',
-        serviceType: body.serviceType,
+        serviceType: body.serviceType === 'DAILY_ENERGY' ? 'DAILY_INSIGHT' : 'CARD_READING',
         quantity: body.quantity,
         unit: body.serviceType === 'CARD_READING' ? 'READING_CREDIT' : 'DAILY_INSIGHT_CREDIT',
         businessContext: body.businessContext,

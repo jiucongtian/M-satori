@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Req } from '@nestjs/common';
 import { IsUUID } from 'class-validator';
 import type { FastifyRequest } from 'fastify';
-import { RefundApplicationService } from '../application/index.js';
+import { RefundApplicationService, type RefundRecord } from '../application/index.js';
 
 type AuthRequest = FastifyRequest & { auth: { userId: string } };
 class OrderRefundDto {
@@ -19,11 +19,26 @@ export class RefundController {
 
   @Post('refunds')
   async request(@Req() request: AuthRequest, @Body() body: OrderRefundDto) {
-    return { data: await this.refunds.request(request.auth.userId, body.orderId, request.id) };
+    const refund = await this.refunds.request(request.auth.userId, body.orderId, request.id);
+    return { data: refund ? serialize(refund) : null };
   }
 
   @Get('refunds')
   async list(@Req() request: AuthRequest) {
-    return { data: await this.refunds.list(request.auth.userId), meta: { hasMore: false, nextCursor: null } };
+    return {
+      data: (await this.refunds.list(request.auth.userId)).map(serialize),
+      meta: { hasMore: false, nextCursor: null },
+    };
   }
+}
+
+function serialize(refund: RefundRecord) {
+  return {
+    refundId: refund.refundId,
+    orderId: refund.orderId,
+    amount: { amount: refund.amountMinor, currency: 'CNY' as const },
+    status: refund.status === 'REJECTED' ? 'FAILED' : refund.status,
+    createdAt: refund.createdAt.toISOString(),
+    completedAt: refund.completedAt?.toISOString() ?? null,
+  };
 }

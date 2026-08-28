@@ -236,8 +236,8 @@ export { ENTITLEMENT_EXPIRY_TIMEZONE };
 function toEntitlementResponse(grant: EntitlementBatchView) {
   return {
     entitlementId: grant.id,
-    serviceType: grant.serviceType,
-    unit: grant.unit,
+    serviceType: grant.serviceType === 'DAILY_INSIGHT' ? 'DAILY_ENERGY' : 'CARD_READING',
+    unit: 'COUNT',
     sourceType: grant.sourceType === 'MANUAL' ? 'COMPENSATION' : grant.sourceType,
     sourceId: grant.sourceId,
     total: grant.totalQuantity,

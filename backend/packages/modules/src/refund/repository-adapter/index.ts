@@ -16,6 +16,8 @@ interface RefundRow extends QueryResultRow {
   refund_policy_version: string;
   provider_refund_id: string | null;
   request_id: string;
+  created_at: Date;
+  completed_at: Date | null;
 }
 
 @Injectable()
@@ -261,6 +263,8 @@ function toRecord(row: RefundRow): RefundRecord {
     refundPolicyVersion: row.refund_policy_version,
     providerRefundId: row.provider_refund_id,
     requestId: row.request_id,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
   };
 }
 

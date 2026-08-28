@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { IsIn, IsOptional } from 'class-validator';
 import type { FastifyRequest } from 'fastify';
 import { PaymentApplicationService, type PaymentAttemptView } from '../application/index.js';
+import { WechatWebhookNetworkGuard } from './wechat-webhook-network.guard.js';
 
 class CreatePaymentAttemptDto {
   @IsOptional() @IsIn(['WECHAT_PAY', 'FAKE']) provider?: 'WECHAT_PAY' | 'FAKE';
@@ -39,13 +40,14 @@ export class PaymentController {
 
   @Post('internal/payment-webhooks/wechat')
   @HttpCode(204)
+  @UseGuards(WechatWebhookNetworkGuard)
   async webhook(@Req() request: FastifyRequest) {
     const headers = Object.fromEntries(
       Object.entries(request.headers).filter(
         (entry): entry is [string, string] => typeof entry[1] === 'string',
       ),
     );
-    await this.payments.acceptWebhook(headers, JSON.stringify(request.body));
+    await this.payments.acceptWebhook(headers, request.rawBody ?? JSON.stringify(request.body));
   }
 }
 
@@ -54,7 +56,7 @@ function serialize(attempt: PaymentAttemptView) {
     paymentAttemptId: attempt.paymentAttemptId,
     orderId: attempt.orderId,
     provider: attempt.provider,
-    status: attempt.status,
+    status: attempt.status === 'CANCELLED' ? 'FAILED' : attempt.status,
     amount: { amount: attempt.amountMinor, currency: attempt.currency },
     clientParameters: attempt.clientParameters,
     providerTradeId: attempt.providerAttemptId,

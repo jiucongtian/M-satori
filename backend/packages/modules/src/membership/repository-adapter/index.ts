@@ -538,12 +538,10 @@ export class PostgresMembershipRepository implements MembershipRepository {
     ).rows[0];
     if (!subscription) return null;
     const periods = await this.listPeriods(ownerUserId);
+    const activePeriod = periods.find((period) => period.status === 'ACTIVE') ?? null;
     return {
       subscriptionId: subscription.id,
-      status: subscription.status,
-      currentPlanVersionId: subscription.current_plan_version_id,
-      startsAt: subscription.starts_at,
-      endsAt: subscription.ends_at,
+      activePeriod,
       periods,
     };
   }
@@ -559,10 +557,17 @@ export class PostgresMembershipRepository implements MembershipRepository {
       starts_at: Date;
       ends_at: Date;
       benefits_granted_at: Date | null;
+      plan_code: string;
+      entitlement_ids: string[];
     }>(
-      `select id,subscription_id,sequence,plan_version_id,source_order_id,status,starts_at,ends_at,
-              benefits_granted_at
-       from membership_periods where owner_user_id=$1 order by starts_at,id`,
+      `select p.id,p.subscription_id,p.sequence,p.plan_version_id,p.source_order_id,p.status,p.starts_at,p.ends_at,
+              p.benefits_granted_at,o.code plan_code,
+              coalesce((select array_agg(g.id order by g.created_at,g.id) from entitlement_grants g
+                        where g.source_type='MEMBERSHIP' and g.source_id=p.id::text),'{}'::uuid[]) entitlement_ids
+       from membership_periods p
+       join offering_versions v on v.id=p.plan_version_id
+       join service_offerings o on o.id=v.offering_id
+       where p.owner_user_id=$1 order by p.starts_at,p.id`,
       [ownerUserId],
     );
     return result.rows.map((row) => ({
@@ -571,9 +576,11 @@ export class PostgresMembershipRepository implements MembershipRepository {
       sequence: row.sequence,
       planVersionId: row.plan_version_id,
       sourceOrderId: row.source_order_id,
+      planCode: membershipPlanCode(row.plan_code),
       status: row.status,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
+      entitlementIds: row.entitlement_ids,
       benefitsGrantedAt: row.benefits_granted_at,
     }));
   }
@@ -729,4 +736,10 @@ function benefitsOf(value: unknown): readonly MembershipBenefitSpec[] {
     }
     return { serviceType, unit, quantity };
   });
+}
+
+function membershipPlanCode(code: string): 'GLOW' | 'SERENITY' | 'FREEDOM' {
+  if (code.includes('glow')) return 'GLOW';
+  if (code.includes('serenity')) return 'SERENITY';
+  return 'FREEDOM';
 }
