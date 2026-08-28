@@ -46,7 +46,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const domainStatus =
       domainCode === 'INVALID_CURSOR'
         ? HttpStatus.BAD_REQUEST
-        : domainCode === 'ENTITLEMENT_NOT_FOUND' || domainCode === 'RESERVATION_NOT_FOUND'
+        : domainCode === 'ENTITLEMENT_NOT_FOUND' ||
+            domainCode === 'RESERVATION_NOT_FOUND' ||
+            domainCode === 'RESOLUTION_NOT_FOUND' ||
+            domainCode === 'CONSUMPTION_INTENT_NOT_FOUND'
           ? HttpStatus.NOT_FOUND
           : domainCode?.startsWith('INVALID_ENTITLEMENT') ||
               domainCode?.startsWith('INVALID_SEED') ||
@@ -55,7 +58,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
             ? HttpStatus.BAD_REQUEST
             : domainCode?.startsWith('ENTITLEMENT_') || domainCode === 'CONSUMPTION_ALREADY_SETTLED'
               ? HttpStatus.CONFLICT
-              : domainCode?.startsWith('SEED_') || domainCode === 'INSUFFICIENT_WISDOM_SEEDS'
+              : domainCode?.startsWith('SEED_') ||
+                  domainCode?.startsWith('CONSUMPTION_') ||
+                  domainCode === 'PURCHASE_REQUIRED' ||
+                  domainCode === 'BUSINESS_CONTEXT_REUSED' ||
+                  domainCode === 'INSUFFICIENT_WISDOM_SEEDS'
                 ? HttpStatus.CONFLICT
                 : domainCode === 'IDEMPOTENCY_KEY_REUSED' || domainCode === 'IDEMPOTENCY_IN_PROGRESS'
                   ? HttpStatus.CONFLICT

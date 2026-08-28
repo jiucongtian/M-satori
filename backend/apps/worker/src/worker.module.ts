@@ -14,6 +14,7 @@ import { GenerationTaskWorker } from '../../../packages/modules/src/generation-t
 import { HomeEnergySummaryPrewarmWorker } from '../../../packages/modules/src/daily-insight/home-energy-summary-prewarm.worker.js';
 import { EntitlementMaintenanceWorker } from '../../../packages/modules/src/entitlement/entitlement-maintenance.worker.js';
 import { ComplimentarySeedMaintenanceWorker } from '../../../packages/modules/src/complimentary-seed/complimentary-seed-maintenance.worker.js';
+import { ConsumptionMaintenanceWorker } from '../../../packages/modules/src/consumption/consumption-maintenance.worker.js';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ComplimentarySeedMaintenanceWorker } from '../../../packages/modules/sr
     HomeEnergySummaryPrewarmWorker,
     EntitlementMaintenanceWorker,
     ComplimentarySeedMaintenanceWorker,
+    ConsumptionMaintenanceWorker,
   ],
 })
 export class WorkerModule {}

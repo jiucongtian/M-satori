@@ -161,6 +161,19 @@ describe('R1 delivery contract', () => {
     expect(application).toContain("? 'AVAILABLE'");
   });
 
+  it('exposes system-only consumption resolution without a client source override', () => {
+    expect(routeBlock('/entitlement-resolutions')).toContain('\n    post:');
+    expect(routeBlock('/consumption-intents')).toContain('\n    post:');
+    expect(routeBlock('/consumption-intents/{intentId}')).toContain('\n    get:');
+    expect(routeBlock('/consumption-intents/{intentId}/start')).toContain('\n    post:');
+    const requestSchema = openapi
+      .split('\n')
+      .find((line) => line.includes('CreateEntitlementResolutionRequest:'));
+    expect(requestSchema).toContain('additionalProperties: false');
+    expect(requestSchema).not.toContain('sourceId');
+    expect(openapi).not.toContain('/entitlement-resolutions/{resolutionId}/selection');
+  });
+
   it('keeps /me nextAction aligned with pending registration rewards', () => {
     const source = readFileSync(`${backendRoot}/packages/modules/src/identity/me/me.service.ts`, 'utf8');
     expect(source).toContain('registrationRewards.status');

@@ -15,6 +15,8 @@ export const ENTITLEMENT_BENEFIT_SOURCE_PORT = Symbol('ENTITLEMENT_BENEFIT_SOURC
 export const COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT = Symbol('COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT');
 export const SEED_BATCH_PROJECTION_QUERY_PORT = Symbol('SEED_BATCH_PROJECTION_QUERY_PORT');
 export const SEED_PROMOTION_LIFECYCLE_PORT = Symbol('SEED_PROMOTION_LIFECYCLE_PORT');
+export const CONSUMPTION_PORT = Symbol('CONSUMPTION_PORT');
+export const CONSUMPTION_OUTCOME_QUERY_PORT = Symbol('CONSUMPTION_OUTCOME_QUERY_PORT');
 
 export interface OfferingQuoteSnapshot {
   readonly offeringId: string;
@@ -105,6 +107,10 @@ export interface SeedPromotionLifecyclePort {
     reason: 'ORDER_CANCELLED' | 'ORDER_EXPIRED' | 'PAYMENT_FAILED',
     requestId: string,
   ): Promise<void>;
+}
+
+export interface ConsumptionOutcomeQueryPort {
+  getOutcome(context: BusinessContext): Promise<'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'UNKNOWN'>;
 }
 
 export type PaymentAttemptState = 'CREATED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';

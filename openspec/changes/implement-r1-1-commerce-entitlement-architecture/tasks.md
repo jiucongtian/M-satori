@@ -74,18 +74,18 @@
 
 ## 7. 固定核销决策与消费意图
 
-- [ ] 7.1 实现 ServiceRequirement、EntitlementResolution、ResolutionCandidate 和 ConsumptionIntent 领域模型
-- [ ] 7.2 实现 BenefitSourcePort 两套适配器并确保 consumption 不直接访问账本表
-- [ ] 7.3 实现会员当期权益 → 最早到期购买权益包 → 最早到期种子批次的系统固定优先级
-- [ ] 7.4 实现候选快照、选中来源、原因、成本、规则版本和 `SYSTEM_RULE` 记录
-- [ ] 7.5 移除用户切换来源能力，不提供 selection 接口且拒绝客户端指定 sourceId
-- [ ] 7.6 实现创建消费意图并原子调用选中来源预留，余额竞争时安全重算或返回冲突
-- [ ] 7.7 实现抽卡前 30 分钟 reservation deadline、正式抽卡后转 RUNNING 并取消短超时
-- [ ] 7.8 实现完整交付 COMMIT、失败/取消 RELEASE 和 `intentId + action` 幂等键
-- [ ] 7.9 实现按 businessContext 查询和重放，以恢复“已预留但调用方未收到响应”的中断
-- [ ] 7.10 实现悬挂预留扫描与消费意图—业务任务—账本流水对账修复任务
-- [ ] 7.11 实现 resolve/consume 查询 API，只返回系统选择及白话来源提示
-- [ ] 7.12 添加全来源组合、用户伪造来源、30 分钟边界、长生成、并发竞争和崩溃恢复测试
+- [x] 7.1 实现 ServiceRequirement、EntitlementResolution、ResolutionCandidate 和 ConsumptionIntent 领域模型
+- [x] 7.2 实现 BenefitSourcePort 两套适配器并确保 consumption 不直接访问账本表
+- [x] 7.3 实现会员当期权益 → 最早到期购买权益包 → 最早到期种子批次的系统固定优先级
+- [x] 7.4 实现候选快照、选中来源、原因、成本、规则版本和 `SYSTEM_RULE` 记录
+- [x] 7.5 移除用户切换来源能力，不提供 selection 接口且拒绝客户端指定 sourceId
+- [x] 7.6 实现创建消费意图并原子调用选中来源预留，余额竞争时安全重算或返回冲突
+- [x] 7.7 实现抽卡前 30 分钟 reservation deadline、正式抽卡后转 RUNNING 并取消短超时
+- [x] 7.8 实现完整交付 COMMIT、失败/取消 RELEASE 和 `intentId + action` 幂等键
+- [x] 7.9 实现按 businessContext 查询和重放，以恢复“已预留但调用方未收到响应”的中断
+- [x] 7.10 实现悬挂预留扫描与消费意图—业务任务—账本流水对账修复任务
+- [x] 7.11 实现 resolve/consume 查询 API，只返回系统选择及白话来源提示
+- [x] 7.12 添加全来源组合、用户伪造来源、30 分钟边界、长生成、并发竞争和崩溃恢复测试
 
 ## 8. R1.0 每日指引迁移与问事接入基线
 
