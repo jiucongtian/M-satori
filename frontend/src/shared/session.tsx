@@ -6,7 +6,7 @@ import { api, ApiError, CONSENT_REQUIRED_EVENT, type Me } from "@/src/api/client
 import { clearAllFlowDrafts } from "@/src/shared/storage";
 import { consentPath, ROUTES, safeNextPath } from "./routes";
 import { routeDiagnostic } from "./diagnostics";
-import { clearQueryCache } from "./query";
+import { clearQueryCache, queryOnce } from "./query";
 
 export type SessionStatus = "unknown" | "anonymous" | "authenticated" | "consent-required";
 
@@ -35,7 +35,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setStatus("anonymous");
         return "anonymous";
       }
-      const current = await api.me();
+      const [current] = await Promise.all([
+        api.me(),
+        queryOnce("home:overview", () => api.home()).catch(() => undefined),
+      ]);
       setMe(current);
       setStatus("authenticated");
       routeDiagnostic(window.location.pathname, "recovery", "restored");

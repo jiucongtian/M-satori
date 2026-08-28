@@ -136,8 +136,10 @@ test("一级页面切换不重复恢复 Session 或闪回加载态", async () =>
   assert.doesNotMatch(session, /\}, \[pathname\]\);/);
   assert.match(nav, /active !== label && onNavigate\(label\)/);
   assert.match(query, /export function readQueryCache/);
-  assert.match(home, /readQueryCache<HomeOverview>\("home:overview"\).*readQueryCache<HomeOverview>\("my:home"\)/);
-  assert.match(my, /readQueryCache<HomeOverview>\("my:home"\).*readQueryCache<HomeOverview>\("home:overview"\)/);
+  assert.match(session, /queryOnce\("home:overview", \(\) => api\.home\(\)\)/);
+  assert.match(home, /readQueryCache<HomeOverview>\("home:overview"\)/);
+  assert.match(my, /readQueryCache<HomeOverview>\("home:overview"\)/);
+  assert.doesNotMatch(my, /"my:home"/);
 });
 
 test("R1.1 问事首页、输入与历史使用独立真实路由", async () => {
