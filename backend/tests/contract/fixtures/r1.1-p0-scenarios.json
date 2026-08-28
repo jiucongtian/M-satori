@@ -1,0 +1,66 @@
+[
+  {
+    "id": "R11-CORE-001",
+    "domain": "reading",
+    "kind": "positive",
+    "given": "用户有 1 次可用问事权益",
+    "when": "使用同一 idempotencyKey 创建问事两次",
+    "then": ["返回同一个 readingId", "只创建一笔权益预占", "状态为 DRAFT"]
+  },
+  {
+    "id": "R11-CORE-002",
+    "domain": "reading",
+    "kind": "negative",
+    "given": "问事已抽牌",
+    "when": "再次调用抽牌接口",
+    "then": ["返回原卡牌与位置", "不得重新抽牌", "不得新增权益扣减"]
+  },
+  {
+    "id": "R11-CORE-003",
+    "domain": "reading",
+    "kind": "negative",
+    "given": "报告生成失败",
+    "when": "系统执行失败恢复",
+    "then": ["保留问题与卡牌", "权益预占释放或按规则退回", "重试不重新抽牌"]
+  },
+  {
+    "id": "R11-CORE-004",
+    "domain": "reading",
+    "kind": "negative",
+    "given": "用户离开生成页或网络中断",
+    "when": "再次查询问事任务",
+    "then": ["返回当前状态", "可继续生成或查看结果", "不得重复扣费"]
+  },
+  {
+    "id": "R11-PAY-004",
+    "domain": "payment",
+    "kind": "positive",
+    "given": "用户确认商品和协议",
+    "when": "使用同一 idempotencyKey 创建订单两次",
+    "then": ["返回同一个 orderId", "仅创建一笔待支付订单", "金额与商品服务端重算"]
+  },
+  {
+    "id": "R11-PAY-005",
+    "domain": "payment",
+    "kind": "negative",
+    "given": "微信支付成功回调重复到达",
+    "when": "处理相同支付单号",
+    "then": ["订单只完成一次", "权益或智慧种子流水只写入一次", "返回幂等成功"]
+  },
+  {
+    "id": "R11-PAY-006",
+    "domain": "payment",
+    "kind": "negative",
+    "given": "付款成功但权益发放失败",
+    "when": "用户查询订单或系统重试",
+    "then": ["订单处于 DELIVERY_PENDING", "禁止再次购买", "重试最终发放或转人工处理"]
+  },
+  {
+    "id": "R11-REFUND-001",
+    "domain": "refund",
+    "kind": "negative",
+    "given": "用户申请退款且存在未使用权益",
+    "when": "提交退款申请",
+    "then": ["未使用权益立即冻结", "订单进入 REFUND_PENDING", "审核完成后原路退款并回收权益"]
+  }
+]

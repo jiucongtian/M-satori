@@ -1,0 +1,29 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "初见·FRESH R1.1 问事与交易 P0 契约基线",
+    "version": "0.1.0-contract",
+    "description": "方案 C 的契约先行基线。后端实现进入 release/r1.1 后，必须将这些接口并入正式 OpenAPI 并以集成测试替代 Mock 验证。"
+  },
+  "paths": {
+    "/v1/readings": {"post": {"operationId": "createReading", "x-idempotency-required": true}},
+    "/v1/readings/{readingId}": {"get": {"operationId": "getReading"}},
+    "/v1/readings/{readingId}/draw": {"post": {"operationId": "drawReadingCards", "x-idempotency-required": true}},
+    "/v1/readings/{readingId}/generate": {"post": {"operationId": "generateReadingReport", "x-idempotency-required": true}},
+    "/v1/readings/{readingId}/retry": {"post": {"operationId": "retryReadingReport", "x-idempotency-required": true}},
+    "/v1/checkout/orders": {"post": {"operationId": "createCheckoutOrder", "x-idempotency-required": true}},
+    "/v1/payments/wechat/callback": {"post": {"operationId": "handleWechatPaymentCallback", "x-idempotency-required": true}},
+    "/v1/orders/{orderId}": {"get": {"operationId": "getOrder"}},
+    "/v1/refunds": {"post": {"operationId": "createRefund", "x-idempotency-required": true}}
+  },
+  "components": {
+    "schemas": {
+      "IdempotencyKey": {"type": "string", "minLength": 16, "maxLength": 128},
+      "ReadingStatus": {"type": "string", "enum": ["DRAFT", "CARDS_DRAWN", "GENERATING", "COMPLETED", "FAILED", "REFUNDED"]},
+      "OrderStatus": {"type": "string", "enum": ["PENDING_PAYMENT", "PAYMENT_PROCESSING", "PAID", "DELIVERY_PENDING", "DELIVERED", "REFUND_PENDING", "REFUNDED", "FAILED"]},
+      "LedgerEntry": {"type": "object", "required": ["ledgerId", "ownerId", "amount", "reason", "idempotencyKey"]},
+      "Reading": {"type": "object", "required": ["readingId", "ownerId", "status", "question", "cardCount", "reservationId", "idempotencyKey"]},
+      "Order": {"type": "object", "required": ["orderId", "ownerId", "status", "productId", "amount", "idempotencyKey"]}
+    }
+  }
+}
