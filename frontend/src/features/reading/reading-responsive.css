@@ -1,0 +1,14 @@
+/* R1.1 reading pages share one height-safe interaction contract. */
+.reading-page{max-width:100%;min-height:0}
+.reading-action-page{height:100%;min-height:0;padding-bottom:calc(8px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:rgba(69,107,91,.25) transparent}
+.reading-action-page::-webkit-scrollbar,.reading-compose-scroll::-webkit-scrollbar,.reading-step-body::-webkit-scrollbar{width:3px}
+.reading-action-page::-webkit-scrollbar-thumb,.reading-compose-scroll::-webkit-scrollbar-thumb,.reading-step-body::-webkit-scrollbar-thumb{border-radius:3px;background:rgba(69,107,91,.25)}
+.reading-action-page>.reading-header{position:sticky;top:0;z-index:5;flex:none;background:linear-gradient(180deg,rgba(246,242,232,.98) 72%,rgba(246,242,232,0))}
+.reading-action-page>.primary{position:sticky;bottom:0;z-index:5;flex:none;margin-top:12px;box-shadow:0 -12px 24px rgba(246,242,232,.96)}
+.reading-action-page .card-layout,.reading-action-page .card-layout>*{min-width:0}
+.reading-home.root-tab-page{height:100%;min-height:0;padding-bottom:env(safe-area-inset-bottom);overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:rgba(69,107,91,.25) transparent}
+.reading-home.root-tab-page>.main-nav{position:sticky;bottom:0;flex:none;background:linear-gradient(to top,#f6f2e8 72%,rgba(246,242,232,.92));box-shadow:0 -10px 24px rgba(46,67,57,.06)}
+.prompt-list.prompt-scenarios button{min-height:45px}
+.prompt-scenarios button>span{display:grid;gap:3px}
+.prompt-scenarios button>span>small{color:#9b754b;font:6px var(--font-ui);letter-spacing:.5px}
+@media (max-height:730px){.reading-action-page>.eyebrow{margin-top:14px}.draw-page .card-back-layout{margin-top:12px}.draw-page>.reading-lead{margin-top:6px}}

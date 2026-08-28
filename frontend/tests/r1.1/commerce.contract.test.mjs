@@ -1,37 +1,35 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { PROTECTED_PATHS, ROUTES } from "../../src/shared/routes.ts";
 
-async function readProductSource(relativePath, context) {
-  try {
-    return await readFile(new URL(`../../src/${relativePath}`, import.meta.url), "utf8");
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      context.skip("R1.1 产品源码尚未合入 release/r1.1；该用例不能计为通过");
-      return null;
-    }
-    throw error;
-  }
-}
-
-test("R11-PAY-001：会员、服务包、收银台和订单均为受保护的真实路由", async (context) => {
-  const routes = await readProductSource("shared/routes.ts", context);
-  if (!routes) return;
-  for (const path of ["/services", "/services/membership", "/checkout", "/checkout/pay", "/checkout/result", "/my/orders", "/my/refunds/new"]) assert.match(routes, new RegExp(`"${path}"`));
-  assert.match(routes, /PROTECTED_PATHS/);
+test("R11-PAY-001：会员、服务包、收银台和订单均为受保护的真实路由", () => {
+  for (const path of [
+    ROUTES.services,
+    ROUTES.serviceMembership,
+    ROUTES.serviceMembershipDetail,
+    ROUTES.serviceEnergyPack,
+    ROUTES.serviceReadingPack,
+    ROUTES.checkout,
+    ROUTES.checkoutPay,
+    ROUTES.checkoutResult,
+    ROUTES.myBenefits,
+    ROUTES.myOrders,
+    ROUTES.myOrderDemo,
+    ROUTES.refundNew,
+    ROUTES.refundStatus,
+  ]) assert.equal(PROTECTED_PATHS.has(path), true, `${path} 必须受登录保护`);
 });
 
-test("R11-PAY-002：会员计划明确不自动续费，并且记录权益边界", async (context) => {
-  const page = await readProductSource("features/commerce/CommerceScreens.tsx", context);
-  if (!page) return;
+test("R11-PAY-002：会员计划明确不自动续费，并且记录权益边界", async () => {
+  const page = await readFile(new URL("../../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8");
   for (const copy of ["微光计划", "清和计划", "自在计划", "不自动续费", "已有服务包不会被覆盖"]) {
     assert.match(page, new RegExp(copy));
   }
 });
 
-test("R11-PAY-003：支付前必须确认协议，支付异常禁止重复购买", async (context) => {
-  const page = await readProductSource("features/commerce/CommerceScreens.tsx", context);
-  if (!page) return;
+test("R11-PAY-003：支付前必须确认协议，支付异常禁止重复购买", async () => {
+  const page = await readFile(new URL("../../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8");
   assert.match(page, /disabled=\{!checked\}/);
   assert.match(page, /服务购买协议/);
   assert.match(page, /支付结果以服务端确认为准/);

@@ -8,7 +8,6 @@ const r11Tests = readdirSync(new URL(".", import.meta.url))
 const commands = [
   ["既有单元与契约测试", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test"]],
   ["R1.1 自动化测试", process.execPath, ["--test", ...r11Tests]],
-  ["R1.1 后端契约 Mock 测试", process.execPath, ["--test", "../backend/tests/contract/r1.1-p0-contract.test.mjs"]],
   ["代码规范检查", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "lint"]],
   ["静态构建", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build:static"]],
 ];

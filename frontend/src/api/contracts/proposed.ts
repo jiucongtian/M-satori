@@ -48,4 +48,3 @@ export interface SeedSettlement {
   status: "RESERVED" | "CONSUMED" | "RELEASED" | "REFUNDED";
   transactionId: string;
 }
-

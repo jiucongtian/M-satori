@@ -1,0 +1,11 @@
+"use client";
+import { useEffect,useState } from "react";
+import { useRouter } from "next/navigation";
+import { Calculating,ProfileIntro,RelationshipFirstLook,SeedGift,UnifiedProfileForm,type ProfileData } from "@/src/features/legacy/LegacyProfileFlow";
+import { ROUTES } from "@/src/shared/routes";
+import { RouteFrame } from "@/src/shared/shell";
+import { PageDebugLabel } from "@/src/shared/ui";
+import { prototypeFirstLook,prototypeRevision } from "@/src/shared/prototypeData";
+const DEFAULT:ProfileData={name:"小满",date:"1990-05-18",calendarType:"SOLAR",lunarYear:1990,lunarMonth:4,lunarDay:24,isLeapMonth:false,time:"08:30",accuracy:"准确到分钟",place:"当前版本暂不启用地区校正",locationId:"loc_cn_330100",gender:"FEMALE",relationshipType:"OTHER"};
+type Phase="intro"|"editing"|"calculating"|"first-look"|"gift";
+export default function PrototypeProfileCreateScreen(){const router=useRouter();const[phase,setPhase]=useState<Phase>("intro");const[data,setData]=useState(DEFAULT);const[stage,setStage]=useState(0);const[claimed,setClaimed]=useState(false);useEffect(()=>{if(phase!=="calculating")return;const timers=[350,700,1050,1400].map((ms,index)=>window.setTimeout(()=>setStage(index+1),ms));const done=window.setTimeout(()=>setPhase("first-look"),1750);return()=>{timers.forEach(clearTimeout);clearTimeout(done);};},[phase]);let body;if(phase==="intro")body=<ProfileIntro onNext={()=>setPhase("editing")}/>;else if(phase==="editing")body=<UnifiedProfileForm data={data} onChange={setData} onNext={()=>{setStage(0);setPhase("calculating");}}/>;else if(phase==="calculating")body=<Calculating name={data.name} stage={stage} state={stage>=4?"complete":"running"} busy={stage>=4} onRetry={()=>setStage(0)}/>;else if(phase==="first-look")body=<RelationshipFirstLook name={data.name} revision={prototypeRevision} report={prototypeFirstLook} loading={false} onRetry={()=>undefined} onEdit={()=>setPhase("editing")} onSkip={()=>setPhase("gift")} onNext={()=>setPhase("gift")}/>;else body=<SeedGift name={data.name} amount={18} claimed={claimed} busy={false} onClaim={()=>setClaimed(true)} onNext={()=>router.replace(ROUTES.home)}/>;return <RouteFrame title="建立生命智慧档案" label="建立生命智慧档案"><div className="profile-flow"><PageDebugLabel>R1.0 · PROFILE-CREATE</PageDebugLabel>{body}</div></RouteFrame>;}

@@ -1,0 +1,9 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import type { HomeOverview } from "@/src/api/client";
+import { ComingSoonPage,TodayHome,type HomeNavTarget } from "@/src/features/legacy/LegacyProfileFlow";
+import { ROUTES } from "@/src/shared/routes";
+import { RouteFrame } from "@/src/shared/shell";
+const home={user:{userId:"prototype-user",timezone:"Asia/Shanghai"},profile:{profileId:"prototype-profile",subjectType:"SELF",displayName:"小满",relationshipType:"SELF",currentRevisionId:"prototype-revision",state:"ACTIVE"},registrationReward:{rewardId:"prototype-reward",rewardType:"NEW_USER_ONBOARDING",status:"CLAIMED",wisdomSeedAmount:18,claimedAt:new Date().toISOString()},wisdomSeedAccount:{accountId:"prototype-account",available:18,reserved:0,totalEarned:18,totalSpent:0,updatedAt:new Date().toISOString()},dailyInsight:{localDate:"2026-08-24",state:"NOT_CREATED",dailyInsightId:null,taskId:null},dailyEnergySummary:{state:"READY",data:{greeting:"小满，你好",guidance:"把注意力放回真正重要的事情，今天适合稳稳推进。",energyLevel:"中",suitableActions:["整理计划","推进一件重要的事"],cautions:["避免同时开始太多任务","给情绪留一点空间"],date:"2026-08-24",dayCard:"甲子",heavenCard:"庚午",score:68,signals:["prototype"],ruleVersion:"prototype",copyVersion:"prototype"}},nextAction:"VIEW_HOME"} as HomeOverview;
+export default function PrototypeHomeScreen(){const router=useRouter();const[preview,setPreview]=useState<"成长"|"关系"|null>(null);const navigate=(target:HomeNavTarget)=>{if(target==="reading")router.push(ROUTES.readings);else if(target==="my")router.push(ROUTES.my);else if(target==="today")setPreview(null);else setPreview(target==="relationship"?"关系":"成长");};return <RouteFrame title={preview??"今日"} label="今日首页">{preview?<ComingSoonPage kind={preview} navigate={navigate}/>:<TodayHome name="小满" home={home} navigate={navigate} onNext={()=>router.push(ROUTES.daily)}/>}</RouteFrame>;}
