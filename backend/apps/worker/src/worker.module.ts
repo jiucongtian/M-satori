@@ -13,6 +13,7 @@ import {
 import { GenerationTaskWorker } from '../../../packages/modules/src/generation-task/generation-task.worker.js';
 import { HomeEnergySummaryPrewarmWorker } from '../../../packages/modules/src/daily-insight/home-energy-summary-prewarm.worker.js';
 import { EntitlementMaintenanceWorker } from '../../../packages/modules/src/entitlement/entitlement-maintenance.worker.js';
+import { ComplimentarySeedMaintenanceWorker } from '../../../packages/modules/src/complimentary-seed/complimentary-seed-maintenance.worker.js';
 
 @Module({
   imports: [
@@ -26,6 +27,11 @@ import { EntitlementMaintenanceWorker } from '../../../packages/modules/src/enti
     OperationsModule,
     ...R11CommerceModules,
   ],
-  providers: [GenerationTaskWorker, HomeEnergySummaryPrewarmWorker, EntitlementMaintenanceWorker],
+  providers: [
+    GenerationTaskWorker,
+    HomeEnergySummaryPrewarmWorker,
+    EntitlementMaintenanceWorker,
+    ComplimentarySeedMaintenanceWorker,
+  ],
 })
 export class WorkerModule {}

@@ -60,16 +60,16 @@
 
 ## 6. 智慧种子批次账本与迁移
 
-- [ ] 6.1 实现 ComplimentarySeedGrant 的来源、适用服务、数量、有效期和规则版本模型
-- [ ] 6.2 实现种子 GRANT、RESERVE、CONSUME、RELEASE、RESTORE、EXPIRE 和 ADJUSTMENT 只追加流水
-- [ ] 6.3 实现跨多个种子批次按最早到期稳定分配的 reservation allocations
-- [ ] 6.4 实现基于卡牌张数和版本化规则的问事种子成本计算与快照
+- [x] 6.1 实现 ComplimentarySeedGrant 的来源、适用服务、数量、有效期和规则版本模型
+- [x] 6.2 实现种子 GRANT、RESERVE、CONSUME、RELEASE、RESTORE、EXPIRE 和 ADJUSTMENT 只追加流水
+- [x] 6.3 实现跨多个种子批次按最早到期稳定分配的 reservation allocations
+- [x] 6.4 实现基于卡牌张数和版本化规则的问事种子成本计算与快照
 - [ ] 6.5 实现活动价报价校验、订单创建预留、支付成功消耗及订单取消/超时/支付失败释放
-- [ ] 6.6 将现有 seed_accounts/seed_entries 余额映射为 opening grant，保留来源、历史记录和迁移版本
-- [ ] 6.7 编写可重复运行的种子迁移脚本和迁移前后 available/reserved/累计流水对账报告
-- [ ] 6.8 将用户级种子账户改为批次账本的查询投影并保持 R1.0 API 兼容
-- [ ] 6.9 增加迁移失败回滚开关、旧读模型影子比对和迁移完成门禁
-- [ ] 6.10 添加范围限制、批次到期、多批次分配、活动价预留、并发与迁移黄金数据测试
+- [x] 6.6 将现有 seed_accounts/seed_entries 余额映射为 opening grant，保留来源、历史记录和迁移版本
+- [x] 6.7 编写可重复运行的种子迁移脚本和迁移前后 available/reserved/累计流水对账报告
+- [x] 6.8 将用户级种子账户改为批次账本的查询投影并保持 R1.0 API 兼容
+- [x] 6.9 增加迁移失败回滚开关、旧读模型影子比对和迁移完成门禁
+- [x] 6.10 添加范围限制、批次到期、多批次分配、活动价预留、并发与迁移黄金数据测试
 - [ ] 6.11 完成本阶段账本对账和兼容回归后提交推送独立里程碑
 
 ## 7. 固定核销决策与消费意图

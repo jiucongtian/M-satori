@@ -31,6 +31,7 @@
     "db:seed-commerce": "tsx scripts/seed-commerce-catalog.ts",
     "data:build-locations": "python3 scripts/locations/build-world-city-catalog.py",
     "db:reconcile-seeds": "tsx scripts/reconcile-seed-ledger.ts",
+    "db:migrate-seed-batches": "tsx scripts/migrate-complimentary-seeds.ts",
     "db:check": "drizzle-kit check",
     "infra:up": "docker compose up -d --wait",
     "infra:down": "docker compose down"

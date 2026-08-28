@@ -1,5 +1,17 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CursorCodec, normalizePageLimit } from '@satori/application';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
+import {
+  CursorCodec,
+  normalizePageLimit,
+  SEED_BATCH_PROJECTION_QUERY_PORT,
+  type SeedBatchProjectionQueryPort,
+} from '@satori/application';
 import {
   newId,
   registrationRewards,
@@ -37,7 +49,12 @@ interface ApplyCommand {
 export class SeedLedgerService {
   private readonly cursors: CursorCodec;
 
-  constructor(private readonly infrastructure: RuntimeInfrastructure) {
+  constructor(
+    private readonly infrastructure: RuntimeInfrastructure,
+    @Optional()
+    @Inject(SEED_BATCH_PROJECTION_QUERY_PORT)
+    private readonly batchProjection?: SeedBatchProjectionQueryPort,
+  ) {
     this.cursors = new CursorCodec(infrastructure.environment.CURSOR_SIGNING_SECRET);
   }
 
@@ -47,12 +64,49 @@ export class SeedLedgerService {
       .from(seedAccounts)
       .where(eq(seedAccounts.userId, userId))
       .limit(1);
+    const batch = await this.batchProjection?.getAccount(userId);
+    if (this.infrastructure.environment.SEED_BATCH_READ_MODE === 'BATCH') {
+      if (!batch)
+        throw new NotFoundException({ code: 'SEED_ACCOUNT_NOT_FOUND', message: 'Seed account not found' });
+      return batch;
+    }
     if (!account)
       throw new NotFoundException({ code: 'SEED_ACCOUNT_NOT_FOUND', message: 'Seed account not found' });
+    if (
+      this.infrastructure.environment.SEED_BATCH_READ_MODE === 'SHADOW' &&
+      batch &&
+      (batch.available !== account.available || batch.reserved !== account.reserved)
+    ) {
+      console.error('seed_batch_shadow_mismatch', {
+        userId,
+        legacy: { available: account.available, reserved: account.reserved },
+        batch: { available: batch.available, reserved: batch.reserved },
+      });
+    }
     return this.accountDto(account);
   }
 
   async listTransactions(userId: string, input: { cursor?: string; limit?: number }) {
+    const limit = normalizePageLimit(input.limit);
+    const cursor = input.cursor ? this.cursors.decode(input.cursor) : null;
+    if (this.infrastructure.environment.SEED_BATCH_READ_MODE === 'BATCH' && this.batchProjection) {
+      const page = await this.batchProjection.listTransactions(
+        userId,
+        cursor ? { createdAt: new Date(cursor.createdAt), id: cursor.id } : null,
+        limit,
+      );
+      const last = page.rows.at(-1);
+      return {
+        data: page.rows,
+        meta: {
+          hasMore: page.hasMore,
+          nextCursor:
+            page.hasMore && last
+              ? this.cursors.encode({ createdAt: last.createdAt, id: last.transactionId })
+              : null,
+        },
+      };
+    }
     const [account] = await this.infrastructure.database
       .select({ id: seedAccounts.id })
       .from(seedAccounts)
@@ -60,8 +114,6 @@ export class SeedLedgerService {
       .limit(1);
     if (!account)
       throw new NotFoundException({ code: 'SEED_ACCOUNT_NOT_FOUND', message: 'Seed account not found' });
-    const limit = normalizePageLimit(input.limit);
-    const cursor = input.cursor ? this.cursors.decode(input.cursor) : null;
     const rows = await this.infrastructure.database
       .select()
       .from(seedEntries)

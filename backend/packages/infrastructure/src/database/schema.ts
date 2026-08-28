@@ -1202,7 +1202,7 @@ export const complimentarySeedGrants = pgTable(
     ),
     check(
       'complimentary_seed_grants_source_ck',
-      sql`${table.sourceType} in ('REGISTRATION', 'ACTIVITY', 'MANUAL', 'RESTORE', 'MIGRATION')`,
+      sql`${table.sourceType} in ('REGISTRATION', 'MEMBERSHIP', 'ACADEMY', 'ACTIVITY', 'COMPENSATION', 'MANUAL', 'RESTORE', 'MIGRATION')`,
     ),
   ],
 );
@@ -1274,7 +1274,7 @@ export const complimentarySeedEntries = pgTable(
       'complimentary_seed_entries_type_ck',
       sql`${table.entryType} in ('GRANT', 'RESERVE', 'CONSUME', 'RELEASE', 'RESTORE', 'EXPIRE', 'ADJUSTMENT')`,
     ),
-    check('complimentary_seed_entries_quantity_ck', sql`${table.quantity} > 0`),
+    check('complimentary_seed_entries_quantity_ck', sql`${table.quantity} >= 0`),
     check(
       'complimentary_seed_entries_balance_ck',
       sql`${table.availableAfter} >= 0 and ${table.reservedAfter} >= 0`,

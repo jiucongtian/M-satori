@@ -12,6 +12,8 @@ export const PURCHASE_HISTORY_PORT = Symbol('PURCHASE_HISTORY_PORT');
 export const SEED_ELIGIBILITY_PORT = Symbol('SEED_ELIGIBILITY_PORT');
 export const ENTITLEMENT_GRANT_PORT = Symbol('ENTITLEMENT_GRANT_PORT');
 export const ENTITLEMENT_BENEFIT_SOURCE_PORT = Symbol('ENTITLEMENT_BENEFIT_SOURCE_PORT');
+export const COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT = Symbol('COMPLIMENTARY_SEED_BENEFIT_SOURCE_PORT');
+export const SEED_BATCH_PROJECTION_QUERY_PORT = Symbol('SEED_BATCH_PROJECTION_QUERY_PORT');
 
 export interface OfferingQuoteSnapshot {
   readonly offeringId: string;
@@ -44,6 +46,36 @@ export interface PurchaseHistoryPort {
 
 export interface SeedEligibilityPort {
   getAvailableSeedQuantity(ownerUserId: string, businessSpace: BusinessSpace): Promise<number>;
+}
+
+export interface SeedBatchAccountView {
+  readonly accountId: string;
+  readonly available: number;
+  readonly reserved: number;
+  readonly totalEarned: number;
+  readonly totalSpent: number;
+  readonly updatedAt: string;
+}
+
+export interface SeedBatchTransactionView {
+  readonly transactionId: string;
+  readonly type: 'GRANT' | 'RESERVE' | 'CONSUME' | 'RELEASE' | 'REFUND' | 'ADJUSTMENT';
+  readonly amount: number;
+  readonly balanceAfter: number;
+  readonly businessType: 'REGISTRATION_REWARD' | 'DAILY_INSIGHT';
+  readonly resourceId: string;
+  readonly originalTransactionId: string | null;
+  readonly title: string;
+  readonly createdAt: string;
+}
+
+export interface SeedBatchProjectionQueryPort {
+  getAccount(ownerUserId: string): Promise<SeedBatchAccountView | null>;
+  listTransactions(
+    ownerUserId: string,
+    cursor: { readonly createdAt: Date; readonly id: string } | null,
+    limit: number,
+  ): Promise<{ readonly rows: readonly SeedBatchTransactionView[]; readonly hasMore: boolean }>;
 }
 
 export type PaymentAttemptState = 'CREATED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
