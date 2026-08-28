@@ -855,6 +855,9 @@ export const moneyOrders = pgTable(
     currency: varchar('currency', { length: 3 }).notNull().default('CNY'),
     businessContextType: varchar('business_context_type', { length: 64 }),
     businessContextId: varchar('business_context_id', { length: 128 }),
+    promotionSeedReservationId: varchar('promotion_seed_reservation_id', { length: 128 }),
+    idempotencyKey: varchar('idempotency_key', { length: 128 }).notNull(),
+    requestHash: varchar('request_hash', { length: 128 }).notNull(),
     requestId: uuid('request_id').notNull(),
     version: integer('version').notNull().default(0),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -866,6 +869,7 @@ export const moneyOrders = pgTable(
   (table) => [
     uniqueIndex('money_orders_number_uq').on(table.orderNumber),
     uniqueIndex('money_orders_quote_uq').on(table.checkoutQuoteId),
+    uniqueIndex('money_orders_owner_idempotency_uq').on(table.ownerUserId, table.idempotencyKey),
     index('money_orders_owner_cursor_idx').on(table.ownerUserId, table.createdAt, table.id),
     index('money_orders_timeout_idx').on(table.status, table.expiresAt),
     index('money_orders_context_idx').on(table.businessContextType, table.businessContextId),
@@ -915,6 +919,8 @@ export const paymentAttempts = pgTable(
     currency: varchar('currency', { length: 3 }).notNull().default('CNY'),
     clientParameters: jsonb('client_parameters'),
     failure: jsonb('failure'),
+    idempotencyKey: varchar('idempotency_key', { length: 128 }).notNull(),
+    requestHash: varchar('request_hash', { length: 128 }).notNull(),
     requestId: uuid('request_id').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     succeededAt: timestamp('succeeded_at', { withTimezone: true }),
@@ -925,6 +931,7 @@ export const paymentAttempts = pgTable(
     uniqueIndex('payment_attempts_provider_id_uq')
       .on(table.provider, table.providerAttemptId)
       .where(sql`${table.providerAttemptId} is not null`),
+    uniqueIndex('payment_attempts_owner_idempotency_uq').on(table.ownerUserId, table.idempotencyKey),
     uniqueIndex('payment_attempts_one_success_per_order_uq')
       .on(table.orderId)
       .where(sql`${table.status} = 'SUCCEEDED'`),

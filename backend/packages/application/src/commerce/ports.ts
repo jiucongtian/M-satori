@@ -17,6 +17,7 @@ export const SEED_BATCH_PROJECTION_QUERY_PORT = Symbol('SEED_BATCH_PROJECTION_QU
 export const SEED_PROMOTION_LIFECYCLE_PORT = Symbol('SEED_PROMOTION_LIFECYCLE_PORT');
 export const CONSUMPTION_PORT = Symbol('CONSUMPTION_PORT');
 export const CONSUMPTION_OUTCOME_QUERY_PORT = Symbol('CONSUMPTION_OUTCOME_QUERY_PORT');
+export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
 
 export interface OfferingQuoteSnapshot {
   readonly offeringId: string;
@@ -128,6 +129,22 @@ export interface ProviderPaymentResult {
   readonly providerAttemptId: string;
   readonly state: PaymentAttemptState;
   readonly clientParameters?: Readonly<Record<string, string>>;
+  readonly orderId?: string;
+  readonly amountMinor?: number;
+  readonly currency?: 'CNY';
+  readonly providerOccurredAt?: Date;
+}
+
+export interface ProviderWebhookEvent {
+  readonly providerEventId: string;
+  readonly providerAttemptId: string;
+  readonly orderId: string;
+  readonly state: PaymentAttemptState;
+  readonly amountMinor: number;
+  readonly currency: 'CNY';
+  readonly occurredAt: Date;
+  readonly verificationSnapshot: Readonly<Record<string, unknown>>;
+  readonly minimalPayload?: string;
 }
 
 export interface ProviderRefundRequest {
@@ -143,6 +160,7 @@ export interface PaymentProvider {
   createPayment(request: CreatePaymentRequest): Promise<ProviderPaymentResult>;
   queryPayment(providerAttemptId: string): Promise<ProviderPaymentResult>;
   refund(request: ProviderRefundRequest): Promise<{ providerRefundId: string }>;
+  verifyWebhook?(headers: Readonly<Record<string, string>>, body: string): Promise<ProviderWebhookEvent>;
 }
 
 export interface BenefitCandidate {

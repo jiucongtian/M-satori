@@ -1,2 +1,8 @@
-/** Compile-time marker for the payment domain boundary. */
-export type PaymentDomainBoundary = 'payment';
+export class PaymentError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
