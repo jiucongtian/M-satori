@@ -6,6 +6,43 @@ import type {
   ServiceType,
 } from '@satori/domain';
 
+export const OFFERING_QUERY_PORT = Symbol('OFFERING_QUERY_PORT');
+export const PURCHASE_HISTORY_PORT = Symbol('PURCHASE_HISTORY_PORT');
+export const SEED_ELIGIBILITY_PORT = Symbol('SEED_ELIGIBILITY_PORT');
+
+export interface OfferingQuoteSnapshot {
+  readonly offeringId: string;
+  readonly offeringCode: string;
+  readonly offeringVersionId: string;
+  readonly offeringVersion: number;
+  readonly businessSpace: BusinessSpace;
+  readonly serviceType: ServiceType;
+  readonly offeringKind: 'SINGLE' | 'PACKAGE' | 'MEMBERSHIP';
+  readonly status: 'PUBLISHED' | 'RETIRED';
+  readonly displayName: string;
+  readonly description: string;
+  readonly amountMinor: number;
+  readonly currency: 'CNY';
+  readonly entitlementSpec: Readonly<Record<string, unknown>>;
+  readonly validityDays: number | null;
+  readonly purchaseLimit: Readonly<Record<string, unknown>>;
+  readonly refundPolicyVersion: string;
+  readonly refundPolicy: Readonly<Record<string, unknown>>;
+  readonly termsVersion: string;
+}
+
+export interface OfferingQueryPort {
+  findPublished(offeringId: string, version?: number): Promise<OfferingQuoteSnapshot | null>;
+}
+
+export interface PurchaseHistoryPort {
+  countFulfilledPurchases(ownerUserId: string, offeringId: string): Promise<number>;
+}
+
+export interface SeedEligibilityPort {
+  getAvailableSeedQuantity(ownerUserId: string, businessSpace: BusinessSpace): Promise<number>;
+}
+
 export type PaymentAttemptState = 'CREATED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
 export interface CreatePaymentRequest {

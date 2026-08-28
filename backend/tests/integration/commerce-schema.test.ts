@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validateEnvironment } from '../../packages/infrastructure/src/config/environment.js';
 import { createDatabase } from '../../packages/infrastructure/src/database/client.js';
+import { seedR11CommerceCatalog } from '../../packages/modules/src/catalog/repository-adapter/catalog.seeder.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
 
@@ -22,6 +23,8 @@ describe.skipIf(!runDatabaseTests)('R1.1 commerce schema', () => {
     pool = infrastructure.pool;
     await migrate(infrastructure.database, { migrationsFolder: './drizzle' });
     await migrate(infrastructure.database, { migrationsFolder: './drizzle' });
+    await seedR11CommerceCatalog(infrastructure.database);
+    await seedR11CommerceCatalog(infrastructure.database);
   });
 
   afterAll(async () => pool.end());
@@ -75,6 +78,24 @@ describe.skipIf(!runDatabaseTests)('R1.1 commerce schema', () => {
         [randomUUID(), userId, randomUUID(), randomUUID()],
       );
     });
+  });
+
+  it('seeds only the seven R1.1 sellable products and three seed promotions idempotently', async () => {
+    const offerings = await pool.query<{ code: string; amount_minor: number }>(
+      `select so.code, ov.amount_minor
+       from service_offerings so
+       join offering_versions ov on ov.id = so.current_version_id
+       where so.business_space = 'SATORI' and so.status = 'ACTIVE'
+       order by so.code`,
+    );
+    expect(offerings.rows).toHaveLength(7);
+    expect(offerings.rows).toContainEqual({ code: 'daily-insight-newcomer-10', amount_minor: 990 });
+    expect(offerings.rows).toContainEqual({ code: 'card-reading-10', amount_minor: 5_990 });
+    expect(offerings.rows.map((row) => row.code)).not.toContain('life-light-report');
+    const promotions = await pool.query<{ count: string }>(
+      `select count(*)::text as count from seed_promotion_rules where status = 'ACTIVE'`,
+    );
+    expect(promotions.rows[0]?.count).toBe('3');
   });
 });
 

@@ -805,6 +805,10 @@ export const checkoutQuotes = pgTable(
     reservedSeedQuantity: integer('reserved_seed_quantity').notNull().default(0),
     qualificationSnapshot: jsonb('qualification_snapshot').notNull(),
     pricingSnapshot: jsonb('pricing_snapshot').notNull(),
+    businessContextType: varchar('business_context_type', { length: 64 }),
+    businessContextId: varchar('business_context_id', { length: 128 }),
+    idempotencyKey: varchar('idempotency_key', { length: 128 }).notNull(),
+    requestHash: varchar('request_hash', { length: 128 }).notNull(),
     requestId: uuid('request_id').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     consumedAt: timestamp('consumed_at', { withTimezone: true }),
@@ -813,6 +817,7 @@ export const checkoutQuotes = pgTable(
   (table) => [
     index('checkout_quotes_owner_cursor_idx').on(table.ownerUserId, table.createdAt, table.id),
     index('checkout_quotes_expiry_idx').on(table.status, table.expiresAt),
+    uniqueIndex('checkout_quotes_owner_idempotency_uq').on(table.ownerUserId, table.idempotencyKey),
     check('checkout_quotes_status_ck', sql`${table.status} in ('ACTIVE', 'CONSUMED', 'EXPIRED', 'REVOKED')`),
     check('checkout_quotes_mode_ck', sql`${table.pricingMode} in ('STANDARD', 'SEED_PROMOTION')`),
     check(
@@ -820,6 +825,10 @@ export const checkoutQuotes = pgTable(
       sql`${table.amountMinor} >= 0 and ${table.currency} = 'CNY' and ${table.reservedSeedQuantity} >= 0`,
     ),
     check('checkout_quotes_expiry_ck', sql`${table.expiresAt} > ${table.createdAt}`),
+    check(
+      'checkout_quotes_context_pair_ck',
+      sql`(${table.businessContextType} is null) = (${table.businessContextId} is null)`,
+    ),
   ],
 );
 

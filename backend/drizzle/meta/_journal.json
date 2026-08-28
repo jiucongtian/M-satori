@@ -64,6 +64,13 @@
       "when": 1787924865567,
       "tag": "0008_damp_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787925674575,
+      "tag": "0009_tearful_dreadnoughts",
+      "breakpoints": true
     }
   ]
 }

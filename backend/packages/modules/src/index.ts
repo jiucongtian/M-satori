@@ -43,13 +43,13 @@ export {
 
 export const R11CommerceModules: Type<unknown>[] = [
   CatalogModule,
-  PricingModule,
   OrderModule,
+  ComplimentarySeedModule,
+  PricingModule,
   PaymentModule,
   FulfillmentModule,
   MembershipModule,
   EntitlementModule,
-  ComplimentarySeedModule,
   ConsumptionModule,
 ];
 

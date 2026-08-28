@@ -131,6 +131,16 @@ describe('R1 delivery contract', () => {
     }
   });
 
+  it('defines the R1.1 catalog and authoritative quote contract', () => {
+    expect(routeBlock('/service-offerings')).toContain('\n    get:');
+    expect(routeBlock('/service-offerings/{offeringId}')).toContain('\n    get:');
+    expect(routeBlock('/membership-plans')).toContain('\n    get:');
+    expect(routeBlock('/checkout-quotes')).toContain('\n    post:');
+    expect(openapi).toContain('additionalProperties: false, required: [offeringId]');
+    expect(openapi).not.toContain('seedExchangeRate');
+    expect(openapi).not.toContain('seedDiscountAmount');
+  });
+
   it('keeps /me nextAction aligned with pending registration rewards', () => {
     const source = readFileSync(`${backendRoot}/packages/modules/src/identity/me/me.service.ts`, 'utf8');
     expect(source).toContain('registrationRewards.status');
