@@ -23,6 +23,7 @@ describe('runtime baseline', () => {
     expect(environment.R11_MEMBERSHIP_ENABLED).toBe(false);
     expect(environment.R11_ORDINARY_REFUNDS_ENABLED).toBe(false);
     expect(environment.R11_MEMBERSHIP_UPGRADES_ENABLED).toBe(false);
+    expect(environment.FAKE_PAYMENT_RESULT).toBe('PENDING');
   });
 
   it('rejects invalid configuration', () => {
@@ -60,7 +61,14 @@ describe('runtime baseline', () => {
   });
 
   it('requires all payment secrets together and keeps the fake adapter credential-free', () => {
-    expect(validateEnvironment(aquaEnvironment).PAYMENT_PROVIDER_MODE).toBe('FAKE');
+    expect(validateEnvironment(aquaEnvironment)).toMatchObject({
+      PAYMENT_PROVIDER_MODE: 'FAKE',
+      FAKE_PAYMENT_RESULT: 'PENDING',
+    });
+    expect(validateEnvironment({ ...aquaEnvironment, FAKE_PAYMENT_RESULT: 'SUCCEEDED' })).toMatchObject({
+      PAYMENT_PROVIDER_MODE: 'FAKE',
+      FAKE_PAYMENT_RESULT: 'SUCCEEDED',
+    });
     expect(() => validateEnvironment({ ...aquaEnvironment, PAYMENT_PROVIDER_MODE: 'WECHAT_PAY' })).toThrow();
     const payment = validateEnvironment({
       ...aquaEnvironment,

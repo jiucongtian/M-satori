@@ -37,6 +37,25 @@ describe('payment providers', () => {
     ).toEqual({ providerRefundId: 'fake-refund-refund-1', state: 'SUCCEEDED' });
   });
 
+  it('supports an automatic fake success for end-to-end test environments', async () => {
+    const provider = new DeterministicFakePaymentProvider('SUCCEEDED');
+    const created = await provider.createPayment({
+      attemptId: 'attempt-auto-success',
+      orderId: 'order-auto-success',
+      amountMinor: 2190,
+      currency: 'CNY',
+      description: 'mock checkout',
+      expiresAt: new Date('2026-08-29T01:00:00.000Z'),
+    });
+    expect(created).toMatchObject({
+      state: 'SUCCEEDED',
+      orderId: 'order-auto-success',
+      amountMinor: 2190,
+    });
+    expect(created.providerOccurredAt).toBeInstanceOf(Date);
+    expect(await provider.queryPayment(created.providerAttemptId)).toMatchObject({ state: 'SUCCEEDED' });
+  });
+
   it('builds an API v3 merchant authorization over the canonical request', () => {
     const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const authorization = buildWechatAuthorization(

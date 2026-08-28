@@ -38,6 +38,7 @@ const environmentShape = {
   AQUA_BASE_URL: z.string().url(),
   AQUA_SERVICE_KEY: z.string().min(20),
   PAYMENT_PROVIDER_MODE: z.enum(['FAKE', 'WECHAT_PAY']).default('FAKE'),
+  FAKE_PAYMENT_RESULT: z.enum(['PENDING', 'SUCCEEDED']).default('PENDING'),
   WECHAT_MERCHANT_ID: z.string().min(6).optional(),
   WECHAT_APP_ID: z.string().min(6).optional(),
   WECHAT_API_V3_KEY: z.string().length(32).optional(),

@@ -224,6 +224,40 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
     ).toBe(1);
   });
 
+  it('completes order, automatic fake payment, fulfillment and business-context recovery', async () => {
+    const order = await orders.create({
+      ownerUserId: userId,
+      quoteId: await insertQuote(0),
+      idempotencyKey: `order-auto-success-${randomUUID()}`,
+      requestId: randomUUID(),
+    });
+    const automaticPayments = new PaymentApplicationService(
+      paymentRepository,
+      new DeterministicFakePaymentProvider('SUCCEEDED'),
+      seeds,
+    );
+    const attempt = await automaticPayments.create({
+      ownerUserId: userId,
+      orderId: order.orderId,
+      provider: 'FAKE',
+      idempotencyKey: `payment-auto-success-${randomUUID()}`,
+      requestId: randomUUID(),
+    });
+    expect(attempt).toMatchObject({ provider: 'FAKE', status: 'SUCCEEDED' });
+    expect(await orders.get(userId, order.orderId)).toMatchObject({
+      status: 'PAID',
+      businessContext: { type: 'READING_INTENT', id: 'opaque-1' },
+    });
+    expect(await fulfillment.process(order.orderId, attempt.paymentAttemptId)).toMatchObject({
+      grantIds: [expect.any(String)],
+    });
+    expect(await orders.get(userId, order.orderId)).toMatchObject({
+      status: 'FULFILLED',
+      fulfillmentStatus: 'SUCCEEDED',
+      businessContext: { type: 'READING_INTENT', id: 'opaque-1' },
+    });
+  });
+
   it('recovers a retryable fulfillment after the worker stops without duplicating grants', async () => {
     const { orderId, paymentAttemptId } = await createPaidOrder('retry');
     const flaky = new FlakyEntitlementGrant();

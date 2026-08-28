@@ -23,18 +23,22 @@ The system SHALL close an unpaid order 30 minutes after creation and SHALL relea
 - **THEN** the system resolves the race from the provider's authoritative payment time and produces one auditable terminal money fact
 
 ### Requirement: Payment provider isolation
-The system SHALL integrate payment channels through a PaymentProvider port, SHALL implement WeChat Pay first, and SHALL keep provider DTOs and signatures outside the order and entitlement domains.
+The system SHALL integrate payment channels through a PaymentProvider port, SHALL use a server-side deterministic Fake provider for the current end-to-end milestone, and SHALL keep future WeChat DTOs and signatures outside the order and entitlement domains.
 
-#### Scenario: WeChat payment attempt is created
-- **WHEN** a user pays an eligible awaiting-payment order
-- **THEN** the payment module creates a PaymentAttempt and returns only provider-safe client parameters
+#### Scenario: Fake payment attempt is created
+- **WHEN** a user pays an eligible awaiting-payment order while the environment is configured for automatic Fake success
+- **THEN** the payment module creates a PaymentAttempt, records the server-side provider result, and the client proceeds to payment-result polling without invoking WeChat
+
+#### Scenario: Real WeChat remains disabled
+- **WHEN** merchant credentials and payment-scene acceptance are not complete
+- **THEN** the deployment remains in Fake mode and cannot present an unverified WeChat result as a successful money fact
 
 #### Scenario: Additional provider is introduced
 - **WHEN** a future provider adapter is added
 - **THEN** existing order, fulfillment, membership, and entitlement domain contracts remain unchanged
 
 ### Requirement: Authoritative and idempotent payment success
-The system MUST accept payment success only from a verified provider callback or active provider query, MUST validate merchant, order, amount and currency, and MUST deduplicate provider events and successful money facts.
+The system MUST accept real-provider payment success only from a verified provider callback or active provider query, MUST validate merchant, order, amount and currency, and MUST deduplicate provider events and successful money facts. In Fake mode it MUST accept only the server-side deterministic provider result and MUST NOT trust a client success page.
 
 #### Scenario: Duplicate callback
 - **WHEN** WeChat sends the same successful payment callback more than once

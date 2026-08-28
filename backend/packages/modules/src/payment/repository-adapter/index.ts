@@ -311,7 +311,7 @@ export class PaymentRuntimeAdapter {
   provider(): PaymentProvider {
     const environment = this.infrastructure.environment;
     if ((environment.PAYMENT_PROVIDER_MODE ?? 'FAKE') === 'FAKE')
-      return new DeterministicFakePaymentProvider();
+      return new DeterministicFakePaymentProvider(environment.FAKE_PAYMENT_RESULT ?? 'PENDING');
     return new WechatPayAdapter({
       merchantId: environment.WECHAT_MERCHANT_ID!,
       appId: environment.WECHAT_APP_ID!,

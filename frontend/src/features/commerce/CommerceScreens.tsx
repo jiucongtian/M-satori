@@ -250,7 +250,9 @@ export function CheckoutScreen() {
         returnPath: params.returnTo,
         savedAt: new Date().toISOString(),
       });
-      await invokeWechatPay(payment.clientParameters);
+      if (payment.provider === "WECHAT_PAY") {
+        await invokeWechatPay(payment.clientParameters);
+      }
       router.push(`${ROUTES.paymentResult}?orderId=${encodeURIComponent(order.orderId)}&paymentAttemptId=${encodeURIComponent(payment.paymentAttemptId)}`);
     } catch (reason) {
       setError(apiMessage(reason));
