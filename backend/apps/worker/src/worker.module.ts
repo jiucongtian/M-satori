@@ -15,6 +15,7 @@ import { HomeEnergySummaryPrewarmWorker } from '../../../packages/modules/src/da
 import { EntitlementMaintenanceWorker } from '../../../packages/modules/src/entitlement/entitlement-maintenance.worker.js';
 import { ComplimentarySeedMaintenanceWorker } from '../../../packages/modules/src/complimentary-seed/complimentary-seed-maintenance.worker.js';
 import { ConsumptionMaintenanceWorker } from '../../../packages/modules/src/consumption/consumption-maintenance.worker.js';
+import { FulfillmentMaintenanceWorker } from '../../../packages/modules/src/fulfillment/fulfillment-maintenance.worker.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ConsumptionMaintenanceWorker } from '../../../packages/modules/src/cons
     EntitlementMaintenanceWorker,
     ComplimentarySeedMaintenanceWorker,
     ConsumptionMaintenanceWorker,
+    FulfillmentMaintenanceWorker,
   ],
 })
 export class WorkerModule {}

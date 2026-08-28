@@ -9,7 +9,7 @@ import {
   paymentAttempts,
   RuntimeInfrastructure,
 } from '@satori/infrastructure';
-import { and, count, desc, eq, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { CreateMoneyOrderCommand, MoneyOrderView, OrderRepository } from '../application/index.js';
 import { MoneyOrderError } from '../domain/index.js';
@@ -207,7 +207,7 @@ export class DrizzleOrderRepository implements OrderRepository, PurchaseHistoryP
         and(
           eq(moneyOrders.ownerUserId, ownerUserId),
           eq(offeringVersions.offeringId, offeringId),
-          eq(moneyOrders.status, 'FULFILLED'),
+          inArray(moneyOrders.status, ['PAID', 'FULFILLING', 'FULFILLED', 'EXCEPTION', 'REFUNDING']),
         ),
       );
     return result?.value ?? 0;

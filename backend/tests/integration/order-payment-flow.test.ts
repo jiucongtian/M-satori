@@ -2,12 +2,21 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { SeedPromotionLifecyclePort } from '../../packages/application/src/index.js';
+import {
+  SystemClock,
+  type EntitlementGrantPort,
+  type MembershipGrantPort,
+  type SeedPromotionLifecyclePort,
+} from '../../packages/application/src/index.js';
 import { validateEnvironment } from '../../packages/infrastructure/src/config/environment.js';
 import { createDatabase } from '../../packages/infrastructure/src/database/client.js';
 import { FieldCipher } from '../../packages/infrastructure/src/security/field-cipher.js';
 import { OrderApplicationService } from '../../packages/modules/src/order/application/index.js';
 import { DrizzleOrderRepository } from '../../packages/modules/src/order/repository-adapter/index.js';
+import { EntitlementApplicationService } from '../../packages/modules/src/entitlement/application/index.js';
+import { PostgresEntitlementRepository } from '../../packages/modules/src/entitlement/repository-adapter/index.js';
+import { FulfillmentApplicationService } from '../../packages/modules/src/fulfillment/application/index.js';
+import { DrizzleFulfillmentRepository } from '../../packages/modules/src/fulfillment/repository-adapter/index.js';
 import { PaymentApplicationService } from '../../packages/modules/src/payment/application/index.js';
 import {
   DeterministicFakePaymentProvider,
@@ -23,6 +32,7 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
   let payments: PaymentApplicationService;
   let provider: DeterministicFakePaymentProvider;
   let seeds: FakeSeedPromotionLifecycle;
+  let fulfillment: FulfillmentApplicationService;
   const userId = randomUUID();
   const offeringId = randomUUID();
   const versionId = randomUUID();
@@ -67,6 +77,16 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       provider,
       seeds,
     );
+    const entitlements = new EntitlementApplicationService(
+      new PostgresEntitlementRepository(runtime),
+      'fulfillment-integration-cursor-secret',
+      new SystemClock(),
+    );
+    fulfillment = new FulfillmentApplicationService(
+      new DrizzleFulfillmentRepository(runtime),
+      entitlements,
+      new FakeMembershipGrant(),
+    );
   });
 
   afterAll(async () => {
@@ -78,6 +98,19 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       'delete from payment_events where order_id in (select id from money_orders where owner_user_id=$1)',
       [userId],
     );
+    await pool.query(
+      'delete from fulfillment_jobs where order_id in (select id from money_orders where owner_user_id=$1)',
+      [userId],
+    );
+    const grants = await pool.query<{ id: string }>(
+      'select id from entitlement_grants where owner_user_id=$1',
+      [userId],
+    );
+    const grantIds = grants.rows.map((row) => row.id);
+    if (grantIds.length) {
+      await pool.query('delete from entitlement_usage_entries where grant_id=any($1::uuid[])', [grantIds]);
+      await pool.query('delete from entitlement_grants where id=any($1::uuid[])', [grantIds]);
+    }
     await pool.query('delete from payment_attempts where owner_user_id=$1', [userId]);
     await pool.query(
       'delete from order_snapshots where order_id in (select id from money_orders where owner_user_id=$1)',
@@ -145,6 +178,105 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
         ).rows[0]!.count,
       ),
     ).toBe(1);
+    expect(await orders.get(userId, order.orderId)).toMatchObject({
+      status: 'PAID',
+      fulfillmentStatus: 'NOT_STARTED',
+      businessContext: { type: 'READING_INTENT', id: 'opaque-1' },
+    });
+    const result = await fulfillment.process(order.orderId, attempt.paymentAttemptId);
+    expect(result).toMatchObject({ grantIds: [expect.any(String)] });
+    expect(await orders.get(userId, order.orderId)).toMatchObject({
+      status: 'FULFILLED',
+      fulfillmentStatus: 'SUCCEEDED',
+      businessContext: { type: 'READING_INTENT', id: 'opaque-1' },
+    });
+    expect(await fulfillment.process(order.orderId, attempt.paymentAttemptId)).toBeNull();
+    const grant = await pool.query<{ total_quantity: number; source_id: string }>(
+      "select total_quantity,source_id from entitlement_grants where owner_user_id=$1 and source_type='PURCHASE'",
+      [userId],
+    );
+    expect(grant.rows).toEqual([{ total_quantity: 10, source_id: order.orderId }]);
+    expect(
+      Number(
+        (
+          await pool.query<{ count: string }>(
+            "select count(*)::text count from outbox where aggregate_id=$1 and event_type='commerce.fulfillment.succeeded'",
+            [order.orderId],
+          )
+        ).rows[0]!.count,
+      ),
+    ).toBe(1);
+  });
+
+  it('recovers a retryable fulfillment after the worker stops without duplicating grants', async () => {
+    const { orderId, paymentAttemptId } = await createPaidOrder('retry');
+    const flaky = new FlakyEntitlementGrant();
+    const service = new FulfillmentApplicationService(
+      new DrizzleFulfillmentRepository({ database, pool } as never),
+      flaky,
+      new FakeMembershipGrant(),
+    );
+    await expect(service.process(orderId, paymentAttemptId)).rejects.toThrow('temporary outage');
+    expect(await orders.get(userId, orderId)).toMatchObject({
+      status: 'FULFILLING',
+      fulfillmentStatus: 'RETRY_WAIT',
+    });
+    await pool.query(
+      "update fulfillment_jobs set next_attempt_at=now()-interval '1 second' where order_id=$1",
+      [orderId],
+    );
+    expect(await service.reconcile()).toBeGreaterThanOrEqual(1);
+    expect(flaky.calls).toBe(2);
+    expect(await orders.get(userId, orderId)).toMatchObject({ status: 'FULFILLED' });
+  });
+
+  it('delivers a membership order only once when the outbox event is redelivered', async () => {
+    const { orderId, paymentAttemptId } = await createPaidOrder('membership');
+    await pool.query(
+      `update order_snapshots
+       set offering_snapshot=offering_snapshot || '{"offeringKind":"MEMBERSHIP"}'::jsonb
+       where order_id=$1`,
+      [orderId],
+    );
+    const memberships = new CountingMembershipGrant();
+    const service = new FulfillmentApplicationService(
+      new DrizzleFulfillmentRepository({ database, pool } as never),
+      new TerminalEntitlementGrant(),
+      memberships,
+    );
+    const result = await service.process(orderId, paymentAttemptId);
+    expect(result !== null && 'subscriptionId' in result && typeof result.subscriptionId === 'string').toBe(
+      true,
+    );
+    expect(await service.process(orderId, paymentAttemptId)).toBeNull();
+    expect(memberships.activations).toBe(1);
+  });
+
+  it('requests one reversal and keeps a terminally failed paid purchase committed', async () => {
+    const { orderId, paymentAttemptId } = await createPaidOrder('terminal');
+    const failing = new TerminalEntitlementGrant();
+    const repository = new DrizzleOrderRepository({ database, pool } as never);
+    const service = new FulfillmentApplicationService(
+      new DrizzleFulfillmentRepository({ database, pool } as never),
+      failing,
+      new FakeMembershipGrant(),
+    );
+    await expect(service.process(orderId, paymentAttemptId)).rejects.toThrow('invalid snapshot target');
+    expect(await orders.get(userId, orderId)).toMatchObject({
+      status: 'EXCEPTION',
+      fulfillmentStatus: 'FAILED',
+    });
+    expect(await repository.countFulfilledPurchases(userId, offeringId)).toBeGreaterThanOrEqual(1);
+    expect(
+      Number(
+        (
+          await pool.query<{ count: string }>(
+            "select count(*)::text count from outbox where aggregate_id=$1 and event_type='commerce.payment.reversal.requested'",
+            [orderId],
+          )
+        ).rows[0]!.count,
+      ),
+    ).toBe(1);
   });
 
   it('closes expired unpaid orders and releases promotion reservations once', async () => {
@@ -173,7 +305,12 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       offeringId,
       offeringVersionId: versionId,
       serviceType: 'CARD_READING',
+      offeringKind: 'PACKAGE',
       displayName: '问事单次',
+      entitlementSpec: {
+        benefits: [{ serviceType: 'CARD_READING', unit: 'READING_CREDIT', quantity: 10 }],
+      },
+      validityDays: 30,
       purchaseLimit: {},
       refundPolicy: {},
       termsVersion: 'terms-v1',
@@ -197,6 +334,25 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
     );
     return id;
   }
+
+  async function createPaidOrder(suffix: string) {
+    const order = await orders.create({
+      ownerUserId: userId,
+      quoteId: await insertQuote(0),
+      idempotencyKey: `order-${suffix}-${randomUUID()}`,
+      requestId: randomUUID(),
+    });
+    const attempt = await payments.create({
+      ownerUserId: userId,
+      orderId: order.orderId,
+      provider: 'FAKE',
+      idempotencyKey: `payment-${suffix}-${randomUUID()}`,
+      requestId: randomUUID(),
+    });
+    provider.setResult(attempt.providerAttemptId!, 'SUCCEEDED');
+    await payments.query(userId, attempt.paymentAttemptId);
+    return { orderId: order.orderId, paymentAttemptId: attempt.paymentAttemptId };
+  }
 });
 
 class FakeSeedPromotionLifecycle implements SeedPromotionLifecyclePort {
@@ -213,6 +369,60 @@ class FakeSeedPromotionLifecycle implements SeedPromotionLifecyclePort {
   }
   releaseAfterOrderClosure(_reservationId: string, orderId: string) {
     if (!this.released.includes(orderId)) this.released.push(orderId);
+    return Promise.resolve();
+  }
+}
+
+class FakeMembershipGrant implements MembershipGrantPort {
+  activate() {
+    return Promise.resolve({ subscriptionId: randomUUID() });
+  }
+  queueRenewal() {
+    return Promise.resolve({ periodId: randomUUID() });
+  }
+  replaceForUpgrade() {
+    return Promise.resolve({ subscriptionId: randomUUID() });
+  }
+}
+
+class CountingMembershipGrant extends FakeMembershipGrant {
+  activations = 0;
+  override activate() {
+    this.activations += 1;
+    return super.activate();
+  }
+}
+
+class FlakyEntitlementGrant implements EntitlementGrantPort {
+  calls = 0;
+  grant() {
+    this.calls += 1;
+    if (this.calls === 1)
+      return Promise.reject(Object.assign(new Error('temporary outage'), { retryable: true }));
+    return Promise.resolve({ grantId: randomUUID() });
+  }
+  freezeBySource() {
+    return Promise.resolve();
+  }
+  unfreezeBySource() {
+    return Promise.resolve();
+  }
+  forfeitBySource() {
+    return Promise.resolve();
+  }
+}
+
+class TerminalEntitlementGrant implements EntitlementGrantPort {
+  grant(): Promise<{ grantId: string }> {
+    return Promise.reject(new Error('invalid snapshot target'));
+  }
+  freezeBySource() {
+    return Promise.resolve();
+  }
+  unfreezeBySource() {
+    return Promise.resolve();
+  }
+  forfeitBySource() {
     return Promise.resolve();
   }
 }

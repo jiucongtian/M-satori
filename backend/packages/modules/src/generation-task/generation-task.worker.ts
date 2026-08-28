@@ -1,4 +1,5 @@
-import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
+import { FULFILLMENT_COMMAND_PORT, type FulfillmentCommandPort } from '@satori/application';
 import { GENERATION_QUEUE, queueExecutionPolicy, RuntimeInfrastructure } from '@satori/infrastructure';
 import { Worker, type Job } from 'bullmq';
 import { GenerationTaskRunner } from './generation-task.runner.js';
@@ -15,6 +16,7 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
     private readonly tasks: GenerationTaskService,
     private readonly runner: GenerationTaskRunner,
     private readonly accountDeletion: AccountDeletionService,
+    @Inject(FULFILLMENT_COMMAND_PORT) private readonly fulfillment: FulfillmentCommandPort,
   ) {}
 
   onModuleInit() {
@@ -43,6 +45,12 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
   }
 
   private async process(job: Job<{ taskId?: string; requestId?: string }>, timeoutMs: number) {
+    if (job.name === 'commerce.fulfillment.requested') {
+      const data = job.data as { orderId?: string; paymentAttemptId?: string };
+      if (!data.orderId || !data.paymentAttemptId) throw new Error('Fulfillment job payload is incomplete');
+      await this.fulfillment.process(data.orderId, data.paymentAttemptId);
+      return;
+    }
     if (job.name === 'account.deletion.scheduled') {
       if (job.data.requestId) await this.accountDeletion.process(job.data.requestId);
       return;

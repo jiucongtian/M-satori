@@ -18,6 +18,8 @@ export const SEED_PROMOTION_LIFECYCLE_PORT = Symbol('SEED_PROMOTION_LIFECYCLE_PO
 export const CONSUMPTION_PORT = Symbol('CONSUMPTION_PORT');
 export const CONSUMPTION_OUTCOME_QUERY_PORT = Symbol('CONSUMPTION_OUTCOME_QUERY_PORT');
 export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
+export const MEMBERSHIP_GRANT_PORT = Symbol('MEMBERSHIP_GRANT_PORT');
+export const FULFILLMENT_COMMAND_PORT = Symbol('FULFILLMENT_COMMAND_PORT');
 
 export interface OfferingQuoteSnapshot {
   readonly offeringId: string;
@@ -246,4 +248,8 @@ export interface MembershipGrantPort {
     command: MembershipGrantCommand & { previousSubscriptionId: string; upgradeId: string },
     idempotencyKey: string,
   ): Promise<{ subscriptionId: string }>;
+}
+
+export interface FulfillmentCommandPort {
+  process(orderId: string, paymentAttemptId: string): Promise<Record<string, unknown> | null>;
 }
