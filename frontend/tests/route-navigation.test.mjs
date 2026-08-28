@@ -218,11 +218,12 @@ test("READ-01 示例覆盖不同牌数，单张模式不要求定义牌位", asy
 });
 
 test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => {
-  const [legacy, styles, legacyStyles, layout] = await Promise.all([
+  const [legacy, styles, legacyStyles, layout, homeScreen] = await Promise.all([
     readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/reading-responsive.css", import.meta.url), "utf8"),
     readFile(new URL("../src/features/legacy/legacy.css", import.meta.url), "utf8"),
     readFile(new URL("../app/readings/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/home/HomeScreen.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(legacy, /draw-page reading-action-page/);
   assert.match(legacy, /immersive-reading reading-action-page/);
@@ -233,6 +234,10 @@ test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => 
   assert.match(legacyStyles, /--app-tabbar-height:calc\(56px \+ env\(safe-area-inset-bottom,0px\)\)/);
   assert.match(legacyStyles, /grid-template-rows:minmax\(0,1fr\) var\(--app-tabbar-height\)/);
   assert.match(legacyStyles, />:is\(\.today-home-scroll,\.reading-home-scroll,\.coming-soon-scroll,\.my-home-scroll\)\{[^}]*overflow-y:auto/);
+  assert.match(legacyStyles, /\.reading-home-scroll\{[^}]*padding:0 3px 40px[^}]*scrollbar-width:thin/);
+  assert.match(legacyStyles, /\.reading-home-scroll>h1\{font-size:var\(--type-hero\)/);
+  assert.doesNotMatch(homeScreen, /useSearchParams|search\.get\("tab"\)/);
+  assert.match(homeScreen, /setPreview\(target==="relationship"\?"关系":"成长"\)/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
   assert.match(layout, /reading-responsive\.css/);
 });
