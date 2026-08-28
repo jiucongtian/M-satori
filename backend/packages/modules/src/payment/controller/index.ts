@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { IsIn, IsOptional } from 'class-validator';
+import { Public } from '@satori/contracts';
 import type { FastifyRequest } from 'fastify';
 import { PaymentApplicationService, type PaymentAttemptView } from '../application/index.js';
 import { WechatWebhookNetworkGuard } from './wechat-webhook-network.guard.js';
@@ -39,6 +40,7 @@ export class PaymentController {
   }
 
   @Post('internal/payment-webhooks/wechat')
+  @Public()
   @HttpCode(204)
   @UseGuards(WechatWebhookNetworkGuard)
   async webhook(@Req() request: FastifyRequest) {
