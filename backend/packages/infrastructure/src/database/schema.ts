@@ -1135,7 +1135,7 @@ export const entitlementUsageEntries = pgTable(
       'entitlement_usage_entries_type_ck',
       sql`${table.entryType} in ('GRANT', 'RESERVE', 'COMMIT', 'RELEASE', 'REVERSE', 'EXPIRE', 'FREEZE', 'UNFREEZE', 'FORFEIT', 'ADJUSTMENT')`,
     ),
-    check('entitlement_usage_entries_quantity_ck', sql`${table.quantity} > 0`),
+    check('entitlement_usage_entries_quantity_ck', sql`${table.quantity} >= 0`),
     check(
       'entitlement_usage_entries_balance_ck',
       sql`${table.availableAfter} >= 0 and ${table.reservedAfter} >= 0`,

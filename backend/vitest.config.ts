@@ -26,7 +26,12 @@ export default defineConfig({
       }),
       defineProject({
         ...base,
-        test: { ...base.test, name: 'integration', include: ['tests/integration/**/*.test.ts'] },
+        test: {
+          ...base.test,
+          name: 'integration',
+          include: ['tests/integration/**/*.test.ts'],
+          fileParallelism: false,
+        },
       }),
       defineProject({
         ...base,

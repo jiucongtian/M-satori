@@ -1,4 +1,5 @@
 import type {
+  BenefitUnit,
   BenefitSourceType,
   BusinessContext,
   BusinessSpace,
@@ -9,6 +10,8 @@ import type {
 export const OFFERING_QUERY_PORT = Symbol('OFFERING_QUERY_PORT');
 export const PURCHASE_HISTORY_PORT = Symbol('PURCHASE_HISTORY_PORT');
 export const SEED_ELIGIBILITY_PORT = Symbol('SEED_ELIGIBILITY_PORT');
+export const ENTITLEMENT_GRANT_PORT = Symbol('ENTITLEMENT_GRANT_PORT');
+export const ENTITLEMENT_BENEFIT_SOURCE_PORT = Symbol('ENTITLEMENT_BENEFIT_SOURCE_PORT');
 
 export interface OfferingQuoteSnapshot {
   readonly offeringId: string;
@@ -127,6 +130,7 @@ export interface EntitlementGrantCommand {
   readonly ownerUserId: string;
   readonly businessSpace: BusinessSpace;
   readonly serviceType: ServiceType;
+  readonly unit: Exclude<BenefitUnit, 'SEED'>;
   readonly quantity: number;
   readonly sourceType: 'PURCHASE' | 'MEMBERSHIP' | 'MANUAL';
   readonly sourceId: string;

@@ -47,16 +47,16 @@
 
 ## 5. 服务权益批次与只追加账本
 
-- [ ] 5.1 实现 EntitlementGrant 创建、查询和按来源分组的用户权益视图
-- [ ] 5.2 实现基于 `Asia/Shanghai` 支付成功日期的第 N 个自然日末到期计算并保存 UTC、时区和规则版本
-- [ ] 5.3 实现 GRANT、RESERVE、COMMIT、RELEASE、REVERSE、EXPIRE、FREEZE、UNFREEZE、FORFEIT 和 ADJUSTMENT 只追加流水
-- [ ] 5.4 实现账户/批次行锁、非负余额检查、reservation 单次结算和业务唯一键幂等
-- [ ] 5.5 实现同类权益按 expiresAt、grantedAt、id 稳定排序的候选查询
-- [ ] 5.6 实现多个相同权益包独立批次、独立到期且不合并/延期的行为
-- [ ] 5.7 实现到期任务、退款冻结/解冻、会员升级作废和人工调整应用命令
-- [ ] 5.8 实现权益列表、详情、使用记录接口及稳定游标分页
-- [ ] 5.9 实现批次投影—流水—有效 ConsumptionIntent 对账命令和异常 case 生成
-- [ ] 5.10 添加最终单位并发预留、重复提交/释放、跨日到期、多包排序和账本不变量测试
+- [x] 5.1 实现 EntitlementGrant 创建、查询和按来源分组的用户权益视图
+- [x] 5.2 实现基于 `Asia/Shanghai` 支付成功日期的第 N 个自然日末到期计算并保存 UTC、时区和规则版本
+- [x] 5.3 实现 GRANT、RESERVE、COMMIT、RELEASE、REVERSE、EXPIRE、FREEZE、UNFREEZE、FORFEIT 和 ADJUSTMENT 只追加流水
+- [x] 5.4 实现账户/批次行锁、非负余额检查、reservation 单次结算和业务唯一键幂等
+- [x] 5.5 实现同类权益按 expiresAt、grantedAt、id 稳定排序的候选查询
+- [x] 5.6 实现多个相同权益包独立批次、独立到期且不合并/延期的行为
+- [x] 5.7 实现到期任务、退款冻结/解冻、会员升级作废和人工调整应用命令
+- [x] 5.8 实现权益列表、详情、使用记录接口及稳定游标分页
+- [x] 5.9 实现批次投影—流水—有效 ConsumptionIntent 对账命令和异常 case 生成
+- [x] 5.10 添加最终单位并发预留、重复提交/释放、跨日到期、多包排序和账本不变量测试
 
 ## 6. 智慧种子批次账本与迁移
 

@@ -46,9 +46,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const domainStatus =
       domainCode === 'INVALID_CURSOR'
         ? HttpStatus.BAD_REQUEST
-        : domainCode === 'IDEMPOTENCY_KEY_REUSED' || domainCode === 'IDEMPOTENCY_IN_PROGRESS'
-          ? HttpStatus.CONFLICT
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        : domainCode === 'ENTITLEMENT_NOT_FOUND' || domainCode === 'RESERVATION_NOT_FOUND'
+          ? HttpStatus.NOT_FOUND
+          : domainCode?.startsWith('INVALID_ENTITLEMENT') || domainCode === 'INVALID_ADJUSTMENT'
+            ? HttpStatus.BAD_REQUEST
+            : domainCode?.startsWith('ENTITLEMENT_') || domainCode === 'CONSUMPTION_ALREADY_SETTLED'
+              ? HttpStatus.CONFLICT
+              : domainCode === 'IDEMPOTENCY_KEY_REUSED' || domainCode === 'IDEMPOTENCY_IN_PROGRESS'
+                ? HttpStatus.CONFLICT
+                : HttpStatus.INTERNAL_SERVER_ERROR;
     const status = exception instanceof HttpException ? exception.getStatus() : domainStatus;
     if (status === 500) {
       console.error('unhandled_api_exception', {

@@ -1,0 +1,2 @@
+ALTER TABLE "entitlement_usage_entries" DROP CONSTRAINT "entitlement_usage_entries_quantity_ck";--> statement-breakpoint
+ALTER TABLE "entitlement_usage_entries" ADD CONSTRAINT "entitlement_usage_entries_quantity_ck" CHECK ("entitlement_usage_entries"."quantity" >= 0);

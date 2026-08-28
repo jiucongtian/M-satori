@@ -141,6 +141,26 @@ describe('R1 delivery contract', () => {
     expect(openapi).not.toContain('seedDiscountAmount');
   });
 
+  it('implements the source-separated R1.1 entitlement query contract', () => {
+    expect(routeBlock('/me/entitlements')).toContain('\n    get:');
+    expect(routeBlock('/me/entitlements/{entitlementId}')).toContain('\n    get:');
+    expect(routeBlock('/me/usage-records')).toContain('\n    get:');
+    const controller = readFileSync(
+      `${backendRoot}/packages/modules/src/entitlement/controller/index.ts`,
+      'utf8',
+    );
+    const application = readFileSync(
+      `${backendRoot}/packages/modules/src/entitlement/application/index.ts`,
+      'utf8',
+    );
+    expect(controller).toContain("@Get('entitlements')");
+    expect(controller).toContain("@Get('entitlements/:entitlementId')");
+    expect(controller).toContain("@Get('usage-records')");
+    expect(application).toContain('entitlementId: grant.id');
+    expect(application).toContain("grant.status === 'ACTIVE'");
+    expect(application).toContain("? 'AVAILABLE'");
+  });
+
   it('keeps /me nextAction aligned with pending registration rewards', () => {
     const source = readFileSync(`${backendRoot}/packages/modules/src/identity/me/me.service.ts`, 'utf8');
     expect(source).toContain('registrationRewards.status');
