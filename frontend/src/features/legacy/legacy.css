@@ -325,7 +325,7 @@
 
 @media (max-width: 520px) {
   .stage { padding: 0; background: var(--cream); }
-  .phone { width: 100%; height: 100svh; min-height: 620px; border-radius: 0; box-shadow: none; }
+  .phone { width: 100%; height: 100dvh; min-height: 0; border-radius: 0; box-shadow: none; }
 }
 
 @media (max-height: 730px) {
@@ -486,6 +486,14 @@
 .today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}.today-home-scroll,.reading-home-scroll,.coming-soon-scroll,.my-home-scroll{min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain}.today-home-scroll,.reading-home-scroll,.coming-soon-scroll{scrollbar-width:none}.today-home-scroll::-webkit-scrollbar,.reading-home-scroll::-webkit-scrollbar,.coming-soon-scroll::-webkit-scrollbar{display:none}.today-home-scroll{padding:5px 0 24px}.today-home-scroll>header{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between}.today-home-scroll>.eyebrow{position:relative;z-index:2;margin-top:clamp(24px,6svh,48px)}.today-home-scroll>h1{position:relative;z-index:2;max-width:100%;overflow-wrap:anywhere}.today-home-scroll>.home-energy-card{flex:none;margin-bottom:18px}.reading-home-scroll{padding-bottom:22px}.coming-soon-page{padding:0;background:linear-gradient(180deg,#f5f1e7 0%,#eef2e7 54%,#f8f5ed 100%)}.coming-soon-scroll{padding:48px 0 24px}.coming-soon-scroll>.primary{margin-bottom:0}.my-home>.app-bottom-nav{width:calc(100% + 18px);min-height:52px;flex:none;margin:0 -9px}
 .my-service-center{margin:16px 0;padding:16px;border-radius:22px;background:rgba(255,255,255,.54);border:1px solid rgba(69,107,91,.1);box-shadow:0 12px 28px rgba(48,75,62,.055)}
 .my-home-scroll>.profile-banner{width:100%;box-sizing:border-box}
+
+/* R1.1 #89 · one responsive root-tab shell: one scroll owner, one fixed tab bar. */
+:root{--app-tabbar-height:calc(56px + env(safe-area-inset-bottom,0px))}
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home){height:auto!important;min-height:0!important;flex:1 1 auto;display:grid!important;grid-template-rows:minmax(0,1fr) var(--app-tabbar-height);padding:0!important;overflow:hidden!important}
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>:is(.today-home-scroll,.reading-home-scroll,.coming-soon-scroll,.my-home-scroll){min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain}
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>.app-bottom-nav{box-sizing:border-box;width:calc(100% + 18px);height:var(--app-tabbar-height);min-height:0;margin:0 -9px;padding:8px 2px calc(6px + env(safe-area-inset-bottom,0px));align-content:start}
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>.app-bottom-nav button{min-height:34px}
+.phone>.today-home,.phone>.my-home{animation:none}
 .my-service-center>header{display:flex;justify-content:space-between;align-items:end;margin-bottom:12px}.my-service-center>header small{font-size:9px;letter-spacing:1.7px;color:#aa7c38}.my-service-center>header h2{margin:3px 0 0;font:500 20px var(--font-serif-cn)}.my-service-center>header button{border:0;background:transparent;color:#536d65;font-size:11px}
 .my-benefit-primary{width:100%;display:flex;gap:12px;align-items:center;text-align:left;border:0;border-radius:18px;padding:15px;background:linear-gradient(145deg,#587565,#304f43);color:#fff;box-shadow:0 10px 22px rgba(48,79,67,.14)}.my-benefit-primary>span{display:grid;place-items:center;width:46px;height:56px;border:1px solid rgba(239,212,162,.24);border-radius:12px;background:rgba(255,255,255,.08);color:#efd4a2;font:24px var(--font-serif-cn)}.my-benefit-primary>div{flex:1}.my-benefit-primary small,.my-benefit-primary strong,.my-benefit-primary p{display:block}.my-benefit-primary small{color:#efd4a2;opacity:.82}.my-benefit-primary strong{font-size:17px;margin:4px 0}.my-benefit-primary p{font-size:10px;margin:0;opacity:.68}
 .my-commerce-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}.my-commerce-shortcuts button{display:flex;gap:8px;align-items:center;text-align:left;border:1px solid rgba(69,107,91,.09);border-radius:15px;padding:12px 10px;background:rgba(250,247,238,.78);color:#375448}.my-commerce-shortcuts i{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;color:#987249;background:#efe4cf;font-style:normal}.my-commerce-shortcuts span{flex:1}.my-commerce-shortcuts strong,.my-commerce-shortcuts small{display:block}.my-commerce-shortcuts strong{font-size:12px}.my-commerce-shortcuts small{font-size:9px;color:#858b87;margin-top:3px}

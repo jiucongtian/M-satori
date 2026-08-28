@@ -199,10 +199,11 @@ test("READ-01 示例覆盖不同牌数，单张模式不要求定义牌位", asy
   assert.match(screen, /确认问题\{cardCount>1\?"与牌位":""\}/);
 });
 
-test("R1.1 抽牌操作页采用通用短屏滚动与固定操作区", async () => {
-  const [legacy, styles, layout] = await Promise.all([
+test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => {
+  const [legacy, styles, legacyStyles, layout] = await Promise.all([
     readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/reading-responsive.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/legacy/legacy.css", import.meta.url), "utf8"),
     readFile(new URL("../app/readings/layout.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(legacy, /draw-page reading-action-page/);
@@ -210,7 +211,10 @@ test("R1.1 抽牌操作页采用通用短屏滚动与固定操作区", async () 
   assert.match(legacy, /reading-generating reading-action-page/);
   assert.match(styles, /\.reading-action-page\{[^}]*overflow-y:auto/);
   assert.match(styles, /\.reading-action-page>\.primary\{[^}]*position:sticky;bottom:0/);
-  assert.match(styles, /\.reading-home\.root-tab-page\{[^}]*overflow-y:auto/);
+  assert.match(styles, /\.reading-home\.root-tab-page\{[^}]*overflow:hidden/);
+  assert.match(legacyStyles, /--app-tabbar-height:calc\(56px \+ env\(safe-area-inset-bottom,0px\)\)/);
+  assert.match(legacyStyles, /grid-template-rows:minmax\(0,1fr\) var\(--app-tabbar-height\)/);
+  assert.match(legacyStyles, />:is\(\.today-home-scroll,\.reading-home-scroll,\.coming-soon-scroll,\.my-home-scroll\)\{[^}]*overflow-y:auto/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
   assert.match(layout, /reading-responsive\.css/);
 });
