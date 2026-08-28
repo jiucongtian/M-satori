@@ -22,16 +22,16 @@
 
 ## 3. 数据模型与迁移基线
 
-- [ ] 3.1 创建 service_offerings、offering_versions、seed_promotion_rules 和 checkout_quotes 表及版本/状态/有效期约束
-- [ ] 3.2 创建 money_orders、order_snapshots、payment_attempts、payment_events、refunds 和 fulfillment_jobs 表及唯一约束
-- [ ] 3.3 创建 entitlement_grants、entitlement_usage_entries 及 available/reserved 非负、来源和业务空间约束
-- [ ] 3.4 创建 complimentary_seed_grants、complimentary_seed_allocations、complimentary_seed_entries 和账户投影表及约束
-- [ ] 3.5 创建 entitlement_resolutions、resolution_candidates、consumption_intents 和 reservation_allocations 表及状态约束
-- [ ] 3.6 创建 membership_subscriptions、membership_periods、membership_upgrades 和 upgrade_assessments 表及单一有效周期约束
-- [ ] 3.7 创建 reconciliation_cases、operator_adjustments 和新增审计关联字段
-- [ ] 3.8 为所有表补充 owner/businessSpace/source/businessContext/requestId/version/UTC 时间索引和稳定游标索引
-- [ ] 3.9 生成并审查 expand-only Drizzle migration，验证已有 R1.0 数据不受影响
-- [ ] 3.10 添加数据库约束集成测试及迁移前进、回滚兼容和空库启动验证
+- [x] 3.1 创建 service_offerings、offering_versions、seed_promotion_rules 和 checkout_quotes 表及版本/状态/有效期约束
+- [x] 3.2 创建 money_orders、order_snapshots、payment_attempts、payment_events、refunds 和 fulfillment_jobs 表及唯一约束
+- [x] 3.3 创建 entitlement_grants、entitlement_usage_entries 及 available/reserved 非负、来源和业务空间约束
+- [x] 3.4 创建 complimentary_seed_grants、complimentary_seed_allocations、complimentary_seed_entries 和账户投影表及约束
+- [x] 3.5 创建 entitlement_resolutions、resolution_candidates、consumption_intents 和 reservation_allocations 表及状态约束
+- [x] 3.6 创建 membership_subscriptions、membership_periods、membership_upgrades 和 upgrade_assessments 表及单一有效周期约束
+- [x] 3.7 创建 reconciliation_cases、operator_adjustments 和新增审计关联字段
+- [x] 3.8 为所有表补充 owner/businessSpace/source/businessContext/requestId/version/UTC 时间索引和稳定游标索引
+- [x] 3.9 生成并审查 expand-only Drizzle migration，验证已有 R1.0 数据不受影响
+- [x] 3.10 添加数据库约束集成测试及迁移前进、回滚兼容和空库启动验证
 
 ## 4. 商品目录、会员方案与权威报价
 
