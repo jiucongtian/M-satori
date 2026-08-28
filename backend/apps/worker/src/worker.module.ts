@@ -7,6 +7,7 @@ import {
   IdentityModule,
   IntegrationsModule,
   OperationsModule,
+  R11CommerceModules,
   SeedLedgerModule,
 } from '@satori/modules';
 import { GenerationTaskWorker } from '../../../packages/modules/src/generation-task/generation-task.worker.js';
@@ -22,6 +23,7 @@ import { HomeEnergySummaryPrewarmWorker } from '../../../packages/modules/src/da
     FeedbackModule,
     IntegrationsModule,
     OperationsModule,
+    ...R11CommerceModules,
   ],
   providers: [GenerationTaskWorker, HomeEnergySummaryPrewarmWorker],
 })

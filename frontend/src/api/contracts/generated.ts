@@ -548,6 +548,390 @@ export interface paths {
         patch: operations["patchLifeProfileGroup"];
         trace?: never;
     };
+    "/service-offerings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listServiceOfferings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-offerings/{offeringId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getServiceOffering"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/membership-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMembershipPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/checkout-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createCheckoutQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/money-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMoneyOrders"];
+        put?: never;
+        post: operations["createMoneyOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/money-orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMoneyOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/money-orders/{orderId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelMoneyOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/money-orders/{orderId}/payment-attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createPaymentAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-attempts/{paymentAttemptId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPaymentAttempt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/payment-webhooks/wechat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acceptWechatPaymentWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEntitlements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/entitlements/{entitlementId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEntitlement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/usage-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUsageRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entitlement-resolutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createEntitlementResolution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/consumption-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createConsumptionIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/consumption-intents/{intentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getConsumptionIntent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/consumption-intents/{intentId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startConsumptionIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/membership-subscriptions/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCurrentMembershipSubscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/membership-upgrade-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createMembershipUpgradeQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/membership-upgrades/{upgradeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMembershipUpgrade"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/money-orders/{orderId}/refund-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createRefundQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/money-orders/{orderId}/refund-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createRefundRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRefunds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/refunds/{refundId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRefund"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/feedback": {
         parameters: {
             query?: never;
@@ -605,6 +989,9 @@ export interface components {
                 code: string;
                 message: string;
                 requestId: string;
+                retryable?: boolean;
+                nextAction?: string | null;
+                retryAfterSeconds?: number | null;
                 details?: {
                     [key: string]: unknown;
                 } | null;
@@ -1093,6 +1480,327 @@ export interface components {
             status: "RESERVED" | "CONSUMED" | "RELEASED" | "REFUNDED";
             transactionId: string;
         };
+        /** @enum {string} */
+        BusinessSpace: "C_CONSUMER" | "B_ACADEMY_ASSISTANT";
+        /** @enum {string} */
+        CommerceServiceType: "DAILY_ENERGY" | "CARD_READING";
+        /** @enum {string} */
+        UsageUnit: "COUNT" | "REPORT" | "MINUTE" | "IMAGE";
+        /** @enum {string} */
+        OfferingKind: "SINGLE_SERVICE" | "SERVICE_PACK" | "MEMBERSHIP_PLAN";
+        Money: {
+            /** @description Integer minor units */
+            amount: number;
+            /** @constant */
+            currency: "CNY";
+        };
+        BusinessContext: {
+            /** @enum {string} */
+            type: "DAILY_INSIGHT" | "CARD_READING_INTENT" | "MEMBERSHIP_RENEWAL" | "MEMBERSHIP_UPGRADE";
+            id: string;
+        };
+        BenefitSpec: {
+            serviceType: components["schemas"]["CommerceServiceType"];
+            unit: components["schemas"]["UsageUnit"];
+            quantity: number;
+        };
+        ServiceOffering: {
+            offeringId: string;
+            offeringVersion: string;
+            businessSpace: components["schemas"]["BusinessSpace"];
+            code: string;
+            name: string;
+            kind: components["schemas"]["OfferingKind"];
+            serviceType: components["schemas"]["CommerceServiceType"];
+            /** @enum {string} */
+            status: "ACTIVE" | "INACTIVE" | "RETIRED";
+            price: components["schemas"]["Money"];
+            benefits: components["schemas"]["BenefitSpec"][];
+            validityDays: number;
+            purchaseLimit?: number | null;
+            refundPolicyVersion: string;
+            agreementVersion?: string;
+        };
+        ServiceOfferingEnvelope: {
+            data: components["schemas"]["ServiceOffering"];
+        };
+        ServiceOfferingListEnvelope: {
+            data: components["schemas"]["ServiceOffering"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        MembershipPlan: components["schemas"]["ServiceOffering"] & {
+            /** @enum {string} */
+            planCode: "GLOW" | "SERENITY" | "FREEDOM";
+            /** @constant */
+            periodDays: 30;
+            seedActivityPrice?: components["schemas"]["Money"] | null;
+            seedThreshold?: number | null;
+        };
+        MembershipPlanListEnvelope: {
+            data: components["schemas"]["MembershipPlan"][];
+        };
+        CreateCheckoutQuoteRequest: {
+            offeringId: string;
+            offeringVersion?: string;
+            businessContext?: components["schemas"]["BusinessContext"] | null;
+        };
+        CheckoutQuote: {
+            quoteId: string;
+            offering: components["schemas"]["ServiceOffering"];
+            price: components["schemas"]["Money"];
+            promotion: {
+                eligible: boolean;
+                ruleVersion?: string | null;
+                seedReservationRequired: number;
+                message?: string | null;
+            };
+            businessContext?: components["schemas"]["BusinessContext"] | null;
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        CheckoutQuoteEnvelope: {
+            data: components["schemas"]["CheckoutQuote"];
+        };
+        CreateMoneyOrderRequest: {
+            quoteId: string;
+        };
+        MoneyOrder: {
+            orderId: string;
+            orderNumber: string;
+            /** @enum {string} */
+            status: "AWAITING_PAYMENT" | "PAID" | "FULFILLING" | "FULFILLED" | "FULFILLMENT_FAILED" | "CLOSED" | "REFUNDING" | "REFUNDED" | "PARTIALLY_REFUNDED";
+            offeringSnapshot: components["schemas"]["ServiceOffering"];
+            amount: components["schemas"]["Money"];
+            /** @enum {string} */
+            paymentStatus: "NOT_STARTED" | "PENDING" | "SUCCEEDED" | "FAILED" | "CLOSED";
+            /** @enum {string} */
+            fulfillmentStatus: "NOT_STARTED" | "PENDING" | "RUNNING" | "RETRY_WAITING" | "SUCCEEDED" | "FAILED_FINAL" | "REVERSING" | "REVERSED";
+            businessContext?: components["schemas"]["BusinessContext"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            paidAt?: string | null;
+        };
+        MoneyOrderEnvelope: {
+            data: components["schemas"]["MoneyOrder"];
+        };
+        MoneyOrderListEnvelope: {
+            data: components["schemas"]["MoneyOrder"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        CreatePaymentAttemptRequest: {
+            /**
+             * @default WECHAT_PAY
+             * @enum {string}
+             */
+            provider: "WECHAT_PAY";
+        };
+        PaymentAttempt: {
+            paymentAttemptId: string;
+            orderId: string;
+            /** @enum {string} */
+            provider: "WECHAT_PAY" | "FAKE";
+            /** @enum {string} */
+            status: "CREATED" | "PENDING" | "SUCCEEDED" | "FAILED" | "CLOSED";
+            amount: components["schemas"]["Money"];
+            clientParameters?: {
+                [key: string]: unknown;
+            } | null;
+            providerTradeId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            succeededAt?: string | null;
+        };
+        PaymentAttemptEnvelope: {
+            data: components["schemas"]["PaymentAttempt"];
+        };
+        EntitlementGrant: {
+            entitlementId: string;
+            serviceType: components["schemas"]["CommerceServiceType"];
+            unit: components["schemas"]["UsageUnit"];
+            /** @enum {string} */
+            sourceType: "PURCHASE" | "MEMBERSHIP" | "PROMOTION" | "COMPENSATION" | "MIGRATION";
+            sourceId: string;
+            total: number;
+            available: number;
+            reserved: number;
+            /** @enum {string} */
+            status: "PENDING" | "AVAILABLE" | "RESERVED" | "FROZEN" | "EXHAUSTED" | "EXPIRED" | "FORFEITED" | "REVERSED";
+            /** Format: date-time */
+            validFrom: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** @constant */
+            expiryTimezone: "Asia/Shanghai";
+            ruleVersion: string;
+        };
+        EntitlementEnvelope: {
+            data: components["schemas"]["EntitlementGrant"];
+        };
+        EntitlementListEnvelope: {
+            data: components["schemas"]["EntitlementGrant"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        UsageRecord: {
+            recordId: string;
+            entitlementId: string;
+            /** @enum {string} */
+            type: "GRANT" | "RESERVE" | "COMMIT" | "RELEASE" | "REVERSE" | "EXPIRE" | "FREEZE" | "UNFREEZE" | "FORFEIT" | "ADJUSTMENT";
+            quantity: number;
+            businessContext: components["schemas"]["BusinessContext"];
+            originalRecordId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        UsageRecordListEnvelope: {
+            data: components["schemas"]["UsageRecord"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        CreateEntitlementResolutionRequest: {
+            serviceType: components["schemas"]["CommerceServiceType"];
+            quantity: number;
+            cardCount?: number | null;
+            businessContext: components["schemas"]["BusinessContext"];
+        };
+        ResolutionCandidate: {
+            /** @enum {string} */
+            sourceType: "MEMBERSHIP" | "PURCHASE" | "COMPLIMENTARY_SEED";
+            sourceId: string;
+            eligible: boolean;
+            cost: number;
+            /** @enum {string} */
+            unit: "COUNT" | "WISDOM_SEED";
+            /** Format: date-time */
+            expiresAt?: string | null;
+            rank: number;
+        };
+        EntitlementResolution: {
+            resolutionId: string;
+            /** @enum {string} */
+            status: "RESOLVED" | "NO_SOURCE" | "RESERVED" | "EXPIRED" | "SUPERSEDED";
+            /** @constant */
+            selectionMode: "SYSTEM_RULE";
+            candidates: components["schemas"]["ResolutionCandidate"][];
+            selectedSource: components["schemas"]["ResolutionCandidate"] | null;
+            reason?: string;
+            ruleVersion: string;
+            /** Format: date-time */
+            resolvedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        EntitlementResolutionEnvelope: {
+            data: components["schemas"]["EntitlementResolution"];
+        };
+        CreateConsumptionIntentRequest: {
+            resolutionId: string;
+        };
+        ConsumptionIntent: {
+            intentId: string;
+            resolutionId: string;
+            /** @enum {string} */
+            status: "RESERVED" | "RUNNING" | "COMMITTED" | "RELEASED" | "EXPIRED" | "FAILED";
+            selectedSource: components["schemas"]["ResolutionCandidate"];
+            /** Format: date-time */
+            reservedAt: string;
+            /** Format: date-time */
+            reservationExpiresAt: string | null;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
+        };
+        ConsumptionIntentEnvelope: {
+            data: components["schemas"]["ConsumptionIntent"];
+        };
+        MembershipPeriod: {
+            periodId: string;
+            /** @enum {string} */
+            planCode: "GLOW" | "SERENITY" | "FREEDOM";
+            /** @enum {string} */
+            status: "SCHEDULED" | "ACTIVE" | "EXPIRED" | "TERMINATED_BY_UPGRADE" | "CANCELLED";
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            entitlementIds: string[];
+        };
+        MembershipSubscription: {
+            subscriptionId: string;
+            activePeriod?: components["schemas"]["MembershipPeriod"] | null;
+            periods: components["schemas"]["MembershipPeriod"][];
+        };
+        MembershipSubscriptionEnvelope: {
+            data: components["schemas"]["MembershipSubscription"];
+        };
+        CreateMembershipUpgradeQuoteRequest: {
+            newPlanOfferingId: string;
+        };
+        MembershipUpgradeQuote: {
+            quote: components["schemas"]["CheckoutQuote"];
+            /** @constant */
+            oldPlanEndsImmediately: true;
+            /** @constant */
+            unusedBenefitsCarryOver: false;
+            notice: string;
+        };
+        MembershipUpgradeQuoteEnvelope: {
+            data: components["schemas"]["MembershipUpgradeQuote"];
+        };
+        MembershipUpgrade: {
+            upgradeId: string;
+            oldSubscriptionId: string;
+            newOrderId: string;
+            newSubscriptionId?: string | null;
+            /** @enum {string} */
+            status: "QUOTED" | "AWAITING_PAYMENT" | "FULFILLING" | "COMPLETED" | "FAILED";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt?: string | null;
+        };
+        MembershipUpgradeEnvelope: {
+            data: components["schemas"]["MembershipUpgrade"];
+        };
+        RefundQuote: {
+            refundQuoteId: string;
+            orderId: string;
+            amount: components["schemas"]["Money"];
+            policyVersion: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        RefundQuoteEnvelope: {
+            data: components["schemas"]["RefundQuote"];
+        };
+        CreateRefundRequest: {
+            refundQuoteId: string;
+            reasonCode: string;
+            note?: string | null;
+        };
+        Refund: {
+            refundId: string;
+            orderId: string;
+            amount: components["schemas"]["Money"];
+            /** @enum {string} */
+            status: "REQUESTED" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt?: string | null;
+        };
+        RefundEnvelope: {
+            data: components["schemas"]["Refund"];
+        };
+        RefundListEnvelope: {
+            data: components["schemas"]["Refund"][];
+            meta: components["schemas"]["PageMeta"];
+        };
         GenerationTask: {
             taskId: string;
             /** @constant */
@@ -1231,6 +1939,13 @@ export interface components {
         ProfileId: string;
         RevisionId: string;
         TaskId: string;
+        OfferingId: string;
+        OrderId: string;
+        PaymentAttemptId: string;
+        EntitlementId: string;
+        ConsumptionIntentId: string;
+        MembershipUpgradeId: string;
+        RefundId: string;
     };
     requestBodies: never;
     headers: never;
@@ -2250,6 +2965,624 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileGroupEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listServiceOfferings: {
+        parameters: {
+            query?: {
+                serviceType?: components["schemas"]["CommerceServiceType"];
+                kind?: components["schemas"]["OfferingKind"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published R1.1 offerings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOfferingListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServiceOffering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offeringId: components["parameters"]["OfferingId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published offering detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOfferingEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMembershipPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description R1.1 monthly plans */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPlanListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createCheckoutQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCheckoutQuoteRequest"];
+            };
+        };
+        responses: {
+            /** @description User-bound authoritative quote valid for 15 minutes */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutQuoteEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMoneyOrders: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's orders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyOrderListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createMoneyOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMoneyOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Awaiting-payment order created from a quote */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyOrderEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMoneyOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Order, payment and fulfillment summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyOrderEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelMoneyOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                orderId: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unpaid order closed and promotion reservation released */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyOrderEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPaymentAttempt: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                orderId: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePaymentAttemptRequest"];
+            };
+        };
+        responses: {
+            /** @description WeChat payment attempt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentAttemptEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPaymentAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentAttemptId: components["parameters"]["PaymentAttemptId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative payment status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentAttemptEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptWechatPaymentWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Verified or idempotently replayed provider event accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listEntitlements: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Source-separated entitlement grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEntitlement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entitlementId: components["parameters"]["EntitlementId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entitlement grant detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listUsageRecords: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entitlement usage records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageRecordListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createEntitlementResolution: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEntitlementResolutionRequest"];
+            };
+        };
+        responses: {
+            /** @description System-only fixed-priority resolution */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementResolutionEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createConsumptionIntent: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConsumptionIntentRequest"];
+            };
+        };
+        responses: {
+            /** @description Selected source reserved for 30 minutes before draw */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsumptionIntentEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getConsumptionIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intentId: components["parameters"]["ConsumptionIntentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consumption intent status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsumptionIntentEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startConsumptionIntent: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                intentId: components["parameters"]["ConsumptionIntentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Formal business execution started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsumptionIntentEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCurrentMembershipSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active and scheduled membership periods */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipSubscriptionEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createMembershipUpgradeQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMembershipUpgradeQuoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Full-price replacement quote without refund fields */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipUpgradeQuoteEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMembershipUpgrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upgradeId: components["parameters"]["MembershipUpgradeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upgrade fulfillment status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipUpgradeEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createRefundQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                orderId: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ordinary-order refund quote */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundQuoteEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createRefundRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                orderId: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRefundRequest"];
+            };
+        };
+        responses: {
+            /** @description Ordinary-order refund accepted after entitlement freeze */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRefunds: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's ordinary refunds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundListEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refundId: components["parameters"]["RefundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ordinary refund detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundEnvelope"];
                 };
             };
             default: components["responses"]["Error"];

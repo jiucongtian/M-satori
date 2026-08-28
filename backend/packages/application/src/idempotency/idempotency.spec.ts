@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  COMMERCE_COMMAND_OPERATIONS,
   IdempotencyKeyReusedError,
   IdempotencyService,
+  commerceCommandScope,
   type IdempotencyScope,
   type IdempotencyStore,
   type StoredIdempotencyRecord,
@@ -50,4 +52,20 @@ describe('idempotency', () => {
       service.execute(scope, { value: 2 }, () => Promise.resolve({ status: 201, body: {} })),
     ).rejects.toBeInstanceOf(IdempotencyKeyReusedError);
   });
+
+  it.each(COMMERCE_COMMAND_OPERATIONS)(
+    'uses payload hashing for the %s commerce command',
+    async (operation) => {
+      const service = new IdempotencyService(new MemoryStore(), 60_000);
+      const commandScope = commerceCommandScope('user:user', operation, '0123456789abcdef');
+      await service.execute(commandScope, { resourceId: 'first' }, () =>
+        Promise.resolve({ status: 201, body: {} }),
+      );
+      await expect(
+        service.execute(commandScope, { resourceId: 'second' }, () =>
+          Promise.resolve({ status: 201, body: {} }),
+        ),
+      ).rejects.toBeInstanceOf(IdempotencyKeyReusedError);
+    },
+  );
 });

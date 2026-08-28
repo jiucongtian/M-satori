@@ -6,6 +6,33 @@ export interface IdempotencyScope {
   key: string;
 }
 
+export const COMMERCE_COMMAND_OPERATIONS = [
+  'checkout-quote.create',
+  'money-order.create',
+  'money-order.cancel',
+  'payment-attempt.create',
+  'entitlement-resolution.create',
+  'consumption-intent.reserve',
+  'consumption-intent.start',
+  'consumption-intent.commit',
+  'consumption-intent.release',
+  'membership-upgrade.create',
+  'refund-quote.create',
+  'refund-request.create',
+  'entitlement.adjust',
+  'complimentary-seed.adjust',
+] as const;
+
+export type CommerceCommandOperation = (typeof COMMERCE_COMMAND_OPERATIONS)[number];
+
+export function commerceCommandScope(
+  actorKey: string,
+  operation: CommerceCommandOperation,
+  key: string,
+): IdempotencyScope {
+  return { actorKey, operation, key };
+}
+
 export interface StoredIdempotencyRecord extends IdempotencyScope {
   requestHash: string;
   responseStatus: number | null;

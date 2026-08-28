@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: Satori R1.0 API
-  version: 1.0.0
-  description: R1.0 H5 contract frozen by ADR-0001 and ADR-0002.
+  title: Satori R1.1 API
+  version: 1.1.0
+  description: R1.0 API plus the R1.1 commerce, entitlement, consumption and membership candidate contract frozen by ADR-0003.
 servers:
   - url: https://test-satori.shenxinyou.com/api/v1
     description: R1.0 test environment
@@ -17,6 +17,14 @@ tags:
   - name: WisdomSeed
   - name: Generation
   - name: DailyInsight
+  - name: Catalog
+  - name: Checkout
+  - name: Orders
+  - name: Payments
+  - name: Entitlements
+  - name: Consumption
+  - name: Membership
+  - name: Refunds
 paths:
   /app/bootstrap:
     get:
@@ -368,6 +376,215 @@ paths:
       responses:
         '204': {description: Group deleted; profiles retained and ungrouped}
         default: {$ref: '#/components/responses/Error'}
+  /service-offerings:
+    get:
+      tags: [Catalog]
+      operationId: listServiceOfferings
+      parameters:
+        - {name: serviceType, in: query, required: false, schema: {$ref: '#/components/schemas/CommerceServiceType'}}
+        - {name: kind, in: query, required: false, schema: {$ref: '#/components/schemas/OfferingKind'}}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {description: Published R1.1 offerings, content: {application/json: {schema: {$ref: '#/components/schemas/ServiceOfferingListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /service-offerings/{offeringId}:
+    get:
+      tags: [Catalog]
+      operationId: getServiceOffering
+      parameters: [{$ref: '#/components/parameters/OfferingId'}]
+      responses:
+        '200': {description: Published offering detail, content: {application/json: {schema: {$ref: '#/components/schemas/ServiceOfferingEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /membership-plans:
+    get:
+      tags: [Catalog]
+      operationId: listMembershipPlans
+      responses:
+        '200': {description: R1.1 monthly plans, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipPlanListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /checkout-quotes:
+    post:
+      tags: [Checkout]
+      operationId: createCheckoutQuote
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateCheckoutQuoteRequest'}}}}
+      responses:
+        '201': {description: User-bound authoritative quote valid for 15 minutes, content: {application/json: {schema: {$ref: '#/components/schemas/CheckoutQuoteEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /money-orders:
+    get:
+      tags: [Orders]
+      operationId: listMoneyOrders
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Current user's orders, content: {application/json: {schema: {$ref: '#/components/schemas/MoneyOrderListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      tags: [Orders]
+      operationId: createMoneyOrder
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateMoneyOrderRequest'}}}}
+      responses:
+        '201': {description: Awaiting-payment order created from a quote, content: {application/json: {schema: {$ref: '#/components/schemas/MoneyOrderEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /money-orders/{orderId}:
+    get:
+      tags: [Orders]
+      operationId: getMoneyOrder
+      parameters: [{$ref: '#/components/parameters/OrderId'}]
+      responses:
+        '200': {description: 'Order, payment and fulfillment summary', content: {application/json: {schema: {$ref: '#/components/schemas/MoneyOrderEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /money-orders/{orderId}/cancel:
+    post:
+      tags: [Orders]
+      operationId: cancelMoneyOrder
+      parameters: [{$ref: '#/components/parameters/OrderId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200': {description: Unpaid order closed and promotion reservation released, content: {application/json: {schema: {$ref: '#/components/schemas/MoneyOrderEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /money-orders/{orderId}/payment-attempts:
+    post:
+      tags: [Payments]
+      operationId: createPaymentAttempt
+      parameters: [{$ref: '#/components/parameters/OrderId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreatePaymentAttemptRequest'}}}}
+      responses:
+        '201': {description: WeChat payment attempt, content: {application/json: {schema: {$ref: '#/components/schemas/PaymentAttemptEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /payment-attempts/{paymentAttemptId}:
+    get:
+      tags: [Payments]
+      operationId: getPaymentAttempt
+      parameters: [{$ref: '#/components/parameters/PaymentAttemptId'}]
+      responses:
+        '200': {description: Authoritative payment status, content: {application/json: {schema: {$ref: '#/components/schemas/PaymentAttemptEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /internal/payment-webhooks/wechat:
+    post:
+      tags: [Payments]
+      operationId: acceptWechatPaymentWebhook
+      security: []
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+      responses:
+        '204': {description: Verified or idempotently replayed provider event accepted}
+        default: {$ref: '#/components/responses/Error'}
+  /me/entitlements:
+    get:
+      tags: [Entitlements]
+      operationId: listEntitlements
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Source-separated entitlement grants, content: {application/json: {schema: {$ref: '#/components/schemas/EntitlementListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/entitlements/{entitlementId}:
+    get:
+      tags: [Entitlements]
+      operationId: getEntitlement
+      parameters: [{$ref: '#/components/parameters/EntitlementId'}]
+      responses:
+        '200': {description: Entitlement grant detail, content: {application/json: {schema: {$ref: '#/components/schemas/EntitlementEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/usage-records:
+    get:
+      tags: [Entitlements]
+      operationId: listUsageRecords
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Entitlement usage records, content: {application/json: {schema: {$ref: '#/components/schemas/UsageRecordListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /entitlement-resolutions:
+    post:
+      tags: [Consumption]
+      operationId: createEntitlementResolution
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateEntitlementResolutionRequest'}}}}
+      responses:
+        '201': {description: System-only fixed-priority resolution, content: {application/json: {schema: {$ref: '#/components/schemas/EntitlementResolutionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /consumption-intents:
+    post:
+      tags: [Consumption]
+      operationId: createConsumptionIntent
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateConsumptionIntentRequest'}}}}
+      responses:
+        '201': {description: Selected source reserved for 30 minutes before draw, content: {application/json: {schema: {$ref: '#/components/schemas/ConsumptionIntentEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /consumption-intents/{intentId}:
+    get:
+      tags: [Consumption]
+      operationId: getConsumptionIntent
+      parameters: [{$ref: '#/components/parameters/ConsumptionIntentId'}]
+      responses:
+        '200': {description: Consumption intent status, content: {application/json: {schema: {$ref: '#/components/schemas/ConsumptionIntentEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /consumption-intents/{intentId}/start:
+    post:
+      tags: [Consumption]
+      operationId: startConsumptionIntent
+      parameters: [{$ref: '#/components/parameters/ConsumptionIntentId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200': {description: Formal business execution started, content: {application/json: {schema: {$ref: '#/components/schemas/ConsumptionIntentEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /membership-subscriptions/current:
+    get:
+      tags: [Membership]
+      operationId: getCurrentMembershipSubscription
+      responses:
+        '200': {description: Active and scheduled membership periods, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipSubscriptionEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /membership-upgrade-quotes:
+    post:
+      tags: [Membership]
+      operationId: createMembershipUpgradeQuote
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateMembershipUpgradeQuoteRequest'}}}}
+      responses:
+        '201': {description: Full-price replacement quote without refund fields, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradeQuoteEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /membership-upgrades/{upgradeId}:
+    get:
+      tags: [Membership]
+      operationId: getMembershipUpgrade
+      parameters: [{$ref: '#/components/parameters/MembershipUpgradeId'}]
+      responses:
+        '200': {description: Upgrade fulfillment status, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipUpgradeEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /money-orders/{orderId}/refund-quotes:
+    post:
+      tags: [Refunds]
+      operationId: createRefundQuote
+      parameters: [{$ref: '#/components/parameters/OrderId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '201': {description: Ordinary-order refund quote, content: {application/json: {schema: {$ref: '#/components/schemas/RefundQuoteEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /money-orders/{orderId}/refund-requests:
+    post:
+      tags: [Refunds]
+      operationId: createRefundRequest
+      parameters: [{$ref: '#/components/parameters/OrderId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateRefundRequest'}}}}
+      responses:
+        '202': {description: Ordinary-order refund accepted after entitlement freeze, content: {application/json: {schema: {$ref: '#/components/schemas/RefundEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /refunds:
+    get:
+      tags: [Refunds]
+      operationId: listRefunds
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Current user's ordinary refunds, content: {application/json: {schema: {$ref: '#/components/schemas/RefundListEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /refunds/{refundId}:
+    get:
+      tags: [Refunds]
+      operationId: getRefund
+      parameters: [{$ref: '#/components/parameters/RefundId'}]
+      responses:
+        '200': {description: Ordinary refund detail, content: {application/json: {schema: {$ref: '#/components/schemas/RefundEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
   /feedback:
     post:
       tags: [Me]
@@ -410,6 +627,13 @@ components:
     ProfileId: {name: profileId, in: path, required: true, schema: {type: string}}
     RevisionId: {name: revisionId, in: path, required: true, schema: {type: string}}
     TaskId: {name: taskId, in: path, required: true, schema: {type: string}}
+    OfferingId: {name: offeringId, in: path, required: true, schema: {type: string}}
+    OrderId: {name: orderId, in: path, required: true, schema: {type: string}}
+    PaymentAttemptId: {name: paymentAttemptId, in: path, required: true, schema: {type: string}}
+    EntitlementId: {name: entitlementId, in: path, required: true, schema: {type: string}}
+    ConsumptionIntentId: {name: intentId, in: path, required: true, schema: {type: string}}
+    MembershipUpgradeId: {name: upgradeId, in: path, required: true, schema: {type: string}}
+    RefundId: {name: refundId, in: path, required: true, schema: {type: string}}
   responses:
     Error:
       description: API v1 error
@@ -423,7 +647,7 @@ components:
         error:
           type: object
           required: [code, message, requestId]
-          properties: {code: {type: string}, message: {type: string}, requestId: {type: string}, details: {type: [object, 'null'], additionalProperties: true}}
+          properties: {code: {type: string}, message: {type: string}, requestId: {type: string}, retryable: {type: boolean}, nextAction: {type: [string, 'null']}, retryAfterSeconds: {type: [integer, 'null'], minimum: 0}, details: {type: [object, 'null'], additionalProperties: true}}
     PageMeta: {type: object, required: [nextCursor, hasMore], properties: {nextCursor: {type: [string, 'null']}, hasMore: {type: boolean}}}
     Preferences: {type: object, required: [timezone, locale], properties: {timezone: {type: string, examples: [Asia/Shanghai]}, timezoneSource: {type: string}, locale: {type: string, examples: [zh-CN]}, updatedAt: {type: string, format: date-time}}}
     PatchPreferencesRequest: {type: object, additionalProperties: false, properties: {timezone: {type: string}, locale: {type: string}}, minProperties: 1}
@@ -590,6 +814,87 @@ components:
     RegistrationRewardEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/RegistrationReward'}}}
     RegistrationRewardClaimEnvelope: {type: object, required: [data], properties: {data: {type: object, required: [reward, account, transaction], properties: {reward: {$ref: '#/components/schemas/RegistrationReward'}, account: {$ref: '#/components/schemas/WisdomSeedAccount'}, transaction: {$ref: '#/components/schemas/WisdomSeedTransaction'}}}}}
     SeedSettlement: {type: object, required: [currency, amount, status, transactionId], properties: {currency: {const: WISDOM_SEED}, amount: {const: 1}, status: {type: string, enum: [RESERVED, CONSUMED, RELEASED, REFUNDED]}, transactionId: {type: string}}}
+    BusinessSpace: {type: string, enum: [C_CONSUMER, B_ACADEMY_ASSISTANT]}
+    CommerceServiceType: {type: string, enum: [DAILY_ENERGY, CARD_READING]}
+    UsageUnit: {type: string, enum: [COUNT, REPORT, MINUTE, IMAGE]}
+    OfferingKind: {type: string, enum: [SINGLE_SERVICE, SERVICE_PACK, MEMBERSHIP_PLAN]}
+    Money: {type: object, required: [amount, currency], properties: {amount: {type: integer, minimum: 0, description: Integer minor units}, currency: {const: CNY}}}
+    BusinessContext: {type: object, additionalProperties: false, required: [type, id], properties: {type: {type: string, enum: [DAILY_INSIGHT, CARD_READING_INTENT, MEMBERSHIP_RENEWAL, MEMBERSHIP_UPGRADE]}, id: {type: string}}}
+    BenefitSpec: {type: object, additionalProperties: false, required: [serviceType, unit, quantity], properties: {serviceType: {$ref: '#/components/schemas/CommerceServiceType'}, unit: {$ref: '#/components/schemas/UsageUnit'}, quantity: {type: integer, minimum: 1}}}
+    ServiceOffering:
+      type: object
+      additionalProperties: false
+      required: [offeringId, offeringVersion, businessSpace, code, name, kind, serviceType, status, price, benefits, validityDays, refundPolicyVersion]
+      properties:
+        offeringId: {type: string}
+        offeringVersion: {type: string}
+        businessSpace: {$ref: '#/components/schemas/BusinessSpace'}
+        code: {type: string}
+        name: {type: string}
+        kind: {$ref: '#/components/schemas/OfferingKind'}
+        serviceType: {$ref: '#/components/schemas/CommerceServiceType'}
+        status: {type: string, enum: [ACTIVE, INACTIVE, RETIRED]}
+        price: {$ref: '#/components/schemas/Money'}
+        benefits: {type: array, minItems: 1, items: {$ref: '#/components/schemas/BenefitSpec'}}
+        validityDays: {type: integer, minimum: 1}
+        purchaseLimit: {type: [integer, 'null'], minimum: 1}
+        refundPolicyVersion: {type: string}
+        agreementVersion: {type: string}
+    ServiceOfferingEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ServiceOffering'}}}
+    ServiceOfferingListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/ServiceOffering'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    MembershipPlan: {allOf: [{$ref: '#/components/schemas/ServiceOffering'}, {type: object, required: [planCode, periodDays], properties: {planCode: {type: string, enum: [GLOW, SERENITY, FREEDOM]}, periodDays: {const: 30}, seedActivityPrice: {oneOf: [{$ref: '#/components/schemas/Money'}, {type: 'null'}]}, seedThreshold: {type: [integer, 'null'], minimum: 1}}}]}
+    MembershipPlanListEnvelope: {type: object, required: [data], properties: {data: {type: array, items: {$ref: '#/components/schemas/MembershipPlan'}}}}
+    CreateCheckoutQuoteRequest: {type: object, additionalProperties: false, required: [offeringId], properties: {offeringId: {type: string}, offeringVersion: {type: string}, businessContext: {oneOf: [{$ref: '#/components/schemas/BusinessContext'}, {type: 'null'}]}}}
+    CheckoutQuote: {type: object, additionalProperties: false, required: [quoteId, offering, price, promotion, issuedAt, expiresAt], properties: {quoteId: {type: string}, offering: {$ref: '#/components/schemas/ServiceOffering'}, price: {$ref: '#/components/schemas/Money'}, promotion: {type: object, required: [eligible, seedReservationRequired], properties: {eligible: {type: boolean}, ruleVersion: {type: [string, 'null']}, seedReservationRequired: {type: integer, minimum: 0}, message: {type: [string, 'null']}}}, businessContext: {oneOf: [{$ref: '#/components/schemas/BusinessContext'}, {type: 'null'}]}, issuedAt: {type: string, format: date-time}, expiresAt: {type: string, format: date-time}}}
+    CheckoutQuoteEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/CheckoutQuote'}}}
+    CreateMoneyOrderRequest: {type: object, additionalProperties: false, required: [quoteId], properties: {quoteId: {type: string}}}
+    MoneyOrder:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNumber, status, offeringSnapshot, amount, paymentStatus, fulfillmentStatus, createdAt, expiresAt]
+      properties:
+        orderId: {type: string}
+        orderNumber: {type: string}
+        status: {type: string, enum: [AWAITING_PAYMENT, PAID, FULFILLING, FULFILLED, FULFILLMENT_FAILED, CLOSED, REFUNDING, REFUNDED, PARTIALLY_REFUNDED]}
+        offeringSnapshot: {$ref: '#/components/schemas/ServiceOffering'}
+        amount: {$ref: '#/components/schemas/Money'}
+        paymentStatus: {type: string, enum: [NOT_STARTED, PENDING, SUCCEEDED, FAILED, CLOSED]}
+        fulfillmentStatus: {type: string, enum: [NOT_STARTED, PENDING, RUNNING, RETRY_WAITING, SUCCEEDED, FAILED_FINAL, REVERSING, REVERSED]}
+        businessContext: {oneOf: [{$ref: '#/components/schemas/BusinessContext'}, {type: 'null'}]}
+        createdAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        paidAt: {type: [string, 'null'], format: date-time}
+    MoneyOrderEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MoneyOrder'}}}
+    MoneyOrderListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/MoneyOrder'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    CreatePaymentAttemptRequest: {type: object, additionalProperties: false, properties: {provider: {type: string, enum: [WECHAT_PAY], default: WECHAT_PAY}}}
+    PaymentAttempt: {type: object, additionalProperties: false, required: [paymentAttemptId, orderId, provider, status, amount, createdAt], properties: {paymentAttemptId: {type: string}, orderId: {type: string}, provider: {type: string, enum: [WECHAT_PAY, FAKE]}, status: {type: string, enum: [CREATED, PENDING, SUCCEEDED, FAILED, CLOSED]}, amount: {$ref: '#/components/schemas/Money'}, clientParameters: {type: [object, 'null'], additionalProperties: true}, providerTradeId: {type: [string, 'null']}, createdAt: {type: string, format: date-time}, succeededAt: {type: [string, 'null'], format: date-time}}}
+    PaymentAttemptEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/PaymentAttempt'}}}
+    EntitlementGrant: {type: object, additionalProperties: false, required: [entitlementId, serviceType, unit, sourceType, sourceId, total, available, reserved, status, validFrom, expiresAt, expiryTimezone, ruleVersion], properties: {entitlementId: {type: string}, serviceType: {$ref: '#/components/schemas/CommerceServiceType'}, unit: {$ref: '#/components/schemas/UsageUnit'}, sourceType: {type: string, enum: [PURCHASE, MEMBERSHIP, PROMOTION, COMPENSATION, MIGRATION]}, sourceId: {type: string}, total: {type: integer, minimum: 0}, available: {type: integer, minimum: 0}, reserved: {type: integer, minimum: 0}, status: {type: string, enum: [PENDING, AVAILABLE, RESERVED, FROZEN, EXHAUSTED, EXPIRED, FORFEITED, REVERSED]}, validFrom: {type: string, format: date-time}, expiresAt: {type: string, format: date-time}, expiryTimezone: {const: Asia/Shanghai}, ruleVersion: {type: string}}}
+    EntitlementEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/EntitlementGrant'}}}
+    EntitlementListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/EntitlementGrant'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    UsageRecord: {type: object, additionalProperties: false, required: [recordId, entitlementId, type, quantity, businessContext, createdAt], properties: {recordId: {type: string}, entitlementId: {type: string}, type: {type: string, enum: [GRANT, RESERVE, COMMIT, RELEASE, REVERSE, EXPIRE, FREEZE, UNFREEZE, FORFEIT, ADJUSTMENT]}, quantity: {type: integer}, businessContext: {$ref: '#/components/schemas/BusinessContext'}, originalRecordId: {type: [string, 'null']}, createdAt: {type: string, format: date-time}}}
+    UsageRecordListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/UsageRecord'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
+    CreateEntitlementResolutionRequest: {type: object, additionalProperties: false, required: [serviceType, quantity, businessContext], properties: {serviceType: {$ref: '#/components/schemas/CommerceServiceType'}, quantity: {type: integer, minimum: 1}, cardCount: {type: [integer, 'null'], minimum: 1, maximum: 5}, businessContext: {$ref: '#/components/schemas/BusinessContext'}}}
+    ResolutionCandidate: {type: object, additionalProperties: false, required: [sourceType, sourceId, eligible, cost, unit, rank], properties: {sourceType: {type: string, enum: [MEMBERSHIP, PURCHASE, COMPLIMENTARY_SEED]}, sourceId: {type: string}, eligible: {type: boolean}, cost: {type: integer, minimum: 0}, unit: {type: string, enum: [COUNT, WISDOM_SEED]}, expiresAt: {type: [string, 'null'], format: date-time}, rank: {type: integer, minimum: 1}}}
+    EntitlementResolution: {type: object, additionalProperties: false, required: [resolutionId, status, selectionMode, candidates, selectedSource, ruleVersion, resolvedAt, expiresAt], properties: {resolutionId: {type: string}, status: {type: string, enum: [RESOLVED, NO_SOURCE, RESERVED, EXPIRED, SUPERSEDED]}, selectionMode: {const: SYSTEM_RULE}, candidates: {type: array, items: {$ref: '#/components/schemas/ResolutionCandidate'}}, selectedSource: {oneOf: [{$ref: '#/components/schemas/ResolutionCandidate'}, {type: 'null'}]}, reason: {type: string}, ruleVersion: {type: string}, resolvedAt: {type: string, format: date-time}, expiresAt: {type: string, format: date-time}}}
+    EntitlementResolutionEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/EntitlementResolution'}}}
+    CreateConsumptionIntentRequest: {type: object, additionalProperties: false, required: [resolutionId], properties: {resolutionId: {type: string}}}
+    ConsumptionIntent: {type: object, additionalProperties: false, required: [intentId, resolutionId, status, selectedSource, reservedAt, reservationExpiresAt], properties: {intentId: {type: string}, resolutionId: {type: string}, status: {type: string, enum: [RESERVED, RUNNING, COMMITTED, RELEASED, EXPIRED, FAILED]}, selectedSource: {$ref: '#/components/schemas/ResolutionCandidate'}, reservedAt: {type: string, format: date-time}, reservationExpiresAt: {type: [string, 'null'], format: date-time}, startedAt: {type: [string, 'null'], format: date-time}, settledAt: {type: [string, 'null'], format: date-time}}}
+    ConsumptionIntentEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/ConsumptionIntent'}}}
+    MembershipPeriod: {type: object, additionalProperties: false, required: [periodId, planCode, status, startsAt, endsAt, entitlementIds], properties: {periodId: {type: string}, planCode: {type: string, enum: [GLOW, SERENITY, FREEDOM]}, status: {type: string, enum: [SCHEDULED, ACTIVE, EXPIRED, TERMINATED_BY_UPGRADE, CANCELLED]}, startsAt: {type: string, format: date-time}, endsAt: {type: string, format: date-time}, entitlementIds: {type: array, items: {type: string}}}}
+    MembershipSubscription: {type: object, additionalProperties: false, required: [subscriptionId, periods], properties: {subscriptionId: {type: string}, activePeriod: {oneOf: [{$ref: '#/components/schemas/MembershipPeriod'}, {type: 'null'}]}, periods: {type: array, items: {$ref: '#/components/schemas/MembershipPeriod'}}}}
+    MembershipSubscriptionEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipSubscription'}}}
+    CreateMembershipUpgradeQuoteRequest: {type: object, additionalProperties: false, required: [newPlanOfferingId], properties: {newPlanOfferingId: {type: string}}}
+    MembershipUpgradeQuote: {type: object, additionalProperties: false, required: [quote, oldPlanEndsImmediately, unusedBenefitsCarryOver, notice], properties: {quote: {$ref: '#/components/schemas/CheckoutQuote'}, oldPlanEndsImmediately: {const: true}, unusedBenefitsCarryOver: {const: false}, notice: {type: string}}}
+    MembershipUpgradeQuoteEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipUpgradeQuote'}}}
+    MembershipUpgrade: {type: object, additionalProperties: false, required: [upgradeId, oldSubscriptionId, newOrderId, status, createdAt], properties: {upgradeId: {type: string}, oldSubscriptionId: {type: string}, newOrderId: {type: string}, newSubscriptionId: {type: [string, 'null']}, status: {type: string, enum: [QUOTED, AWAITING_PAYMENT, FULFILLING, COMPLETED, FAILED]}, createdAt: {type: string, format: date-time}, completedAt: {type: [string, 'null'], format: date-time}}}
+    MembershipUpgradeEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/MembershipUpgrade'}}}
+    RefundQuote: {type: object, additionalProperties: false, required: [refundQuoteId, orderId, amount, policyVersion, expiresAt], properties: {refundQuoteId: {type: string}, orderId: {type: string}, amount: {$ref: '#/components/schemas/Money'}, policyVersion: {type: string}, expiresAt: {type: string, format: date-time}}}
+    RefundQuoteEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/RefundQuote'}}}
+    CreateRefundRequest: {type: object, additionalProperties: false, required: [refundQuoteId, reasonCode], properties: {refundQuoteId: {type: string}, reasonCode: {type: string}, note: {type: [string, 'null'], maxLength: 500}}}
+    Refund: {type: object, additionalProperties: false, required: [refundId, orderId, amount, status, createdAt], properties: {refundId: {type: string}, orderId: {type: string}, amount: {$ref: '#/components/schemas/Money'}, status: {type: string, enum: [REQUESTED, PROCESSING, SUCCEEDED, FAILED, CANCELLED]}, createdAt: {type: string, format: date-time}, completedAt: {type: [string, 'null'], format: date-time}}}
+    RefundEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Refund'}}}
+    RefundListEnvelope: {type: object, required: [data, meta], properties: {data: {type: array, items: {$ref: '#/components/schemas/Refund'}}, meta: {$ref: '#/components/schemas/PageMeta'}}}
     GenerationTask: {type: object, required: [taskId, type, status, stage, stageLabel, canRetry, target, createdAt, updatedAt], properties: {taskId: {type: string}, type: {const: DAILY_INSIGHT_GENERATION}, status: {type: string, enum: [PENDING, GENERATING, READY, FAILED]}, stage: {type: string, enum: [QUEUED, PREPARING_PROFILE, PREPARING_CONTEXT, GENERATING_CONTENT, VALIDATING_CONTENT, FINALIZING, COMPLETED, RETRY_WAITING, FAILED]}, stageLabel: {type: string}, canRetry: {type: boolean}, target: {type: object, required: [type, id], properties: {type: {const: DAILY_INSIGHT}, id: {type: string}}}, failure: {type: [object, 'null'], properties: {code: {type: string}, message: {type: string}, retryable: {type: boolean}}}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}, completedAt: {type: [string, 'null'], format: date-time}}}
     GenerationTaskEnvelope: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/GenerationTask'}}}
     DailyInsight: {type: object, required: [dailyInsightId, localDate, timezone, status, settlement, createdAt], properties: {dailyInsightId: {type: string}, localDate: {type: string, format: date}, timezone: {type: string}, status: {type: string, enum: [GENERATING, READY, FAILED]}, profileRevisionId: {type: [string, 'null']}, content: {type: [object, 'null'], properties: {theme: {type: string}, insight: {type: string}, action: {type: string}, reflectionQuestion: {type: string}, notice: {type: string}}}, fallback: {type: [object, 'null'], properties: {title: {type: string}, message: {type: string}}}, taskId: {type: [string, 'null']}, settlement: {$ref: '#/components/schemas/SeedSettlement'}, publishedAt: {type: [string, 'null'], format: date-time}, createdAt: {type: string, format: date-time}}}
