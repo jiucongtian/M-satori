@@ -18,6 +18,12 @@ const environmentShape = {
   CURSOR_SIGNING_SECRET: z.string().min(16).default('development-cursor-secret'),
   SEED_BATCH_READ_MODE: z.enum(['LEGACY', 'SHADOW', 'BATCH']).default('LEGACY'),
   DAILY_INSIGHT_CONSUMPTION_MODE: z.enum(['LEGACY', 'SHADOW', 'UNIFIED']).default('LEGACY'),
+  R11_CATALOG_PRICING_ENABLED: booleanFromString,
+  R11_ENTITLEMENT_CONSUMPTION_ENABLED: booleanFromString,
+  R11_NEW_ORDERS_ENABLED: booleanFromString,
+  R11_MEMBERSHIP_ENABLED: booleanFromString,
+  R11_ORDINARY_REFUNDS_ENABLED: booleanFromString,
+  R11_MEMBERSHIP_UPGRADES_ENABLED: booleanFromString,
   AUTH_HMAC_SECRET: z.string().min(32).default('development-auth-hmac-secret-0001'),
   ACCESS_TOKEN_SECRET: z.string().min(32).default('development-access-token-secret-01'),
   DATA_ENCRYPTION_KEY: z

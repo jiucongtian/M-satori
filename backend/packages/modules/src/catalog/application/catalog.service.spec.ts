@@ -33,6 +33,13 @@ describe('CatalogApplicationService', () => {
     expect(await service.list('SHORTAGE')).toEqual([offering, fallback]);
   });
 
+  it('keeps membership products behind the dedicated rollout endpoint', async () => {
+    const membership = { ...offering, offeringId: 'membership', offeringKind: 'MEMBERSHIP' as const };
+    const service = new CatalogApplicationService(repository([offering, membership]));
+    expect(await service.list('STORE')).toEqual([offering]);
+    expect(await service.listMembershipPlans()).toEqual([membership]);
+  });
+
   it('rejects publishing any product outside the R1.1 whitelist', async () => {
     const forbidden = { ...offering, offeringCode: 'life-light-report' };
     const service = new CatalogApplicationService(repository([forbidden]));

@@ -17,6 +17,12 @@ describe('runtime baseline', () => {
     expect(environment.QUEUE_JOB_TIMEOUT_MS).toBe(360_000);
     expect(environment).not.toHaveProperty('DAILY_INSIGHT_PRICE');
     expect(environment).not.toHaveProperty('FEATURE_DAILY_INSIGHT');
+    expect(environment.R11_CATALOG_PRICING_ENABLED).toBe(false);
+    expect(environment.R11_ENTITLEMENT_CONSUMPTION_ENABLED).toBe(false);
+    expect(environment.R11_NEW_ORDERS_ENABLED).toBe(false);
+    expect(environment.R11_MEMBERSHIP_ENABLED).toBe(false);
+    expect(environment.R11_ORDINARY_REFUNDS_ENABLED).toBe(false);
+    expect(environment.R11_MEMBERSHIP_UPGRADES_ENABLED).toBe(false);
   });
 
   it('rejects invalid configuration', () => {

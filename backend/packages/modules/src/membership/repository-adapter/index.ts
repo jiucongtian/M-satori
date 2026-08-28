@@ -541,6 +541,10 @@ export class PostgresMembershipRepository implements MembershipRepository {
     const activePeriod = periods.find((period) => period.status === 'ACTIVE') ?? null;
     return {
       subscriptionId: subscription.id,
+      status: subscription.status,
+      currentPlanVersionId: subscription.current_plan_version_id,
+      startsAt: subscription.starts_at,
+      endsAt: subscription.ends_at,
       activePeriod,
       periods,
     };

@@ -29,8 +29,9 @@ export class CatalogApplicationService {
   constructor(private readonly repository: CatalogRepository) {}
 
   async list(channel: 'STORE' | 'SHORTAGE' = 'STORE') {
-    return (await this.repository.listPublished()).filter((offering) =>
-      offering.displayChannels.includes(channel),
+    return (await this.repository.listPublished()).filter(
+      (offering) =>
+        offering.offeringKind !== 'MEMBERSHIP' && offering.displayChannels.includes(channel),
     );
   }
 

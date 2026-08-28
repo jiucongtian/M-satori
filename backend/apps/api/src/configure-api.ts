@@ -41,10 +41,61 @@ export function createFastifyAdapter(): FastifyAdapter {
 
 export async function configureApi(app: NestFastifyApplication, environment: Environment): Promise<void> {
   await app.register(fastifyCookie);
+  app.getHttpAdapter().getInstance().addHook('onRequest', (request, reply, done) => {
+    const disabledFeature = disabledCommerceFeature(environment, request.method, request.url);
+    if (!disabledFeature) return done();
+    console.info('commerce_feature_blocked', { requestId: request.id, feature: disabledFeature });
+    void reply.status(503).send({
+      error: {
+        code: 'FEATURE_NOT_AVAILABLE',
+        message: '该能力正在分阶段开放，请稍后再试',
+        requestId: request.id,
+        details: { feature: disabledFeature },
+      },
+    });
+  });
   app.setGlobalPrefix('api/v1');
   app.enableCors({ origin: environment.CORS_ORIGINS.split(','), credentials: true });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
   app.useGlobalInterceptors(new CommerceObservabilityInterceptor(), new ApiEnvelopeInterceptor());
   app.useGlobalFilters(new ApiExceptionFilter());
   app.enableShutdownHooks();
+}
+
+export function disabledCommerceFeature(
+  environment: Environment,
+  method: string,
+  requestUrl: string,
+): string | null {
+  const path = new URL(requestUrl, 'http://satori.local').pathname;
+  if (
+    !environment.R11_CATALOG_PRICING_ENABLED &&
+    (path.startsWith('/api/v1/service-offerings') ||
+      path === '/api/v1/membership-plans' ||
+      path === '/api/v1/checkout-quotes')
+  ) return 'R11_CATALOG_PRICING_ENABLED';
+  if (
+    !environment.R11_ENTITLEMENT_CONSUMPTION_ENABLED &&
+    method === 'POST' &&
+    (path === '/api/v1/entitlement-resolutions' || path.startsWith('/api/v1/consumption-intents'))
+  ) return 'R11_ENTITLEMENT_CONSUMPTION_ENABLED';
+  if (
+    !environment.R11_NEW_ORDERS_ENABLED &&
+    method === 'POST' &&
+    (path === '/api/v1/money-orders' || /^\/api\/v1\/money-orders\/[^/]+\/payment-attempts$/.test(path))
+  ) return 'R11_NEW_ORDERS_ENABLED';
+  if (!environment.R11_MEMBERSHIP_ENABLED && path === '/api/v1/membership-plans') {
+    return 'R11_MEMBERSHIP_ENABLED';
+  }
+  if (
+    !environment.R11_ORDINARY_REFUNDS_ENABLED &&
+    method === 'POST' &&
+    (path === '/api/v1/refund-quotes' || path === '/api/v1/refunds')
+  ) return 'R11_ORDINARY_REFUNDS_ENABLED';
+  if (
+    !environment.R11_MEMBERSHIP_UPGRADES_ENABLED &&
+    method === 'POST' &&
+    path.startsWith('/api/v1/membership-upgrades')
+  ) return 'R11_MEMBERSHIP_UPGRADES_ENABLED';
+  return null;
 }
