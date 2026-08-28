@@ -1,0 +1,2 @@
+ALTER TABLE "daily_insights" ADD COLUMN "consumption_intent_id" uuid;--> statement-breakpoint
+CREATE INDEX "daily_insights_consumption_intent_idx" ON "daily_insights" USING btree ("consumption_intent_id");

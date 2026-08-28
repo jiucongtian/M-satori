@@ -89,15 +89,15 @@
 
 ## 8. R1.0 每日指引迁移与问事接入基线
 
-- [ ] 8.1 为 daily-insight 定义 ConsumptionPort 适配并移除对 SeedLedgerService 的新增直接依赖
-- [ ] 8.2 在影子模式同时计算旧种子结算与新 resolution，记录差异但只由旧路径结算
-- [ ] 8.3 修复影子差异后切换每日指引为新消费意图的预留、核销和恢复路径
-- [ ] 8.4 验证既有每日指引 API、种子账户、历史流水和失败恢复兼容性
-- [ ] 8.5 为 card-reading 定义 opaque ReadingIntent 业务上下文和 `1 READING_CREDIT`/按卡数种子 requirement 构造器
-- [ ] 8.6 提供“预留成功后才允许服务端抽卡”的应用端口与契约测试
-- [ ] 8.7 提供 GenerationTask READY/FAILED/CANCELLED 到 COMMIT/RELEASE 的幂等事件适配器
-- [ ] 8.8 完成已有权益问事最短链路 Fake E2E：resolve → reserve → draw gate → ready → commit
-- [ ] 8.9 完成失败与恢复 E2E：reserve → draw → generation fail → release，重试不换牌且不重复核销
+- [x] 8.1 为 daily-insight 定义 ConsumptionPort 适配并移除对 SeedLedgerService 的新增直接依赖
+- [x] 8.2 在影子模式同时计算旧种子结算与新 resolution，记录差异但只由旧路径结算
+- [x] 8.3 修复影子差异后切换每日指引为新消费意图的预留、核销和恢复路径
+- [x] 8.4 验证既有每日指引 API、种子账户、历史流水和失败恢复兼容性
+- [x] 8.5 为 card-reading 定义 opaque ReadingIntent 业务上下文和 `1 READING_CREDIT`/按卡数种子 requirement 构造器
+- [x] 8.6 提供“预留成功后才允许服务端抽卡”的应用端口与契约测试
+- [x] 8.7 提供 GenerationTask READY/FAILED/CANCELLED 到 COMMIT/RELEASE 的幂等事件适配器
+- [x] 8.8 完成已有权益问事最短链路 Fake E2E：resolve → reserve → draw gate → ready → commit
+- [x] 8.9 完成失败与恢复 E2E：reserve → draw → generation fail → release，重试不换牌且不重复核销
 
 ## 9. 人民币订单与微信支付
 

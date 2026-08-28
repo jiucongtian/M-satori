@@ -17,6 +17,7 @@ const environmentShape = {
   CORS_ORIGINS: z.string().default('http://localhost:3001'),
   CURSOR_SIGNING_SECRET: z.string().min(16).default('development-cursor-secret'),
   SEED_BATCH_READ_MODE: z.enum(['LEGACY', 'SHADOW', 'BATCH']).default('LEGACY'),
+  DAILY_INSIGHT_CONSUMPTION_MODE: z.enum(['LEGACY', 'SHADOW', 'UNIFIED']).default('LEGACY'),
   AUTH_HMAC_SECRET: z.string().min(32).default('development-auth-hmac-secret-0001'),
   ACCESS_TOKEN_SECRET: z.string().min(32).default('development-access-token-secret-01'),
   DATA_ENCRYPTION_KEY: z

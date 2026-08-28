@@ -1,9 +1,10 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { PROFILE_FIRST_LOOK_GENERATOR } from '@satori/application';
+import { DAILY_INSIGHT_GENERATOR, PROFILE_FIRST_LOOK_GENERATOR } from '@satori/application';
 import {
   dailyInsights,
   deletionRequests,
+  entitlementResolutions,
   generationTasks,
   newId,
   outbox,
@@ -26,6 +27,8 @@ import { GenerationTaskService } from '../../packages/modules/src/generation-tas
 import { GenerationTaskController } from '../../packages/modules/src/generation-task/generation-task.controller.js';
 import { OutboxPublisher } from '../../packages/modules/src/generation-task/outbox.publisher.js';
 import { DailyInsightService } from '../../packages/modules/src/daily-insight/daily-insight.service.js';
+import { ComplimentarySeedApplicationService } from '../../packages/modules/src/complimentary-seed/application/index.js';
+import { ConsumptionApplicationService } from '../../packages/modules/src/consumption/application/index.js';
 import { AccountDeletionService } from '../../packages/modules/src/feedback/account-deletion.service.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
@@ -64,6 +67,27 @@ const generateProfileFirstLook = vi.fn(
   }),
 );
 
+const generateDailyInsight = vi.fn(() =>
+  Promise.resolve({
+    content: {
+      theme: '保持清晰的边界',
+      insight: '今天适合先看清边界，再稳步推进真正重要的事情。',
+      action: '留出十分钟，写下今天最重要的一项行动。',
+      reflectionQuestion: '什么选择最符合你此刻真实的需要？',
+      notice: '内容用于自我观察与成长参考。' as const,
+    },
+    manifest: {
+      generator: 'e2e-generator',
+      modelVersion: 'e2e-model',
+      promptVersion: 'e2e-prompt',
+      knowledgeVersion: 'e2e-knowledge',
+      schemaVersion: '1.0.0',
+      contentPolicyVersion: 'r1.0',
+      generatedAt: '2026-08-28T00:00:00.000Z',
+    },
+  }),
+);
+
 describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
   let app: NestFastifyApplication;
   let accessToken: string;
@@ -76,6 +100,8 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const module = await Test.createTestingModule({ imports: [ApiModule] })
       .overrideProvider(PROFILE_FIRST_LOOK_GENERATOR)
       .useValue({ generate: generateProfileFirstLook })
+      .overrideProvider(DAILY_INSIGHT_GENERATOR)
+      .useValue({ generate: generateDailyInsight })
       .compile();
     app = module.createNestApplication<NestFastifyApplication>(createFastifyAdapter());
     await configureApi(
@@ -195,7 +221,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       '家庭关系卡牌',
       '自我关系卡牌',
     ]);
-    expect(previewBody.cards.map((card) => card.ganzhi)).toEqual(['庚午', '辛巳', '乙酉', '壬午']);
+    expect(previewBody.cards.map((card) => card.ganzhi)).toEqual(['庚午', '辛巳', '乙酉', '癸未']);
     expect(previewBody.cards.every((card) => card.cardId >= 1 && card.cardId <= 60)).toBe(true);
     expect(previewBody.cards.every((card) => card.deckCode === 'satori-default-v1')).toBe(true);
     expect(previewBody.cards.every((card) => card.assetUrl.startsWith('/cards/satori-default-v1/'))).toBe(
@@ -278,7 +304,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(generateProfileFirstLook).toHaveBeenCalledOnce();
     expect(generateProfileFirstLook).toHaveBeenCalledWith(
       expect.objectContaining({
-        cards: { year: '庚午', month: '辛巳', day: '乙酉', hour: '壬午' },
+        cards: { year: '庚午', month: '辛巳', day: '乙酉', hour: '癸未' },
       }),
     );
 
@@ -662,7 +688,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       data: { transaction: { transactionId: string }; account: { available: number } };
     }>().data;
     expect(concurrentData.transaction.transactionId).toBe(firstData.transaction.transactionId);
-    expect(firstData.account.available).toBe(3);
+    expect(firstData.account.available).toBe(18);
 
     const userId = decodeJwtSubject(accessToken);
     const ledger = app.get(SeedLedgerService);
@@ -729,14 +755,14 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const competing = await Promise.allSettled([
       ledger.reserve({
         userId,
-        amount: 2,
+        amount: 17,
         businessKey: 'daily:reserve:02',
         businessType: 'DAILY_INSIGHT',
         resourceId: null,
       }),
       ledger.reserve({
         userId,
-        amount: 2,
+        amount: 17,
         businessKey: 'daily:reserve:03',
         businessType: 'DAILY_INSIGHT',
         resourceId: null,
@@ -748,7 +774,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     if (!successful || successful.status !== 'fulfilled') throw new Error('Expected one reservation');
     await ledger.release({
       userId,
-      amount: 2,
+      amount: 17,
       businessKey: 'daily:release:02',
       businessType: 'DAILY_INSIGHT',
       resourceId: null,
@@ -758,12 +784,19 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     await expect(
       ledger.adjustment({
         userId,
-        amount: -4,
+        amount: -19,
         businessKey: 'admin:invalid-negative',
         businessType: 'DAILY_INSIGHT',
         resourceId: null,
       }),
     ).rejects.toMatchObject({ response: { code: 'INSUFFICIENT_WISDOM_SEEDS' } });
+    await ledger.adjustment({
+      userId,
+      amount: -15,
+      businessKey: 'e2e:normalize-daily-budget',
+      businessType: 'DAILY_INSIGHT',
+      resourceId: null,
+    });
     const infrastructure = app.get(RuntimeInfrastructure);
     await expect(
       infrastructure.database
@@ -781,7 +814,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       account.json<{
         data: { available: number; reserved: number; totalEarned: number; totalSpent: number };
       }>().data,
-    ).toEqual(expect.objectContaining({ available: 3, reserved: 0, totalEarned: 3, totalSpent: 0 }));
+    ).toEqual(expect.objectContaining({ available: 3, reserved: 0, totalEarned: 18, totalSpent: 15 }));
     const transactions = await app.inject({
       method: 'GET',
       url: '/api/v1/me/wisdom-seed-transactions?limit=2',
@@ -879,7 +912,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       { dailyInsight: { state: 'READY' }, nextAction: 'VIEW_HOME' },
     );
     const account = await app.get(SeedLedgerService).getAccount(decodeJwtSubject(accessToken));
-    expect(account).toMatchObject({ available: 2, reserved: 0, totalSpent: 1 });
+    expect(account).toMatchObject({ available: 2, reserved: 0, totalSpent: 16 });
 
     const infrastructure = app.get(RuntimeInfrastructure);
     const firstHistoricalDate = shiftLocalDate(firstData.dailyInsight.localDate, -2);
@@ -979,8 +1012,184 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(await app.get(SeedLedgerService).getAccount(decodeJwtSubject(accessToken))).toMatchObject({
       available: 0,
       reserved: 0,
-      totalSpent: 3,
+      totalSpent: 18,
     });
+  });
+
+  it('runs daily insight through unified consumption and releases then re-reserves on retry', async () => {
+    const infrastructure = app.get(RuntimeInfrastructure);
+    const userId = decodeJwtSubject(accessToken);
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const [current] = await infrastructure.database
+      .select()
+      .from(dailyInsights)
+      .where(and(eq(dailyInsights.ownerUserId, userId), eq(dailyInsights.localDate, today)))
+      .limit(1);
+    if (current) {
+      await infrastructure.database
+        .update(dailyInsights)
+        .set({ localDate: shiftLocalDate(today, -10) })
+        .where(eq(dailyInsights.id, current.id));
+    }
+    await app.get(ComplimentarySeedApplicationService).grant(
+      {
+        ownerUserId: userId,
+        businessSpace: 'SATORI',
+        sourceType: 'ACTIVITY',
+        sourceId: `daily-unified-${suffix}`,
+        applicableServices: ['DAILY_INSIGHT'],
+        quantity: 5,
+        effectiveAt: new Date(Date.now() - 60_000),
+        expiresAt: new Date(Date.now() + 86_400_000),
+        ruleVersion: 'daily-unified-e2e-v1',
+        requestId: newId(),
+      },
+      `daily-unified:${suffix}:grant`,
+    );
+    Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'UNIFIED' });
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/daily-insights/today',
+        headers: authHeaders('daily-unified-create'),
+        payload: {},
+      });
+      expect(created.statusCode).toBe(202);
+      const data = created.json<{
+        data: { dailyInsight: { dailyInsightId: string }; task: { taskId: string } };
+      }>().data;
+      const [row] = await infrastructure.database
+        .select()
+        .from(dailyInsights)
+        .where(eq(dailyInsights.id, data.dailyInsight.dailyInsightId))
+        .limit(1);
+      expect(row).toMatchObject({
+        seedReservationEntryId: null,
+        seedSettlementEntryId: null,
+      });
+      expect(typeof row!.consumptionIntentId).toBe('string');
+      expect(await app.get(ConsumptionApplicationService).getIntent(row!.consumptionIntentId!)).toMatchObject(
+        {
+          status: 'RUNNING',
+        },
+      );
+
+      const daily = app.get(DailyInsightService);
+      const tasks = app.get(GenerationTaskService);
+      await tasks.claim(data.task.taskId);
+      await daily.compensateFailure(data.task.taskId, data.dailyInsight.dailyInsightId);
+      expect(await app.get(ConsumptionApplicationService).getIntent(row!.consumptionIntentId!)).toMatchObject(
+        {
+          status: 'RELEASED',
+        },
+      );
+      await daily.generate(data.task.taskId, data.dailyInsight.dailyInsightId);
+      await tasks.succeed(data.task.taskId);
+      const [ready] = await infrastructure.database
+        .select()
+        .from(dailyInsights)
+        .where(eq(dailyInsights.id, data.dailyInsight.dailyInsightId))
+        .limit(1);
+      expect(ready).toMatchObject({ status: 'READY', seedSettlementEntryId: null });
+      expect(ready!.consumptionIntentId).not.toBe(row!.consumptionIntentId);
+      expect(
+        await app.get(ConsumptionApplicationService).getIntent(ready!.consumptionIntentId!),
+      ).toMatchObject({
+        status: 'COMMITTED',
+      });
+    } finally {
+      Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'LEGACY' });
+    }
+  });
+
+  it('records one shadow resolution while legacy settlement remains authoritative', async () => {
+    const infrastructure = app.get(RuntimeInfrastructure);
+    const userId = decodeJwtSubject(accessToken);
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    await infrastructure.database
+      .update(dailyInsights)
+      .set({ localDate: shiftLocalDate(today, -11) })
+      .where(and(eq(dailyInsights.ownerUserId, userId), eq(dailyInsights.localDate, today)));
+    await app.get(SeedLedgerService).adjustment({
+      userId,
+      amount: 1,
+      businessKey: `daily-shadow:${suffix}:fixture`,
+      businessType: 'DAILY_INSIGHT',
+      resourceId: null,
+    });
+    Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'SHADOW' });
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/daily-insights/today',
+        headers: authHeaders('daily-shadow-create'),
+        payload: {},
+      });
+      expect(created.statusCode).toBe(202);
+      const data = created.json<{
+        data: { dailyInsight: { dailyInsightId: string }; task: { taskId: string } };
+      }>().data;
+      const [row] = await infrastructure.database
+        .select()
+        .from(dailyInsights)
+        .where(eq(dailyInsights.id, data.dailyInsight.dailyInsightId))
+        .limit(1);
+      expect(row).toMatchObject({ consumptionIntentId: null });
+      expect(typeof row!.seedReservationEntryId).toBe('string');
+
+      const resolutions = await infrastructure.database
+        .select()
+        .from(entitlementResolutions)
+        .where(
+          and(
+            eq(entitlementResolutions.businessContextType, 'DAILY_INSIGHT_SHADOW'),
+            eq(entitlementResolutions.businessContextId, data.dailyInsight.dailyInsightId),
+          ),
+        );
+      expect(resolutions).toHaveLength(1);
+      expect(resolutions[0]).toMatchObject({
+        selectedSourceType: 'COMPLIMENTARY_SEED',
+        quantity: 1,
+      });
+
+      const replay = await app.inject({
+        method: 'POST',
+        url: '/api/v1/daily-insights/today',
+        headers: authHeaders('daily-shadow-replay'),
+        payload: {},
+      });
+      expect(replay.statusCode).toBe(202);
+      expect(
+        await infrastructure.database
+          .select()
+          .from(entitlementResolutions)
+          .where(
+            and(
+              eq(entitlementResolutions.businessContextType, 'DAILY_INSIGHT_SHADOW'),
+              eq(entitlementResolutions.businessContextId, data.dailyInsight.dailyInsightId),
+            ),
+          ),
+      ).toHaveLength(1);
+
+      const daily = app.get(DailyInsightService);
+      const tasks = app.get(GenerationTaskService);
+      await tasks.claim(data.task.taskId);
+      await daily.generate(data.task.taskId, data.dailyInsight.dailyInsightId);
+      await tasks.succeed(data.task.taskId);
+      expect(await app.get(SeedLedgerService).getAccount(userId)).toMatchObject({ available: 0 });
+    } finally {
+      Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'LEGACY' });
+    }
   });
 
   it('returns an existing user directly to the persisted home state', async () => {

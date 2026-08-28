@@ -1,10 +1,19 @@
-import { ConflictException, Inject, Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
 import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+  type OnModuleInit,
+} from '@nestjs/common';
+import {
+  CONSUMPTION_PORT,
   CursorCodec,
   DAILY_INSIGHT_GENERATOR,
   type DailyInsightGenerator,
   normalizePageLimit,
   validateDailyInsightResult,
+  type ConsumptionPort,
 } from '@satori/application';
 import {
   astrologySnapshots,
@@ -35,6 +44,7 @@ export class DailyInsightService implements OnModuleInit {
     private readonly tasks: GenerationTaskService,
     private readonly runner: GenerationTaskRunner,
     @Inject(DAILY_INSIGHT_GENERATOR) private readonly generator: DailyInsightGenerator,
+    @Optional() @Inject(CONSUMPTION_PORT) private readonly consumption?: ConsumptionPort,
   ) {
     this.cursors = new CursorCodec(infrastructure.environment.CURSOR_SIGNING_SECRET);
   }
@@ -47,97 +57,126 @@ export class DailyInsightService implements OnModuleInit {
   }
 
   async createToday(userId: string) {
-    return this.infrastructure.database.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${userId}, 8))`);
-      const [preference] = await tx.select().from(preferences).where(eq(preferences.userId, userId)).limit(1);
-      if (!preference?.timezone)
-        throw new ConflictException({
-          code: 'TIMEZONE_REQUIRED',
-          message: 'A valid life timezone is required',
+    const unifiedReservation: { intentId: string | null } = { intentId: null };
+    const shadowComparison: { insightId: string | null } = { insightId: null };
+    try {
+      const result = await this.infrastructure.database.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${userId}, 8))`);
+        const [preference] = await tx
+          .select()
+          .from(preferences)
+          .where(eq(preferences.userId, userId))
+          .limit(1);
+        if (!preference?.timezone)
+          throw new ConflictException({
+            code: 'TIMEZONE_REQUIRED',
+            message: 'A valid life timezone is required',
+          });
+        const localDate = localDateInTimezone(new Date(), preference.timezone);
+        const [profile] = await tx
+          .select()
+          .from(lifeProfiles)
+          .innerJoin(subjects, eq(subjects.id, lifeProfiles.subjectId))
+          .where(
+            and(
+              eq(lifeProfiles.ownerUserId, userId),
+              eq(subjects.type, 'SELF'),
+              isNull(lifeProfiles.deletedAt),
+            ),
+          )
+          .limit(1);
+        const selfProfile = profile?.life_profiles;
+        if (!selfProfile?.activeRevisionId)
+          throw new ConflictException({
+            code: 'PROFILE_NOT_CONFIRMED',
+            message: 'An active profile is required',
+          });
+        const cards = await tx
+          .select({ id: cardBindings.id })
+          .from(cardBindings)
+          .where(eq(cardBindings.revisionId, selfProfile.activeRevisionId));
+        if (cards.length !== 4)
+          throw new ConflictException({
+            code: 'PROFILE_CARDS_INCOMPLETE',
+            message: 'Four relationship cards are required',
+          });
+        const [existing] = await tx
+          .select()
+          .from(dailyInsights)
+          .where(
+            and(
+              eq(dailyInsights.subjectId, selfProfile.subjectId),
+              eq(dailyInsights.localDate, localDate),
+              eq(dailyInsights.timezone, preference.timezone),
+              eq(dailyInsights.contentPolicyVersion, 'r1.0'),
+            ),
+          )
+          .limit(1);
+        if (existing)
+          return {
+            status: existing.status === 'READY' ? 200 : 202,
+            body: {
+              dailyInsight: await this.toDto(existing),
+              task: existing.status === 'READY' ? null : await this.taskFor(existing.id),
+            },
+          };
+        const insightId = newId();
+        shadowComparison.insightId = insightId;
+        await tx.insert(dailyInsights).values({
+          id: insightId,
+          ownerUserId: userId,
+          subjectId: selfProfile.subjectId,
+          profileRevisionId: selfProfile.activeRevisionId,
+          localDate,
+          timezone: preference.timezone,
+          contentPolicyVersion: 'r1.0',
+          status: 'PENDING',
         });
-      const localDate = localDateInTimezone(new Date(), preference.timezone);
-      const [profile] = await tx
-        .select()
-        .from(lifeProfiles)
-        .innerJoin(subjects, eq(subjects.id, lifeProfiles.subjectId))
-        .where(
-          and(
-            eq(lifeProfiles.ownerUserId, userId),
-            eq(subjects.type, 'SELF'),
-            isNull(lifeProfiles.deletedAt),
-          ),
-        )
-        .limit(1);
-      const selfProfile = profile?.life_profiles;
-      if (!selfProfile?.activeRevisionId)
-        throw new ConflictException({
-          code: 'PROFILE_NOT_CONFIRMED',
-          message: 'An active profile is required',
+        const mode = this.infrastructure.environment.DAILY_INSIGHT_CONSUMPTION_MODE;
+        const unified = mode === 'UNIFIED' ? await this.reserveUnified(userId, insightId, 'initial') : null;
+        unifiedReservation.intentId = unified?.intentId ?? null;
+        const reserved = unified
+          ? null
+          : await this.ledger.reserveInTransaction(tx, {
+              userId,
+              amount: this.infrastructure.policy.dailyInsight.price,
+              businessKey: `daily:${insightId}:reserve`,
+              businessType: 'DAILY_INSIGHT',
+              resourceId: insightId,
+              title: '每日指引预留',
+            });
+        const [generating] = await tx
+          .update(dailyInsights)
+          .set({
+            status: 'GENERATING',
+            seedReservationEntryId: reserved?.transaction.transactionId ?? null,
+            consumptionIntentId: unified?.intentId ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(dailyInsights.id, insightId))
+          .returning();
+        const task = await this.tasks.createInTransaction(tx, {
+          ownerUserId: userId,
+          targetType: 'DAILY_INSIGHT',
+          targetId: insightId,
         });
-      const cards = await tx
-        .select({ id: cardBindings.id })
-        .from(cardBindings)
-        .where(eq(cardBindings.revisionId, selfProfile.activeRevisionId));
-      if (cards.length !== 4)
-        throw new ConflictException({
-          code: 'PROFILE_CARDS_INCOMPLETE',
-          message: 'Four relationship cards are required',
-        });
-      const [existing] = await tx
-        .select()
-        .from(dailyInsights)
-        .where(
-          and(
-            eq(dailyInsights.subjectId, selfProfile.subjectId),
-            eq(dailyInsights.localDate, localDate),
-            eq(dailyInsights.timezone, preference.timezone),
-            eq(dailyInsights.contentPolicyVersion, 'r1.0'),
-          ),
-        )
-        .limit(1);
-      if (existing)
-        return {
-          status: existing.status === 'READY' ? 200 : 202,
-          body: {
-            dailyInsight: await this.toDto(existing),
-            task: existing.status === 'READY' ? null : await this.taskFor(existing.id),
-          },
-        };
-      const insightId = newId();
-      await tx.insert(dailyInsights).values({
-        id: insightId,
-        ownerUserId: userId,
-        subjectId: selfProfile.subjectId,
-        profileRevisionId: selfProfile.activeRevisionId,
-        localDate,
-        timezone: preference.timezone,
-        contentPolicyVersion: 'r1.0',
-        status: 'PENDING',
+        return { status: 202, body: { dailyInsight: await this.toDto(generating!), task } };
       });
-      const reserved = await this.ledger.reserveInTransaction(tx, {
-        userId,
-        amount: this.infrastructure.policy.dailyInsight.price,
-        businessKey: `daily:${insightId}:reserve`,
-        businessType: 'DAILY_INSIGHT',
-        resourceId: insightId,
-        title: '每日指引预留',
-      });
-      const [generating] = await tx
-        .update(dailyInsights)
-        .set({
-          status: 'GENERATING',
-          seedReservationEntryId: reserved.transaction.transactionId,
-          updatedAt: new Date(),
-        })
-        .where(eq(dailyInsights.id, insightId))
-        .returning();
-      const task = await this.tasks.createInTransaction(tx, {
-        ownerUserId: userId,
-        targetType: 'DAILY_INSIGHT',
-        targetId: insightId,
-      });
-      return { status: 202, body: { dailyInsight: await this.toDto(generating!), task } };
-    });
+      if (
+        this.infrastructure.environment.DAILY_INSIGHT_CONSUMPTION_MODE === 'SHADOW' &&
+        shadowComparison.insightId
+      ) {
+        await this.compareShadowResolution(userId, shadowComparison.insightId);
+      }
+      return result;
+    } catch (error) {
+      if (unifiedReservation.intentId && this.consumption) {
+        await this.consumption
+          .release(unifiedReservation.intentId, `${unifiedReservation.intentId}:ROLLBACK`)
+          .catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   async getByDate(userId: string, localDate: string) {
@@ -266,13 +305,35 @@ export class DailyInsightService implements OnModuleInit {
 
   async generate(taskId: string, insightId: string) {
     await this.tasks.heartbeat(taskId, 'PREPARING_CONTEXT');
-    const [insight] = await this.infrastructure.database
+    let [insight] = await this.infrastructure.database
       .select()
       .from(dailyInsights)
       .where(eq(dailyInsights.id, insightId))
       .limit(1);
     if (!insight || insight.status === 'READY') return;
-    if (insight.status === 'FAILED' && insight.seedSettlementEntryId) {
+    if (insight.status === 'FAILED' && insight.consumptionIntentId) {
+      const [task] = await this.infrastructure.database
+        .select({ attempt: generationTasks.currentAttempt })
+        .from(generationTasks)
+        .where(eq(generationTasks.id, taskId))
+        .limit(1);
+      const intent = await this.reserveUnified(
+        insight.ownerUserId,
+        insight.id,
+        `retry:${task?.attempt ?? 0}`,
+      );
+      await this.infrastructure.database
+        .update(dailyInsights)
+        .set({
+          status: 'GENERATING',
+          consumptionIntentId: intent.intentId,
+          seedSettlementEntryId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(dailyInsights.id, insight.id));
+      insight = { ...insight, status: 'GENERATING', consumptionIntentId: intent.intentId };
+    } else if (insight.status === 'FAILED' && insight.seedSettlementEntryId) {
+      const retryInsight = insight;
       await this.infrastructure.database.transaction(async (tx) => {
         const [task] = await tx
           .select({ attempt: generationTasks.currentAttempt })
@@ -280,11 +341,11 @@ export class DailyInsightService implements OnModuleInit {
           .where(eq(generationTasks.id, taskId))
           .limit(1);
         const reserved = await this.ledger.reserveInTransaction(tx, {
-          userId: insight.ownerUserId,
+          userId: retryInsight.ownerUserId,
           amount: this.infrastructure.policy.dailyInsight.price,
-          businessKey: `daily:${insight.id}:reserve:retry:${task?.attempt ?? 0}`,
+          businessKey: `daily:${retryInsight.id}:reserve:retry:${task?.attempt ?? 0}`,
           businessType: 'DAILY_INSIGHT',
-          resourceId: insight.id,
+          resourceId: retryInsight.id,
           title: '每日指引重试预留',
         });
         await tx
@@ -295,7 +356,7 @@ export class DailyInsightService implements OnModuleInit {
             seedSettlementEntryId: null,
             updatedAt: new Date(),
           })
-          .where(eq(dailyInsights.id, insight.id));
+          .where(eq(dailyInsights.id, retryInsight.id));
       });
     }
     const [revision] = await this.infrastructure.database
@@ -324,6 +385,10 @@ export class DailyInsightService implements OnModuleInit {
       }),
     );
     await this.tasks.heartbeat(taskId, 'VALIDATING_CONTENT');
+    if (insight.consumptionIntentId) {
+      if (!this.consumption) throw new Error('Consumption port is unavailable');
+      await this.consumption.commit(insight.consumptionIntentId, `${insight.consumptionIntentId}:COMMIT`);
+    }
     await this.infrastructure.database.transaction(async (tx) => {
       const [locked] = await tx
         .select()
@@ -332,23 +397,26 @@ export class DailyInsightService implements OnModuleInit {
         .for('update')
         .limit(1);
       if (!locked || locked.status === 'READY') return;
-      if (!locked.seedReservationEntryId) throw new Error('Daily insight reservation missing');
-      const consumed = await this.ledger.consumeInTransaction(tx, {
-        userId: locked.ownerUserId,
-        amount: this.infrastructure.policy.dailyInsight.price,
-        businessKey: `daily:${locked.id}:consume:${locked.seedReservationEntryId}`,
-        businessType: 'DAILY_INSIGHT',
-        resourceId: locked.id,
-        originalEntryId: locked.seedReservationEntryId,
-        title: '每日指引核销',
-      });
+      if (!locked.seedReservationEntryId && !locked.consumptionIntentId)
+        throw new Error('Daily insight reservation missing');
+      const consumed = locked.consumptionIntentId
+        ? null
+        : await this.ledger.consumeInTransaction(tx, {
+            userId: locked.ownerUserId,
+            amount: this.infrastructure.policy.dailyInsight.price,
+            businessKey: `daily:${locked.id}:consume:${locked.seedReservationEntryId!}`,
+            businessType: 'DAILY_INSIGHT',
+            resourceId: locked.id,
+            originalEntryId: locked.seedReservationEntryId!,
+            title: '每日指引核销',
+          });
       await tx
         .update(dailyInsights)
         .set({
           status: 'READY',
           content: result.content,
           generationManifest: result.manifest,
-          seedSettlementEntryId: consumed.transaction.transactionId,
+          seedSettlementEntryId: consumed?.transaction.transactionId ?? null,
           publishedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -358,6 +426,20 @@ export class DailyInsightService implements OnModuleInit {
   }
 
   async compensateFailure(_taskId: string, insightId: string) {
+    const [unified] = await this.infrastructure.database
+      .select()
+      .from(dailyInsights)
+      .where(eq(dailyInsights.id, insightId))
+      .limit(1);
+    if (unified?.consumptionIntentId) {
+      if (!this.consumption) throw new Error('Consumption port is unavailable');
+      await this.consumption.release(unified.consumptionIntentId, `${unified.consumptionIntentId}:RELEASE`);
+      await this.infrastructure.database
+        .update(dailyInsights)
+        .set({ status: 'FAILED', updatedAt: new Date() })
+        .where(eq(dailyInsights.id, insightId));
+      return;
+    }
     await this.infrastructure.database.transaction(async (tx) => {
       const [insight] = await tx
         .select()
@@ -421,6 +503,49 @@ export class DailyInsightService implements OnModuleInit {
       .limit(1);
     return task ? this.tasks.taskDto(task) : null;
   }
+
+  private async reserveUnified(userId: string, insightId: string, attempt: string) {
+    if (!this.consumption) throw new Error('Consumption port is unavailable');
+    const intent = await this.consumption.reserve(
+      {
+        userId,
+        businessSpace: 'SATORI',
+        serviceType: 'DAILY_INSIGHT',
+        quantity: 1,
+        unit: 'DAILY_INSIGHT_CREDIT',
+        businessContext: { type: 'DAILY_INSIGHT_ATTEMPT', id: `${insightId}:${attempt}` },
+        attributes: { seedQuantity: this.infrastructure.policy.dailyInsight.price },
+      },
+      `daily:${insightId}:${attempt}:RESERVE`,
+    );
+    await this.consumption.start(intent.intentId, `${intent.intentId}:START`);
+    return intent;
+  }
+
+  private async compareShadowResolution(userId: string, insightId: string) {
+    if (!this.consumption) return;
+    const resolution = await this.consumption.resolve({
+      userId,
+      businessSpace: 'SATORI',
+      serviceType: 'DAILY_INSIGHT',
+      quantity: 1,
+      unit: 'DAILY_INSIGHT_CREDIT',
+      businessContext: { type: 'DAILY_INSIGHT_SHADOW', id: insightId },
+      attributes: { seedQuantity: this.infrastructure.policy.dailyInsight.price },
+    });
+    const selected = resolution.selectedCandidate;
+    if (
+      selected?.sourceType !== 'COMPLIMENTARY_SEED' ||
+      selected.requiredQuantity !== this.infrastructure.policy.dailyInsight.price
+    ) {
+      console.error('daily_insight_consumption_shadow_mismatch', {
+        insightId,
+        legacy: { sourceType: 'COMPLIMENTARY_SEED', quantity: this.infrastructure.policy.dailyInsight.price },
+        unified: selected ? { sourceType: selected.sourceType, quantity: selected.requiredQuantity } : null,
+        ruleVersion: resolution.ruleVersion,
+      });
+    }
+  }
   private async toDto(row: typeof dailyInsights.$inferSelect) {
     const entryId = row.seedSettlementEntryId ?? row.seedReservationEntryId;
     const [entry] = entryId
@@ -431,13 +556,17 @@ export class DailyInsightService implements OnModuleInit {
           .limit(1)
       : [undefined];
     const settlementStatus =
-      entry?.type === 'CONSUME'
+      row.consumptionIntentId && row.status === 'READY'
         ? 'CONSUMED'
-        : entry?.type === 'RELEASE'
+        : row.consumptionIntentId && row.status === 'FAILED'
           ? 'RELEASED'
-          : entry?.type === 'REFUND'
-            ? 'REFUNDED'
-            : 'RESERVED';
+          : entry?.type === 'CONSUME'
+            ? 'CONSUMED'
+            : entry?.type === 'RELEASE'
+              ? 'RELEASED'
+              : entry?.type === 'REFUND'
+                ? 'REFUNDED'
+                : 'RESERVED';
     return {
       dailyInsightId: row.id,
       localDate: row.localDate,
@@ -454,7 +583,7 @@ export class DailyInsightService implements OnModuleInit {
         currency: 'WISDOM_SEED',
         amount: this.infrastructure.policy.dailyInsight.price,
         status: settlementStatus,
-        transactionId: entry?.id ?? '',
+        transactionId: entry?.id ?? row.consumptionIntentId ?? '',
       },
       publishedAt: row.publishedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

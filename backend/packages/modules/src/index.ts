@@ -1,5 +1,6 @@
 import type { Type } from '@nestjs/common';
 import { AstrologyModule } from './astrology/astrology.module.js';
+import { CardReadingModule } from './card-reading/index.js';
 import { CatalogModule } from './catalog/index.js';
 import { ComplimentarySeedModule } from './complimentary-seed/index.js';
 import { ConsumptionModule } from './consumption/index.js';
@@ -19,8 +20,11 @@ import { ProfileLibraryModule } from './profile-library/profile-library.module.j
 import { ProfileModule } from './profile/profile.module.js';
 import { SeedLedgerModule } from './seed-ledger/seed-ledger.module.js';
 
+export * from './card-reading/index.js';
+
 export {
   AstrologyModule,
+  CardReadingModule,
   CatalogModule,
   ComplimentarySeedModule,
   ConsumptionModule,
@@ -57,6 +61,7 @@ export const R1DomainModules: Type<unknown>[] = [
   IdentityModule,
   ProfileModule,
   AstrologyModule,
+  CardReadingModule,
   ProfileLibraryModule,
   SeedLedgerModule,
   GenerationTaskModule,

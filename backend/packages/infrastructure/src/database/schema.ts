@@ -485,6 +485,7 @@ export const dailyInsights = pgTable(
     generationManifest: jsonb('generation_manifest'),
     seedReservationEntryId: uuid('seed_reservation_entry_id').references(() => seedEntries.id),
     seedSettlementEntryId: uuid('seed_settlement_entry_id').references(() => seedEntries.id),
+    consumptionIntentId: uuid('consumption_intent_id'),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -497,6 +498,7 @@ export const dailyInsights = pgTable(
       table.contentPolicyVersion,
     ),
     index('daily_insights_owner_date_idx').on(table.ownerUserId, table.localDate, table.id),
+    index('daily_insights_consumption_intent_idx').on(table.consumptionIntentId),
   ],
 );
 
