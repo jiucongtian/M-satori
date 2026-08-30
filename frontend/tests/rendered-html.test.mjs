@@ -494,6 +494,17 @@ test("R1.1 我的页面以服务权益为主并降低赠送体验额度层级", 
   assert.match(css, /\.my-seed-credit-secondary\{/);
 });
 
+test("SEED-01 使用可滚动的自适应布局与统一字号层级", async () => {
+  const [page, css] = await Promise.all([readPageSources(), readCssSources()]);
+  const seeds = page.match(/export function MySeeds[\s\S]*?export function MyReports/)?.[0] ?? "";
+  assert.match(seeds, /my-seeds-page/);
+  assert.match(seeds, /role="tablist"/);
+  assert.match(seeds, /aria-selected=\{tab===x\}/);
+  assert.match(css, /\.my-seeds-page\{[^}]*overflow-y:auto/);
+  assert.match(css, /\.my-seeds-page \.asset-tabs button\{[^}]*min-height:44px/);
+  assert.match(css, /\.my-seeds-page \.asset-list strong\{[^}]*var\(--type-body\)/);
+});
+
 test("MY-01 明确提示生命智慧档案库可以进入", async () => {
   const page = await readPageSources();
   const myHome = page.match(/function MyHome[\s\S]*?\n}/)?.[0] ?? "";
