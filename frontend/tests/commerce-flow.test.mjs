@@ -27,12 +27,12 @@ test("R1.1 商业页面全部使用真实 API 且不在前端计算价格", asyn
 
 test("已有会员只能在会员中心续费或升级，商品详情不会产生未登记的换档订单", async () => {
   const screens = await readFile(screensUrl, "utf8");
-  assert.match(screens, /hasMembership=\{Boolean\(membership\?\.activePeriod\)\}/);
-  assert.match(screens, /前往会员中心办理续费或升级/);
-  assert.match(screens, /续费并排入后续周期/);
+  assert.match(screens, /api\.currentMembership\(\)/);
+  assert.match(screens, /currentRank=\{currentRank\}/);
+  assert.match(screens, /续费当前方案/);
   assert.match(screens, /previousSubscriptionId=.*targetPlanVersionId=/s);
-  assert.match(screens, /当前方案不能降级购买/);
-  assert.match(screens, /当前周期结束后按顺序生效/);
+  assert.match(screens, /当前不可降级/);
+  assert.match(screens, /续费周期在当前周期结束后依次开始/);
 });
 
 test("固定核销页只展示系统选择结果且没有来源切换命令", async () => {

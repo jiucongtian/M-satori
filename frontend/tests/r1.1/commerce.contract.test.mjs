@@ -28,11 +28,11 @@ test("R11-PAY-002：会员方案由目录定义并明确记录权益周期边界
   ]);
   for (const plan of ["微光计划", "清和计划", "自在计划"]) assert.match(catalog, new RegExp(plan));
   assert.match(catalog, /periodDays: 30/);
-  assert.match(page, /本期未使用权益到期不结转/);
-  assert.match(page, /同一权益包不会与其他批次合并或延期/);
+  assert.match(page, /未使用次数到期不结转/);
+  assert.match(page, /会员与服务包分别记录/);
   assert.match(page, /续费当前方案/);
-  assert.match(page, /新周期在已有周期结束后依次开始/);
-  assert.match(page, /当前方案不能降级购买/);
+  assert.match(page, /续费周期在当前周期结束后依次开始/);
+  assert.match(page, /当前不可降级/);
 });
 
 test("R11-PAY-003：支付提交具有进行中锁且 Fake 支付不会调用微信收银台", async () => {
