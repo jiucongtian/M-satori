@@ -25,6 +25,16 @@ test("R1.1 商业页面全部使用真实 API 且不在前端计算价格", asyn
   assert.doesNotMatch(screens, /price\s*\*|amount\s*\*|seed.*rate|exchangeRate/i);
 });
 
+test("商城优先展示真实服务包，会员与订单入口按使用场景呈现", async () => {
+  const screens = await readFile(screensUrl, "utf8");
+  const shop = screens.match(/export function ShopScreen[\s\S]*?function OfferingCard/)?.[0] ?? "";
+  assert.ok(shop.indexOf("按需选择") < shop.indexOf("月度陪伴"));
+  assert.match(shop, /services\.length/);
+  assert.match(shop, /服务正在准备中/);
+  assert.doesNotMatch(screens, /className="commerce-nav"/);
+  assert.match(screens, /aria-label="会员相关服务"/);
+});
+
 test("已有会员只能在会员中心续费或升级，商品详情不会产生未登记的换档订单", async () => {
   const screens = await readFile(screensUrl, "utf8");
   assert.match(screens, /api\.currentMembership\(\)/);
