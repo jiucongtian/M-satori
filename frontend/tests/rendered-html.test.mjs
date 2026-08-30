@@ -491,17 +491,17 @@ test("MY-01 明确提示生命智慧档案库可以进入", async () => {
 });
 
 test("R1.1 商业闭环只销售已上线服务并使用确认价格", async () => {
-  const commerce = await readFile(new URL("../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8");
-  assert.match(commerce, /今日能量 · 10次体验/);
-  assert.match(commerce, /price:"¥9\.9"/);
-  assert.match(commerce, /抽卡问事 · 10次包/);
-  assert.match(commerce, /price:"¥59\.9"/);
-  assert.match(commerce, /微光计划[\s\S]*?price:"¥12\.9"/);
-  assert.match(commerce, /清和计划[\s\S]*?price:"¥24\.9"/);
-  assert.match(commerce, /自在计划[\s\S]*?price:"¥39\.9"/);
-  assert.doesNotMatch(commerce, /月度陪伴会员|30天心灵陪伴|¥29\.9\/月/);
-  assert.match(commerce, /可购买今日能量、抽卡问事服务包，以及微光、清和、自在三档月度计划/);
-  assert.doesNotMatch(commerce, /生命之光、月运、年运、关系匹配、AI陪伴与真人咨询/);
+  const [commerce, catalog] = await Promise.all([
+    readFile(new URL("../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../backend/packages/modules/src/catalog/domain/seed-data.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(catalog, /今日能量·10次体验[\s\S]*?amountMinor: 990/);
+  assert.match(catalog, /抽卡问事·10次包[\s\S]*?amountMinor: 5_990/);
+  assert.match(catalog, /membership\('glow', '微光计划·R1\.1体验版', 1_290/);
+  assert.match(catalog, /membership\('serenity', '清和计划·R1\.1体验版', 2_490/);
+  assert.match(catalog, /membership\('freedom', '自在计划·R1\.1体验版', 3_990/);
+  assert.match(commerce, /价格、资格与限购均由服务端确认/);
+  assert.doesNotMatch(commerce, /const PRODUCTS|price:"¥/);
 });
 
 test("R1.1 会员、支付结果和退款使用独立路由与异常恢复", async () => {
@@ -510,12 +510,11 @@ test("R1.1 会员、支付结果和退款使用独立路由与异常恢复", asy
   assert.match(routes, /serviceMembership: "\/services\/membership"/);
   assert.match(routes, /serviceMembershipDetail: "\/services\/membership\/detail"/);
   assert.match(routes, /serviceEnergyPack: "\/services\/energy-pack"/);
-  assert.match(commerce, /state==="processing"/);
-  assert.match(commerce, /state==="failed"/);
-  assert.match(commerce, /state==="delivery-failed"/);
-  assert.match(commerce, /请勿再次购买/);
-  assert.match(commerce, /剩余8次问事权益将立即冻结/);
-  assert.match(commerce, /不会索要验证码或支付密码/);
+  assert.match(commerce, /payment\.status === "SUCCEEDED"/);
+  assert.match(commerce, /order\.status === "FULFILLMENT_FAILED"/);
+  assert.match(commerce, /请勿重复购买/);
+  assert.match(commerce, /会员升级原方案剩余权益不属于退款范围/);
+  assert.match(commerce, /服务端报价/);
 });
 
 test("R1.0 退出登录二次确认且联系我们突出客服、官媒依次下沉", async () => {

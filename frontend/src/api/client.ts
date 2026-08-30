@@ -18,6 +18,19 @@ type DailyInsight = Schemas["DailyInsight"];
 type GenerationTask = Schemas["GenerationTask"];
 type LifeProfile = Schemas["LifeProfile"];
 type ProfileGroup = Schemas["ProfileGroup"];
+type ServiceOffering = Schemas["ServiceOffering"];
+type MembershipPlan = Schemas["MembershipPlan"];
+type CheckoutQuote = Schemas["CheckoutQuote"];
+type MoneyOrder = Schemas["MoneyOrder"];
+type PaymentAttempt = Schemas["PaymentAttempt"];
+type EntitlementGrant = Schemas["EntitlementGrant"];
+type UsageRecord = Schemas["UsageRecord"];
+type EntitlementResolution = Schemas["EntitlementResolution"];
+type ConsumptionIntent = Schemas["ConsumptionIntent"];
+type MembershipSubscription = Schemas["MembershipSubscription"];
+type RefundQuote = Schemas["RefundQuote"];
+type Refund = Schemas["Refund"];
+type BusinessContext = Schemas["BusinessContext"];
 
 export type {
   Bootstrap,
@@ -35,6 +48,19 @@ export type {
   Session,
   WisdomSeedAccount,
   WisdomSeedTransaction,
+  ServiceOffering,
+  MembershipPlan,
+  CheckoutQuote,
+  MoneyOrder,
+  PaymentAttempt,
+  EntitlementGrant,
+  UsageRecord,
+  EntitlementResolution,
+  ConsumptionIntent,
+  MembershipSubscription,
+  RefundQuote,
+  Refund,
+  BusinessContext,
 };
 export type BirthInput = Schemas["BirthInput"];
 export const CONSENT_REQUIRED_EVENT = "satori:consent-required";
@@ -343,6 +369,121 @@ class SatoriApiClient {
     return this.command<{ data: unknown }>(`/me/life-profiles/${profileId}`, { method: "DELETE" }).then((x) => x.data);
   }
   profileGroups() { return PROTOTYPE_MODE ? prototypeResult([] as ProfileGroup[]) : this.request<Schemas["ProfileGroupListEnvelope"]>("/me/life-profile-groups").then((x) => x.data); }
+
+  serviceOfferings() {
+    return this.request<Schemas["ServiceOfferingListEnvelope"]>("/service-offerings?limit=50").then((x) => x.data);
+  }
+
+  serviceOffering(offeringId: string) {
+    return this.request<Schemas["ServiceOfferingEnvelope"]>(`/service-offerings/${encodeURIComponent(offeringId)}`).then((x) => x.data);
+  }
+
+  membershipPlans() {
+    return this.request<Schemas["MembershipPlanListEnvelope"]>("/membership-plans").then((x) => x.data);
+  }
+
+  createCheckoutQuote(offeringId: string, businessContext?: BusinessContext | null) {
+    return this.command<Schemas["CheckoutQuoteEnvelope"]>("/checkout-quotes", {
+      method: "POST",
+      body: JSON.stringify({ offeringId, businessContext: businessContext ?? null }),
+    }).then((x) => x.data);
+  }
+
+  createMoneyOrder(quoteId: string) {
+    return this.command<Schemas["MoneyOrderEnvelope"]>("/money-orders", {
+      method: "POST",
+      body: JSON.stringify({ quoteId }),
+    }).then((x) => x.data);
+  }
+
+  moneyOrders() {
+    return this.request<Schemas["MoneyOrderListEnvelope"]>("/money-orders?limit=50").then((x) => x.data);
+  }
+
+  moneyOrder(orderId: string) {
+    return this.request<Schemas["MoneyOrderEnvelope"]>(`/money-orders/${encodeURIComponent(orderId)}`).then((x) => x.data);
+  }
+
+  cancelMoneyOrder(orderId: string) {
+    return this.command<Schemas["MoneyOrderEnvelope"]>(`/money-orders/${encodeURIComponent(orderId)}/cancel`, { method: "POST" }).then((x) => x.data);
+  }
+
+  createPaymentAttempt(orderId: string) {
+    return this.command<Schemas["PaymentAttemptEnvelope"]>(`/money-orders/${encodeURIComponent(orderId)}/payment-attempts`, {
+      method: "POST",
+      body: JSON.stringify({ provider: "WECHAT_PAY" }),
+    }).then((x) => x.data);
+  }
+
+  paymentAttempt(paymentAttemptId: string) {
+    return this.request<Schemas["PaymentAttemptEnvelope"]>(`/payment-attempts/${encodeURIComponent(paymentAttemptId)}`).then((x) => x.data);
+  }
+
+  entitlements() {
+    return this.request<Schemas["EntitlementListEnvelope"]>("/me/entitlements?limit=50").then((x) => x.data);
+  }
+
+  usageRecords() {
+    return this.request<Schemas["UsageRecordListEnvelope"]>("/me/usage-records?limit=50").then((x) => x.data);
+  }
+
+  resolveEntitlement(serviceType: "DAILY_ENERGY" | "CARD_READING", quantity: number, businessContext: BusinessContext, cardCount?: number) {
+    return this.command<Schemas["EntitlementResolutionEnvelope"]>("/entitlement-resolutions", {
+      method: "POST",
+      body: JSON.stringify({ serviceType, quantity, businessContext, ...(cardCount ? { cardCount } : {}) }),
+    }).then((x) => x.data);
+  }
+
+  createConsumptionIntent(resolutionId: string) {
+    return this.command<Schemas["ConsumptionIntentEnvelope"]>("/consumption-intents", {
+      method: "POST",
+      body: JSON.stringify({ resolutionId }),
+    }).then((x) => x.data);
+  }
+
+  startConsumptionIntent(intentId: string) {
+    return this.command<Schemas["ConsumptionIntentEnvelope"]>(`/consumption-intents/${encodeURIComponent(intentId)}/start`, { method: "POST" }).then((x) => x.data);
+  }
+
+  currentMembership() {
+    return this.request<{ data: MembershipSubscription | null }>("/memberships/current").then((x) => x.data);
+  }
+
+  membershipPeriods() {
+    return this.request<{ data: Schemas["MembershipPeriod"][] }>("/memberships/periods").then((x) => x.data);
+  }
+
+  previewMembershipUpgrade(previousSubscriptionId: string, targetPlanVersionId: string) {
+    return this.command<{ data: { previousSubscriptionId: string; targetPlanVersionId: string; payableAmount: Schemas["Money"]; confirmation: string } }>("/membership-upgrades/preview", {
+      method: "POST",
+      body: JSON.stringify({ previousSubscriptionId, targetPlanVersionId }),
+    }).then((x) => x.data);
+  }
+
+  registerMembershipUpgrade(input: { previousSubscriptionId: string; targetPlanVersionId: string; newOrderId: string }) {
+    return this.command<{ data: { upgradeId: string; status: string; confirmation: string } }>("/membership-upgrades", {
+      method: "POST",
+      body: JSON.stringify({ ...input, confirmationAccepted: true }),
+    }).then((x) => x.data);
+  }
+
+  refundQuote(orderId: string) {
+    return this.command<{ data: RefundQuote & { eligible?: boolean } }>("/refund-quotes", {
+      method: "POST",
+      body: JSON.stringify({ orderId }),
+    }).then((x) => x.data);
+  }
+
+  requestRefund(orderId: string) {
+    return this.command<{ data: Refund }>("/refunds", {
+      method: "POST",
+      body: JSON.stringify({ orderId }),
+    }).then((x) => x.data);
+  }
+
+  refunds() {
+    return this.request<Schemas["RefundListEnvelope"]>("/refunds").then((x) => x.data);
+  }
 }
 
 export const api = new SatoriApiClient();

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 产品需求与重大决策
+    url: https://github.com/jiucongtian/M-satori/blob/main/docs/%E7%A0%94%E5%8F%91%E5%8D%8F%E4%BD%9C%E4%B8%8E%E5%B7%A5%E4%BD%9C%E4%BA%A4%E6%8E%A5.md
+    about: 先查阅研发协作与工作交接，再决定是否创建问题。

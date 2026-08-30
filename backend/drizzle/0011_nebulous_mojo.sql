@@ -1,0 +1,4 @@
+ALTER TABLE "complimentary_seed_entries" DROP CONSTRAINT "complimentary_seed_entries_quantity_ck";--> statement-breakpoint
+ALTER TABLE "complimentary_seed_grants" DROP CONSTRAINT "complimentary_seed_grants_source_ck";--> statement-breakpoint
+ALTER TABLE "complimentary_seed_entries" ADD CONSTRAINT "complimentary_seed_entries_quantity_ck" CHECK ("complimentary_seed_entries"."quantity" >= 0);--> statement-breakpoint
+ALTER TABLE "complimentary_seed_grants" ADD CONSTRAINT "complimentary_seed_grants_source_ck" CHECK ("complimentary_seed_grants"."source_type" in ('REGISTRATION', 'MEMBERSHIP', 'ACADEMY', 'ACTIVITY', 'COMPENSATION', 'MANUAL', 'RESTORE', 'MIGRATION'));

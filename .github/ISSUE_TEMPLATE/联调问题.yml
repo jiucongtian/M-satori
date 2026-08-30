@@ -1,0 +1,132 @@
+name: 联调问题
+description: 记录设计、前端、后端、接口、数据或测试环境问题
+title: "[R1.x][模块] 简要问题描述"
+labels:
+  - status:needs-reproduce
+body:
+  - type: markdown
+    attributes:
+      value: |
+        GitHub Issue 是 Satori 问题管理的唯一事实源。请勿填写私钥、Token、验证码、真实手机号或其他敏感数据。
+  - type: dropdown
+    id: release
+    attributes:
+      label: Release
+      options:
+        - R1.0
+        - R1.1
+        - 后续版本
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 发现环境
+      options:
+        - H5 原型（3000）
+        - R1.0 本地研发（3001）
+        - R1.1 本地研发（3011）
+        - 测试环境
+        - 正式环境
+    validations:
+      required: true
+  - type: dropdown
+    id: reporter
+    attributes:
+      label: 发现者
+      options:
+        - 产品负责人
+        - 前端开发
+        - 后端开发
+        - 前端 AI
+        - 后端 AI
+        - 自动化测试
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 严重程度
+      description: P0 阻断系统；P1 阻断核心闭环；P2 明显功能或体验问题；P3 优化建议。
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 初步责任域
+      options:
+        - 前端
+        - 后端
+        - 接口契约
+        - 数据
+        - 部署环境
+        - 产品设计
+        - 待定位
+    validations:
+      required: true
+  - type: input
+    id: batch
+    attributes:
+      label: 联调批次
+      description: 例如 R1.0-INT-001；若尚未建立批次可填“待建立”。
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清楚说明发生了什么。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开……
+        2. 点击……
+        3. 观察……
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据与版本
+      description: 请提供页面编号、脱敏请求信息、截图/录屏、前后端 commit；不要填写敏感信息。
+      placeholder: |
+        - 页面编号：
+        - 前端 commit：
+        - 后端 commit：
+        - 请求及状态码：
+        - 截图/录屏：
+    validations:
+      required: true
+  - type: textarea
+    id: diagnosis
+    attributes:
+      label: 初步判断
+      description: 可由前端、后端或 AI 在复现后补充；不确定可填“待定位”。
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: 提交确认
+      options:
+        - label: 已检查不存在重复 Issue，且内容不含敏感信息。
+          required: true

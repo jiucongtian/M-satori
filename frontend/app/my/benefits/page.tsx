@@ -1,3 +1,7 @@
-import "@/src/features/commerce/commerce.css";
 import { BenefitsScreen } from "@/src/features/commerce/CommerceScreens";
-export default function Page(){return <BenefitsScreen/>}
+import "@/src/features/commerce/commerce.css";
+
+export default function BenefitsPage() {
+  return <BenefitsScreen />;
+}
+

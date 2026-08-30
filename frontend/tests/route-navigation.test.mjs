@@ -57,16 +57,15 @@ test("R1.1 返回来源只接受业务白名单并可随链接传递", () => {
 });
 
 test("R1.1 商业页面返回来源不再固定跳回我的", async () => {
-  const commerce = await readFile(
-    new URL("../src/features/commerce/CommerceScreens.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(commerce, /MembershipPlansScreen\(\).*safeReturnPath\(q\.get\("from"\),ROUTES\.services\)/s);
-  assert.match(commerce, /Header title="会员计划" back=\{\(\)=>r\.push\(origin\)\}/);
-  assert.match(commerce, /withReturnPath\(ROUTES\.serviceMembership,ROUTES\.services\)/);
-  assert.match(commerce, /withReturnPath\(ROUTES\.myBenefits,ROUTES\.services\)/);
-  assert.match(commerce, /Header title="订单详情" back=\{\(\)=>r\.push\(withReturnPath\(ROUTES\.myOrders,origin\)\)\}/);
-  assert.match(commerce, /Header title="退款进度" back=\{\(\)=>r\.push\(withReturnPath\(ROUTES\.myOrders,origin\)\)\}/);
+  const [commerce, my] = await Promise.all([
+    readFile(new URL("../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/my/MyScreens.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(commerce, /ServiceMarketplaceScreen\(\) \{ return <ShopScreen \/>; \}/);
+  assert.match(commerce, /MembershipPlansScreen\(\) \{ return <MembershipScreen \/>; \}/);
+  assert.match(commerce, /PaymentScreen\(\) \{ return <CheckoutScreen \/>; \}/);
+  assert.match(my, /withReturnPath\(ROUTES\.shop,ROUTES\.my\)/);
+  assert.match(my, /withReturnPath\(ROUTES\.myMembership,ROUTES\.my\)/);
 });
 
 test("成长记录进入报告后会返回成长记录", async () => {
@@ -177,9 +176,11 @@ test("R1.1 问事分类、翻牌布局和支付成功出口符合已确认原型
   assert.match(legacy, /"个人状态", "其他"/);
   assert.match(legacy, /report-card-gallery reveal-card-gallery/);
   assert.match(styles, /\.card-layout\.reveal-card-gallery\.count-5 figure/);
-  const success = commerce.slice(commerce.indexOf('return <Screen code="PAY-08"'), commerce.indexOf("function ResultState"));
-  assert.match(success, />查看我的权益 <span>→<\/span>/);
-  assert.doesNotMatch(success, /查看本周期权益|去查看今日能量|去开始一次问事|biz-secondary/);
+  const success = commerce.slice(commerce.indexOf("export function PaymentResultScreen"), commerce.indexOf("export function BenefitsScreen"));
+  assert.match(success, /权益已经到账/);
+  assert.match(success, /返回刚才的问事流程/);
+  assert.match(success, /ROUTES\.myOrders/);
+  assert.doesNotMatch(success, /查看本周期权益|去查看今日能量|去开始一次问事/);
 });
 
 test("READ-09 不展示原型分支或权益不足入口", async () => {
