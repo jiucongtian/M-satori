@@ -30,6 +30,9 @@ test("R11-PAY-002：会员方案由目录定义并明确记录权益周期边界
   assert.match(catalog, /periodDays: 30/);
   assert.match(page, /本期未使用权益到期不结转/);
   assert.match(page, /同一权益包不会与其他批次合并或延期/);
+  assert.match(page, /续费当前方案/);
+  assert.match(page, /新周期在已有周期结束后依次开始/);
+  assert.match(page, /当前方案不能降级购买/);
 });
 
 test("R11-PAY-003：支付提交具有进行中锁且 Fake 支付不会调用微信收银台", async () => {

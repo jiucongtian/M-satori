@@ -30,9 +30,8 @@ import {
 } from "./commerceContext";
 import { invokeWechatPay } from "./wechatPay";
 
-type VersionedOffering = ServiceOffering & { offeringVersionId?: string };
-
 const PLAN_NAMES: Record<string, string> = { GLOW: "微光", SERENITY: "清和", FREEDOM: "自在" };
+const PLAN_RANKS = ["GLOW", "SERENITY", "FREEDOM"] as const;
 const SOURCE_NAMES: Record<string, string> = {
   MEMBERSHIP: "本期会员权益",
   PURCHASE: "已购买权益",
@@ -120,11 +119,11 @@ function useLoad<T>(loader: () => Promise<T>, dependencies: readonly unknown[] =
 export function ShopScreen() {
   const [returnTo, setReturnTo] = useState("");
   useEffect(() => { const timer = window.setTimeout(() => setReturnTo(readQuery().get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ""), 0); return () => window.clearTimeout(timer); }, []);
-  const loader = useCallback(() => Promise.all([api.serviceOfferings(), api.membershipPlans()]), []);
+  const loader = useCallback(() => Promise.all([api.serviceOfferings(), api.membershipPlans(), api.currentMembership()]), []);
   const { data, error } = useLoad(loader, [loader]);
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
   if (!data) return <RouteSkeleton label="正在获取最新商品与会员方案…" />;
-  const [offerings, plans] = data;
+  const [offerings, plans, membership] = data;
   const services = offerings.filter((item) => item.kind !== "MEMBERSHIP_PLAN");
   return (
     <CommerceFrame title="选择此刻需要的服务" eyebrow="FRESH SERVICES · SERVER PRICED">
@@ -135,7 +134,7 @@ export function ShopScreen() {
       </section>
       <section className="commerce-section">
         <header><h2>30 天会员</h2><small>按方案周期发放服务权益</small></header>
-        <div className="plan-grid">{plans.map((plan) => <PlanCard key={plan.offeringId} plan={plan} />)}</div>
+        <div className="plan-grid">{plans.map((plan) => <PlanCard key={plan.offeringId} plan={plan} hasMembership={Boolean(membership?.activePeriod)} />)}</div>
       </section>
       <div className="commerce-safe-note">会员升级会按新方案全额创建新订单；原方案在新方案安全生效后结束，未使用次数不保留。</div>
     </CommerceFrame>
@@ -153,13 +152,14 @@ function OfferingCard({ offering, returnTo = "" }: { offering: ServiceOffering; 
   );
 }
 
-function PlanCard({ plan }: { plan: MembershipPlan }) {
+function PlanCard({ plan, hasMembership = false }: { plan: MembershipPlan; hasMembership?: boolean }) {
   return (
-    <Link className="plan-card" href={`${ROUTES.shopDetail}?offeringId=${encodeURIComponent(plan.offeringId)}`}>
+    <Link className="plan-card" href={hasMembership ? ROUTES.myMembership : `${ROUTES.shopDetail}?offeringId=${encodeURIComponent(plan.offeringId)}`}>
       <small>{PLAN_NAMES[plan.planCode] ?? plan.name}</small>
       <strong>{money(plan.price.amount)}</strong>
       <span>30 天</span>
       <p>{plan.benefits.map((benefit) => `${serviceLabel(benefit.serviceType)} ${benefit.quantity} 次`).join(" · ")}</p>
+      {hasMembership ? <em>前往会员中心办理续费或升级</em> : null}
     </Link>
   );
 }
@@ -169,22 +169,35 @@ export function ShopDetailScreen() {
   const [returnTo, setReturnTo] = useState("");
   const [ready, setReady] = useState(false);
   useEffect(() => { const timer = window.setTimeout(() => { const query = readQuery(); setOfferingId(query.get("offeringId") ?? ""); setReturnTo(query.get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ""); setReady(true); }, 0); return () => window.clearTimeout(timer); }, []);
-  const loader = useCallback(() => offeringId ? api.serviceOffering(offeringId) : Promise.resolve(null), [offeringId]);
-  const { data: offering, error } = useLoad(loader, [loader, offeringId]);
+  const loader = useCallback(() => offeringId ? Promise.all([api.serviceOffering(offeringId), api.currentMembership()]) : Promise.resolve(null), [offeringId]);
+  const { data, error } = useLoad(loader, [loader, offeringId]);
   if (!ready) return <RouteSkeleton label="正在读取商品详情…" />;
   if (!offeringId) return <RouteError title="商品地址无效" message="没有找到对应商品。" backHref={ROUTES.shop} />;
   if (error) return <RouteError message={error} backHref={ROUTES.shop} />;
-  if (!offering) return <RouteSkeleton label="正在读取商品详情…" />;
+  if (!data) return <RouteSkeleton label="正在读取商品详情…" />;
+  const [offering, membership] = data;
+  const active = membership?.activePeriod ?? null;
+  const targetPlanCode = offering.kind === "MEMBERSHIP_PLAN" ? membershipPlanCode(offering.code) : null;
+  const currentRank = active ? PLAN_RANKS.indexOf(active.planCode) : -1;
+  const targetRank = targetPlanCode ? PLAN_RANKS.indexOf(targetPlanCode) : -1;
+  const isRenewal = Boolean(active && targetPlanCode === active.planCode);
+  const isUpgrade = Boolean(active && targetRank > currentRank);
+  const membershipChangeUnavailable = Boolean(active && targetPlanCode && !isRenewal && !isUpgrade);
+  const checkoutHref = isUpgrade && membership
+    ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(offering.offeringVersionId)}`
+    : `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`;
   return (
     <CommerceFrame title={offering.name} eyebrow={kindLabel(offering.kind)}>
       <div className="offering-hero"><span>{serviceLabel(offering.serviceType)}</span><strong>{money(offering.price.amount)}</strong><small>最终金额以服务端报价为准</small></div>
       <section className="detail-facts">
         {offering.benefits.map((benefit, index) => <p key={`${benefit.serviceType}-${index}`}><span>{serviceLabel(benefit.serviceType)}</span><strong>{benefit.quantity} 次</strong></p>)}
-        <p><span>有效期</span><strong>购买日起 {offering.validityDays} 天</strong></p>
-        <p><span>到期方式</span><strong>每个权益包分别计时</strong></p>
+        <p><span>有效期</span><strong>{offering.kind === "MEMBERSHIP_PLAN" ? `${offering.validityDays} 天会员周期` : `购买日起 ${offering.validityDays} 天`}</strong></p>
+        <p><span>生效方式</span><strong>{isRenewal ? "当前周期结束后按顺序生效" : offering.kind === "MEMBERSHIP_PLAN" ? "支付并安全交付后生效" : "每个权益包分别计时"}</strong></p>
       </section>
       <div className="commerce-safe-note">使用时由系统按照固定规则自动选择会员权益、购买权益包或智慧种子额度，无法手动切换来源。</div>
-      <Link className="commerce-primary" href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`}>获取服务端报价并确认订单</Link>
+      {membershipChangeUnavailable
+        ? <div className="commerce-safe-note">当前方案不能降级购买；你可以续费当前方案，或升级到更高方案。</div>
+        : <Link className="commerce-primary" href={checkoutHref}>{isRenewal ? "续费当前方案" : isUpgrade ? "升级并确认新订单" : "获取服务端报价并确认订单"}</Link>}
     </CommerceFrame>
   );
 }
@@ -390,25 +403,32 @@ export function MembershipScreen() {
   if (!data) return <RouteSkeleton label="正在读取会员周期…" />;
   const [membership, periods, plans] = data;
   const active = membership?.activePeriod ?? periods.find((period) => period.status === "ACTIVE") ?? null;
-  const currentRank = active ? ["GLOW", "SERENITY", "FREEDOM"].indexOf(active.planCode) : -1;
+  const currentRank = active ? PLAN_RANKS.indexOf(active.planCode) : -1;
+  const currentPlan = active ? plans.find((plan) => plan.planCode === active.planCode) ?? null : null;
   return (
     <CommerceFrame title="会员与周期" eyebrow="EACH PERIOD STARTS IN ORDER">
       {active ? <div className="membership-hero"><small>当前方案</small><h2>{PLAN_NAMES[active.planCode]}</h2><p>{date(active.startsAt)} — {date(active.endsAt)}</p><span>本期未使用权益到期不结转</span></div> : <div className="commerce-empty">当前没有生效中的会员周期</div>}
       {periods.length ? <section className="commerce-section"><header><h2>周期安排</h2><small>续费周期依次开始</small></header><div className="period-list">{periods.map((period) => <p key={period.periodId}><i>{PLAN_NAMES[period.planCode]}</i><span>{date(period.startsAt)} — {date(period.endsAt)}</span><strong>{statusLabel(period.status)}</strong></p>)}</div></section> : null}
-      <section className="commerce-section"><header><h2>{active ? "升级方案" : "选择会员方案"}</h2><small>{active ? "仅支持升级到更高方案" : "支付交付后立即开始"}</small></header><div className="plan-grid">{plans.filter((plan) => !active || ["GLOW", "SERENITY", "FREEDOM"].indexOf(plan.planCode) > currentRank).map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} />)}</div></section>
+      {active && currentPlan ? <section className="commerce-section"><header><h2>续费当前方案</h2><small>新周期在已有周期结束后依次开始</small></header><div className="plan-grid"><MembershipAction plan={currentPlan} membership={membership} activePlanCode={active.planCode} /></div></section> : null}
+      <section className="commerce-section"><header><h2>{active ? "升级方案" : "选择会员方案"}</h2><small>{active ? "仅支持升级到更高方案" : "支付交付后立即开始"}</small></header><div className="plan-grid">{plans.filter((plan) => !active || PLAN_RANKS.indexOf(plan.planCode) > currentRank).map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} />)}</div></section>
       {active ? <div className="upgrade-notice"><strong>替换式升级</strong><p>新方案按全额新订单支付。新方案安全生效后，原方案结束，剩余次数不保留。</p></div> : null}
     </CommerceFrame>
   );
 }
 
-function MembershipAction({ plan, membership }: { plan: MembershipPlan; membership: MembershipSubscription | null }) {
-  const versionId = (plan as VersionedOffering).offeringVersionId;
-  const href = membership
-    ? versionId
-      ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(plan.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(versionId)}`
-      : ROUTES.myMembership
+function MembershipAction({ plan, membership, activePlanCode }: { plan: MembershipPlan; membership: MembershipSubscription | null; activePlanCode?: string }) {
+  const renewal = Boolean(membership && activePlanCode === plan.planCode);
+  const href = membership && !renewal
+    ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(plan.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(plan.offeringVersionId)}`
     : `${ROUTES.checkout}?offeringId=${encodeURIComponent(plan.offeringId)}`;
-  return <Link className="plan-card" aria-disabled={Boolean(membership && !versionId)} href={href}><small>{PLAN_NAMES[plan.planCode]}</small><strong>{money(plan.price.amount)}</strong><p>{membership ? "升级并结束原方案" : "开通 30 天会员"}</p>{membership && !versionId ? <span>方案版本暂不可用</span> : null}</Link>;
+  return <Link className="plan-card" href={href}><small>{PLAN_NAMES[plan.planCode]}</small><strong>{money(plan.price.amount)}</strong><p>{renewal ? "续费并排入后续周期" : membership ? "升级并结束原方案" : "开通 30 天会员"}</p></Link>;
+}
+
+function membershipPlanCode(code: string): MembershipPlan["planCode"] | null {
+  if (code.includes("membership-glow-")) return "GLOW";
+  if (code.includes("membership-serenity-")) return "SERENITY";
+  if (code.includes("membership-freedom-")) return "FREEDOM";
+  return null;
 }
 
 export function RefundsScreen() {
