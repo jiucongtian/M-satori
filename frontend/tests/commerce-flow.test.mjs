@@ -6,6 +6,7 @@ const screensUrl = new URL("../src/features/commerce/CommerceScreens.tsx", impor
 const clientUrl = new URL("../src/api/client.ts", import.meta.url);
 const contextUrl = new URL("../src/features/commerce/commerceContext.ts", import.meta.url);
 const routesUrl = new URL("../src/shared/routes.ts", import.meta.url);
+const commerceStylesUrl = new URL("../src/features/commerce/commerce.css", import.meta.url);
 
 test("R1.1 商业页面全部使用真实 API 且不在前端计算价格", async () => {
   const [screens, client] = await Promise.all([readFile(screensUrl, "utf8"), readFile(clientUrl, "utf8")]);
@@ -33,6 +34,16 @@ test("商城优先展示真实服务包，会员与订单入口按使用场景�
   assert.match(shop, /服务正在准备中/);
   assert.doesNotMatch(screens, /className="commerce-nav"/);
   assert.match(screens, /aria-label="会员相关服务"/);
+});
+
+test("商业页面遵循项目视觉变量、交互热区与小屏适配规则", async () => {
+  const styles = await readFile(commerceStylesUrl, "utf8");
+  assert.match(styles, /var\(--type-page-title\)/);
+  assert.match(styles, /var\(--radius-lg\)/);
+  assert.match(styles, /min-height:48px/);
+  assert.match(styles, /@media\(max-width:360px\)/);
+  assert.match(styles, /prefers-reduced-motion/);
+  assert.doesNotMatch(styles, /\.my-commerce-dock|\.commerce-nav/);
 });
 
 test("已有会员只能在会员中心续费或升级，商品详情不会产生未登记的换档订单", async () => {
