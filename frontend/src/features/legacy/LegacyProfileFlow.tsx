@@ -470,8 +470,8 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
 
   function navigateR1(target: number | string) {
     const routeByAction: Record<string, string> = {
-      profile: "/my/profile", archive: "/my/archive", orders: "/my/orders", membership: "/services/membership",
-      benefits: "/my/benefits", seeds: "/my/seeds", services: "/services", settings: "/my", support: "/my/support",
+      profile: "/my/profile", archive: "/my/archive", orders: "/my/orders", membership: "/my/membership",
+      benefits: "/my/benefits", seeds: "/my/seeds", services: "/shop", settings: "/my", support: "/my/support",
     };
     if (typeof target === "string") {
       if (routeByAction[target] && onNavigateRoute) return onNavigateRoute(routeByAction[target]);

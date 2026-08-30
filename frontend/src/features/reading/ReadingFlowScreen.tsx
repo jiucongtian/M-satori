@@ -68,7 +68,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   const go = (target: ReadingFlowStep | "home" | "history" | "services") => {
     if (target === "home") router.push(ROUTES.readings);
     else if (target === "history") router.push(ROUTES.readingHistory);
-    else if (target === "services") router.push(ROUTES.serviceReadingPack);
+    else if (target === "services") router.push(ROUTES.shop);
     else router.push(flowPath(target));
   };
 

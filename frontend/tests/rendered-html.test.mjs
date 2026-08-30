@@ -726,6 +726,16 @@ test("R1.1 每日能量由服务端按固定顺序选择会员、权益包或智
   assert.match(environment, /DAILY_INSIGHT_CONSUMPTION_MODE:[\s\S]*default\('UNIFIED'\)/);
 });
 
+test("R1.1 内部入口统一进入新版商城与会员中心", async () => {
+  const [profileFlow, readingFlow] = await Promise.all([
+    readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/reading/ReadingFlowScreen.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(profileFlow, /membership: "\/my\/membership"/);
+  assert.match(profileFlow, /services: "\/shop"/);
+  assert.match(readingFlow, /target === "services"\) router\.push\(ROUTES\.shop\)/);
+});
+
 test("MY-18 不再通过页面内容硬编码调试编号", async () => {
   const page = await readPageSources();
   const firstLook = page.match(/function FirstLookArchive[\s\S]*?\n\nfunction EditSelfProfile/)?.[0] ?? "";

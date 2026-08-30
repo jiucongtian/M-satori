@@ -54,7 +54,7 @@ test("R11-READ-006：权益不足时给出服务包入口，且返回路径可�
   const routeFlow = await readFile(new URL("../../src/features/reading/ReadingFlowScreen.tsx", import.meta.url), "utf8");
   assert.match(flow, /ReadingInsufficient/);
   assert.match(flow, /onRecharge/);
-  assert.match(routeFlow, /ROUTES\.serviceReadingPack/);
+  assert.match(routeFlow, /ROUTES\.shop/);
 });
 
 test("R11-READ-007：确认的卡牌被固定，失败重试沿用原卡牌", async () => {
