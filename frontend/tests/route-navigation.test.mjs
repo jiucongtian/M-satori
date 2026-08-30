@@ -219,10 +219,11 @@ test("READ-01 示例覆盖不同牌数，单张模式不要求定义牌位", asy
 });
 
 test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => {
-  const [legacy, styles, legacyStyles, layout, homeScreen, readingShell] = await Promise.all([
+  const [legacy, styles, legacyStyles, responsiveShell, layout, homeScreen, readingShell] = await Promise.all([
     readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/reading-responsive.css", import.meta.url), "utf8"),
     readFile(new URL("../src/features/legacy/legacy.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/shared/responsive-shell.css", import.meta.url), "utf8"),
     readFile(new URL("../app/readings/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/home/HomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingShell.tsx", import.meta.url), "utf8"),
@@ -233,9 +234,9 @@ test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => 
   assert.match(styles, /\.reading-action-page\{[^}]*overflow-y:auto/);
   assert.match(styles, /\.reading-action-page>\.primary\{[^}]*position:sticky;bottom:0/);
   assert.match(styles, /\.reading-home\.root-tab-page\{[^}]*overflow:hidden/);
-  assert.match(legacyStyles, /--app-tabbar-height:calc\(56px \+ env\(safe-area-inset-bottom,0px\)\)/);
-  assert.match(legacyStyles, /grid-template-rows:minmax\(0,1fr\) var\(--app-tabbar-height\)/);
-  assert.match(legacyStyles, />:is\(\.today-home-scroll,\.reading-home-scroll,\.coming-soon-scroll,\.my-home-scroll\)\{[^}]*overflow-y:auto/);
+  assert.match(responsiveShell, /--app-tabbar-height:calc\(56px \+ env\(safe-area-inset-bottom,0px\)\)/);
+  assert.match(responsiveShell, /grid-template-rows:minmax\(0,1fr\) var\(--app-tabbar-height\)/);
+  assert.match(responsiveShell, />:is\(\.today-home-scroll,\.reading-home-scroll,\.coming-soon-scroll,\.my-home-scroll\)\{[^}]*[\s\S]*?overflow-y:auto/);
   assert.match(legacyStyles, /\.reading-home-scroll\{[^}]*padding:0 3px 40px[^}]*scrollbar-width:thin/);
   assert.match(legacyStyles, /\.reading-home-scroll>h1\{font-size:var\(--type-hero\)/);
   assert.match(homeScreen, /search\.get\("source"\)==="tabbar"/);
@@ -244,4 +245,5 @@ test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => 
   assert.match(readingShell, /&source=tabbar/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
   assert.match(layout, /reading-responsive\.css/);
+  assert.doesNotMatch(legacyStyles, /grid-template-rows:minmax\(0,1fr\) var\(--app-tabbar-height\)/);
 });

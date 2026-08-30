@@ -494,11 +494,6 @@
 .my-home-scroll>.profile-banner{width:100%;box-sizing:border-box}
 
 /* R1.1 #89 · one responsive root-tab shell: one scroll owner, one fixed tab bar. */
-:root{--app-tabbar-height:calc(56px + env(safe-area-inset-bottom,0px))}
-.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home){height:auto!important;min-height:0!important;flex:1 1 auto;display:grid!important;grid-template-rows:minmax(0,1fr) var(--app-tabbar-height);padding:0!important;overflow:hidden!important}
-.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>:is(.today-home-scroll,.reading-home-scroll,.coming-soon-scroll,.my-home-scroll){min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain}
-.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>.app-bottom-nav{box-sizing:border-box;width:calc(100% + 18px);height:var(--app-tabbar-height);min-height:0;margin:0 -9px;padding:8px 2px calc(6px + env(safe-area-inset-bottom,0px));align-content:start}
-.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>.app-bottom-nav button{min-height:34px}
 .phone>.today-home,.phone>.reading-home.root-tab-page,.phone>.my-home{animation:none}
 .reading-home-scroll{padding:0 3px 40px;scrollbar-width:thin;scrollbar-color:rgba(69,107,91,.28) transparent}.reading-home-scroll::-webkit-scrollbar{display:block;width:3px}.reading-home-scroll::-webkit-scrollbar-thumb{border-radius:3px;background:rgba(69,107,91,.28)}.reading-home-scroll>h1{font-size:var(--type-hero);line-height:1.45}.reading-recent{margin-bottom:8px}
 .my-service-center>header{display:flex;justify-content:space-between;align-items:end;margin-bottom:12px}.my-service-center>header small{font-size:9px;letter-spacing:1.7px;color:#aa7c38}.my-service-center>header h2{margin:3px 0 0;font:500 20px var(--font-serif-cn)}.my-service-center>header button{border:0;background:transparent;color:#536d65;font-size:11px}

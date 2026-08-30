@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "NEXT_PUBLIC_SHOW_PAGE_LABELS=true NEXT_PUBLIC_PROTOTYPE_MODE=true WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev --port 3011",
+    "dev:e2e": "NEXT_PUBLIC_SHOW_PAGE_LABELS=true NEXT_PUBLIC_PROTOTYPE_MODE=true next dev --webpack -p 3011",
     "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "build:static": "SATORI_STATIC_EXPORT=true next build --webpack",
     "build:test:static": "NEXT_PUBLIC_SHOW_PAGE_LABELS=true SATORI_STATIC_EXPORT=true next build --webpack",
@@ -15,6 +16,8 @@
     "check:budgets": "node scripts/check-route-budgets.mjs",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/*.test.mjs",
+    "test:responsive": "playwright test e2e/responsive-compatibility.spec.ts",
+    "test:release-regression": "npm run lint && npm test && npm run build:static && npm run test:responsive",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "api:generate": "openapi-typescript ../backend/openapi/openapi.yaml -o src/api/contracts/generated.ts",
@@ -31,6 +34,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
+    "@playwright/test": "^1.55.0",
     "@redocly/cli": "^2.46.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
