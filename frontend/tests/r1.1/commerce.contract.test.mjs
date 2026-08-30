@@ -46,7 +46,7 @@ test("R11-PAY-003：支付提交具有进行中锁且 Fake 支付不会调用微
 
 test("R11-PAY-004：商品价格、资格与支付结果不由前端自行确认", async () => {
   const page = await readFile(new URL("../../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8");
-  assert.match(page, /价格、资格与限购均由服务端确认/);
+  assert.match(page, /最终金额以服务端报价为准/);
   assert.match(page, /服务端正在确认价格与购买资格/);
   assert.match(page, /服务端报价/);
   assert.match(page, /api\.createMoneyOrder\(quote\.quoteId\)/);

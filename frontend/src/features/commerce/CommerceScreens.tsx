@@ -84,6 +84,10 @@ function kindLabel(value: string) {
   return "单次服务";
 }
 
+function productName(value: string) {
+  return value.replace(/\s*·\s*R1\.1体验版/g, "").trim();
+}
+
 function statusLabel(value: string) {
   const labels: Record<string, string> = {
     AWAITING_PAYMENT: "等待支付",
@@ -196,7 +200,7 @@ function OfferingCard({ offering, returnTo = "" }: { offering: ServiceOffering; 
   return (
     <Link className="offering-card fresh-offering-card" href={`${ROUTES.shopDetail}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`}>
       <i>{offering.kind === "SERVICE_PACK" ? "包" : "次"}</i>
-      <span><small>{kindLabel(offering.kind)}</small><strong>{offering.name}</strong><p>{quantity} {offering.benefits[0]?.unit === "COUNT" ? "次" : "份"} · 购买后 {offering.validityDays} 天有效</p></span>
+      <span><small>{kindLabel(offering.kind)}</small><strong>{productName(offering.name)}</strong><p>{quantity} {offering.benefits[0]?.unit === "COUNT" ? "次" : "份"} · 购买后 {offering.validityDays} 天有效</p></span>
       <b>{money(offering.price.amount)}</b>
     </Link>
   );
@@ -225,7 +229,7 @@ export function ShopDetailScreen() {
     ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(offering.offeringVersionId)}`
     : `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`;
   return (
-    <CommerceFrame title={offering.name} eyebrow={kindLabel(offering.kind)}>
+    <CommerceFrame title={productName(offering.name)} eyebrow={kindLabel(offering.kind)}>
       <div className="offering-hero"><span>{serviceLabel(offering.serviceType)}</span><strong>{money(offering.price.amount)}</strong><small>最终金额以服务端报价为准</small></div>
       <section className="detail-facts">
         {offering.benefits.map((benefit, index) => <p key={`${benefit.serviceType}-${index}`}><span>{serviceLabel(benefit.serviceType)}</span><strong>{benefit.quantity} 次</strong></p>)}
@@ -318,7 +322,7 @@ export function CheckoutScreen() {
   return (
     <CommerceFrame title="确认订单" eyebrow="价格与资格确认">
       <div className="checkout-card">
-        <small>{kindLabel(quote.offering.kind)}</small><h2>{quote.offering.name}</h2>
+        <small>{kindLabel(quote.offering.kind)}</small><h2>{productName(quote.offering.name)}</h2>
         <p><span>服务端报价</span><strong>{money(quote.price.amount)}</strong></p>
         <p><span>报价有效至</span><strong>{new Date(quote.expiresAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</strong></p>
         <p><span>支付方式</span><strong>微信支付</strong></p>
@@ -429,7 +433,7 @@ export function OrdersScreen() {
   if (!orders) return <RouteSkeleton label="正在读取订单…" />;
   return (
     <CommerceFrame title="我的订单" eyebrow="服务订单">
-      <div className="order-list">{orders.map((order) => <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{order.offeringSnapshot.name}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <><button onClick={() => void cancel(order.orderId)}>关闭订单</button><Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(order.offeringSnapshot.offeringId)}`}>重新获取报价</Link></> : null}{order.status === "FULFILLED" && order.offeringSnapshot.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>)}</div>
+      <div className="order-list">{orders.map((order) => <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{productName(order.offeringSnapshot.name)}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <><button onClick={() => void cancel(order.orderId)}>关闭订单</button><Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(order.offeringSnapshot.offeringId)}`}>重新获取报价</Link></> : null}{order.status === "FULFILLED" && order.offeringSnapshot.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>)}</div>
       {orders.length === 0 ? <div className="commerce-empty">还没有人民币订单</div> : null}
     </CommerceFrame>
   );
@@ -446,6 +450,8 @@ export function MembershipScreen() {
   const active = membership?.activePeriod ?? periods.find((period) => period.status === "ACTIVE") ?? null;
   const currentRank = active ? PLAN_RANKS.indexOf(active.planCode) : -1;
   const remainingDays = active ? Math.max(0, Math.ceil((new Date(active.endsAt).getTime() - loadedAt) / 86_400_000)) : 0;
+  const visiblePeriods = periods.filter((period) => period.status === "ACTIVE" || period.status === "SCHEDULED");
+  const historyPeriods = periods.filter((period) => period.status !== "ACTIVE" && period.status !== "SCHEDULED");
   return (
     <CommerceFrame title="会员计划" eyebrow="30 天陪伴计划">
       <section className="fresh-membership-hero">
@@ -455,14 +461,14 @@ export function MembershipScreen() {
       </section>
       <div className="fresh-plan-note"><strong>续费与升级</strong><p>续费周期在当前周期结束后依次开始；升级会在新方案安全生效后结束原方案，暂不支持降级。</p></div>
       <div className="fresh-membership-plans">{plans.map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} currentRank={currentRank} />)}</div>
-      {periods.length ? <section className="commerce-section fresh-period-section"><header><h2>周期安排</h2><small>以服务端记录为准</small></header><div className="period-list">{periods.map((period) => <p key={period.periodId}><i>{PLAN_NAMES[period.planCode]}</i><span>{date(period.startsAt)} — {date(period.endsAt)}</span><strong>{statusLabel(period.status)}</strong></p>)}</div></section> : null}
+      {periods.length ? <section className="commerce-section fresh-period-section"><header><h2>会员记录</h2><small>当前与即将生效的计划</small></header>{visiblePeriods.length ? <PeriodList periods={visiblePeriods} /> : <div className="commerce-empty">当前没有正在使用或等待生效的计划</div>}{historyPeriods.length ? <details className="membership-history"><summary>查看过去的会员计划</summary><PeriodList periods={historyPeriods} /></details> : null}</section> : null}
       <div className="fresh-store-boundary"><strong>共同规则</strong><p>权益按会员周期记录，未使用次数到期不结转；会员名称表示陪伴方案，不是身份等级。</p></div>
-      <nav className="commerce-related-links" aria-label="会员相关服务">
-        <Link href={ROUTES.myBenefits}>查看我的权益 <span>→</span></Link>
-        <Link href={ROUTES.myOrders}>查看服务订单 <span>→</span></Link>
-      </nav>
     </CommerceFrame>
   );
+}
+
+function PeriodList({ periods }: { periods: MembershipSubscription["periods"] }) {
+  return <div className="period-list">{periods.map((period) => <p key={period.periodId}><i>{PLAN_NAMES[period.planCode]}</i><span>{date(period.startsAt)} — {date(period.endsAt)}</span><strong>{statusLabel(period.status)}</strong></p>)}</div>;
 }
 
 function MembershipAction({ plan, membership, activePlanCode, currentRank }: { plan: MembershipPlan; membership: MembershipSubscription | null; activePlanCode?: string; currentRank: number }) {
@@ -476,7 +482,7 @@ function MembershipAction({ plan, membership, activePlanCode, currentRank }: { p
   return <Link className={`fresh-membership-plan ${plan.planCode === "SERENITY" ? "recommended" : ""} ${downgrade ? "disabled" : ""}`} aria-disabled={downgrade} href={downgrade ? ROUTES.myMembership : href}>
     {plan.planCode === "SERENITY" ? <em>推荐</em> : null}
     <span>{plan.planCode === "GLOW" ? "光" : plan.planCode === "SERENITY" ? "和" : "自"}</span>
-    <div><small>{PLAN_NAMES[plan.planCode]} · 30 天</small><h2>{plan.name}</h2><p>{benefits}</p><strong>{money(plan.price.amount)}<i> / 30 天</i></strong><b>{downgrade ? "当前不可降级" : renewal ? "续费当前方案 ›" : membership ? "升级方案 ›" : "查看并开通 ›"}</b></div>
+    <div><small>{PLAN_NAMES[plan.planCode]} · 30 天</small><h2>{productName(plan.name)}</h2><p>{benefits}</p><strong>{money(plan.price.amount)}<i> / 30 天</i></strong><b>{downgrade ? "当前不可降级" : renewal ? "续费当前方案 ›" : membership ? "升级方案 ›" : "查看并开通 ›"}</b></div>
   </Link>;
 }
 

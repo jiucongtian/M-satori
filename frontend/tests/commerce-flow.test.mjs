@@ -43,14 +43,23 @@ test("会员、权益和使用记录不向用户暴露英文枚举", async () =>
   assert.doesNotMatch(screens, /<small>\{record\.businessContext\.type\}<\/small>/);
 });
 
-test("商城优先展示真实服务包，会员与订单入口按使用场景呈现", async () => {
+test("会员页只管理会员计划，服务入口统一回到我的", async () => {
+  const screens = await readFile(screensUrl, "utf8");
+  const membership = screens.match(/export function MembershipScreen[\s\S]*?function MembershipAction/)?.[0] ?? "";
+  assert.match(membership, /会员记录/);
+  assert.match(membership, /查看过去的会员计划/);
+  assert.doesNotMatch(membership, /会员相关服务|查看我的权益|查看服务订单/);
+  assert.match(screens, /function productName/);
+});
+
+test("商城优先展示真实服务包，会员入口按使用场景呈现", async () => {
   const screens = await readFile(screensUrl, "utf8");
   const shop = screens.match(/export function ShopScreen[\s\S]*?function OfferingCard/)?.[0] ?? "";
   assert.ok(shop.indexOf("按需选择") < shop.indexOf("月度陪伴"));
   assert.match(shop, /services\.length/);
   assert.match(shop, /服务正在准备中/);
   assert.doesNotMatch(screens, /className="commerce-nav"/);
-  assert.match(screens, /aria-label="会员相关服务"/);
+  assert.match(shop, /fresh-membership-entry/);
 });
 
 test("商业页面遵循项目视觉变量、交互热区与小屏适配规则", async () => {

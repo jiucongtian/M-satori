@@ -1,4 +1,5 @@
 export interface CatalogSeedDefinition {
+  readonly version?: number;
   readonly code: string;
   readonly serviceType: 'DAILY_INSIGHT' | 'CARD_READING';
   readonly offeringKind: 'SINGLE' | 'PACKAGE' | 'MEMBERSHIP';
@@ -74,9 +75,9 @@ export const R11_CATALOG_SEED: readonly (CatalogSeedDefinition & typeof common)[
     purchaseLimit: { recommended: true, displayChannels: ['STORE', 'SHORTAGE'] },
     ...common,
   },
-  membership('glow', '微光计划·R1.1体验版', 1_290, 7, 3, 30, 1_090),
-  membership('serenity', '清和计划·R1.1体验版', 2_490, 15, 5, 80, 2_190, true),
-  membership('freedom', '自在计划·R1.1体验版', 3_990, 30, 8, 168, 3_490),
+  membership('glow', '微光计划', 1_290, 7, 3, 30, 1_090),
+  membership('serenity', '清和计划', 2_490, 15, 5, 80, 2_190, true),
+  membership('freedom', '自在计划', 3_990, 30, 8, 168, 3_490),
 ];
 
 function membership(
@@ -90,6 +91,7 @@ function membership(
   recommended = false,
 ) {
   return {
+    version: 2,
     code: `membership-${code}-r11`,
     serviceType: 'CARD_READING' as const,
     offeringKind: 'MEMBERSHIP' as const,
