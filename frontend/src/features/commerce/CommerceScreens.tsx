@@ -36,6 +36,29 @@ const SOURCE_NAMES: Record<string, string> = {
   MEMBERSHIP: "本期会员权益",
   PURCHASE: "已购买权益",
   COMPLIMENTARY_SEED: "智慧种子额度",
+  PROMOTION: "活动赠送权益",
+  COMPENSATION: "官方补发权益",
+  MIGRATION: "历史权益",
+};
+
+const USAGE_NAMES: Record<string, string> = {
+  GRANT: "获得",
+  RESERVE: "使用中",
+  COMMIT: "已使用",
+  RELEASE: "已退回",
+  REVERSE: "已撤销",
+  EXPIRE: "已过期",
+  FREEZE: "已冻结",
+  UNFREEZE: "已恢复",
+  FORFEIT: "已失效",
+  ADJUSTMENT: "额度调整",
+};
+
+const CONTEXT_NAMES: Record<string, string> = {
+  DAILY_INSIGHT: "今日能量",
+  CARD_READING_INTENT: "抽卡问事",
+  MEMBERSHIP_RENEWAL: "会员续费",
+  MEMBERSHIP_UPGRADE: "会员升级",
 };
 
 function readQuery() {
@@ -75,8 +98,27 @@ function statusLabel(value: string) {
     FAILED: "未完成",
     PENDING: "处理中",
     PROCESSING: "处理中",
+    CREATED: "待处理",
+    NOT_STARTED: "尚未开始",
+    RUNNING: "处理中",
+    RETRY_WAITING: "等待重试",
+    FAILED_FINAL: "处理未完成",
+    REVERSING: "正在退回",
+    REVERSED: "已退回",
+    PARTIALLY_REFUNDED: "部分退款",
+    REQUESTED: "已申请",
+    CANCELLED: "已取消",
+    SCHEDULED: "待生效",
+    ACTIVE: "使用中",
+    EXPIRED: "已结束",
+    TERMINATED_BY_UPGRADE: "升级后已结束",
+    AVAILABLE: "可使用",
+    RESERVED: "使用中",
+    FROZEN: "暂不可用",
+    EXHAUSTED: "已用完",
+    FORFEITED: "已失效",
   };
-  return labels[value] ?? value;
+  return labels[value] ?? "状态更新中";
 }
 
 function CommerceFrame({ title, eyebrow, children }: { title: string; eyebrow?: string; children: ReactNode }) {
@@ -120,7 +162,7 @@ export function ShopScreen() {
   const [offerings, plans, membership] = data;
   const services = offerings.filter((item) => item.kind !== "MEMBERSHIP_PLAN");
   return (
-    <CommerceFrame title="服务商城" eyebrow="SERVICES AVAILABLE NOW">
+    <CommerceFrame title="服务商城" eyebrow="选择服务">
       <section className="fresh-store-hero">
         <h2>选择此刻需要的陪伴</h2>
         <p>每一份服务的内容、次数与有效期，都以后端实时信息为准。</p>
@@ -274,7 +316,7 @@ export function CheckoutScreen() {
   if (error && !quote) return <RouteError message={error} backHref={ROUTES.shop} />;
   if (!quote) return <RouteSkeleton label="服务端正在确认价格与购买资格…" />;
   return (
-    <CommerceFrame title="确认订单" eyebrow="AUTHORITATIVE QUOTE · 15 MINUTES">
+    <CommerceFrame title="确认订单" eyebrow="价格与资格确认">
       <div className="checkout-card">
         <small>{kindLabel(quote.offering.kind)}</small><h2>{quote.offering.name}</h2>
         <p><span>服务端报价</span><strong>{money(quote.price.amount)}</strong></p>
@@ -333,7 +375,7 @@ export function PaymentResultScreen() {
   const failed = ["FAILED", "CLOSED"].includes(payment.status) || order.status === "FULFILLMENT_FAILED";
   const title = fulfilled ? "权益已经到账" : paid ? "支付成功，权益发放中" : failed ? "本次支付未完成" : "正在确认支付结果";
   return (
-    <CommerceFrame title={title} eyebrow="PAYMENT ≠ FULFILLMENT">
+    <CommerceFrame title={title} eyebrow="支付与权益进度">
       <div className={`payment-orbit ${fulfilled ? "success" : failed ? "failed" : "pending"}`}><span>{fulfilled ? "✓" : failed ? "!" : "…"}</span></div>
       <section className="detail-facts">
         <p><span>支付状态</span><strong>{statusLabel(payment.status)}</strong></p>
@@ -358,22 +400,22 @@ export function BenefitsScreen() {
     (all[grant.sourceType] ??= []).push(grant); return all;
   }, {});
   return (
-    <CommerceFrame title="我的服务权益" eyebrow="SEPARATE GRANTS · APPEND ONLY">
-      <p className="commerce-lead">同一权益包不会与其他批次合并或延期；每个批次从购买当天独立按自然日计算。</p>
+    <CommerceFrame title="我的服务权益" eyebrow="服务权益明细">
+      <p className="commerce-lead">每份权益都有自己的使用次数和有效期，可以分别查看。</p>
       {Object.entries(grouped).map(([source, items]) => <section className="benefit-group" key={source}><header><h2>{SOURCE_NAMES[source] ?? source}</h2><span>{items.reduce((sum, item) => sum + item.available, 0)} 次可用</span></header>{items.map((grant) => <GrantCard key={grant.entitlementId} grant={grant} />)}</section>)}
       {grants.length === 0 ? <div className="commerce-empty">还没有可展示的服务权益</div> : null}
-      <section className="commerce-section"><header><h2>最近使用记录</h2><small>账本只追加，不直接改余额</small></header><UsageList records={records} /></section>
+      <section className="commerce-section"><header><h2>最近使用记录</h2><small>查看权益的获得与使用情况</small></header><UsageList records={records} /></section>
     </CommerceFrame>
   );
 }
 
 function GrantCard({ grant }: { grant: EntitlementGrant }) {
-  return <article className="grant-card"><i>{serviceLabel(grant.serviceType).slice(0, 1)}</i><span><strong>{serviceLabel(grant.serviceType)}</strong><small>{date(grant.validFrom)} — {date(grant.expiresAt)}</small><p>{statusLabel(grant.status)} · 已预留 {grant.reserved}</p></span><b>{grant.available}<small> / {grant.total}</small></b></article>;
+  return <article className="grant-card"><i>{serviceLabel(grant.serviceType).slice(0, 1)}</i><span><strong>{serviceLabel(grant.serviceType)}</strong><small>{date(grant.validFrom)} — {date(grant.expiresAt)}</small><p>{statusLabel(grant.status)}{grant.reserved > 0 ? ` · ${grant.reserved} 次正在使用中` : ""}</p></span><b>{grant.available}<small> / {grant.total}</small></b></article>;
 }
 
 function UsageList({ records }: { records: UsageRecord[] }) {
   if (!records.length) return <div className="commerce-empty">暂无使用记录</div>;
-  return <div className="usage-list">{records.slice(0, 20).map((record) => <p key={record.recordId}><i>{record.type}</i><span>{date(record.createdAt)}<small>{record.businessContext.type}</small></span><strong>{record.quantity}</strong></p>)}</div>;
+  return <div className="usage-list">{records.slice(0, 20).map((record) => <p key={record.recordId}><i>{USAGE_NAMES[record.type] ?? "权益变化"}</i><span>{date(record.createdAt)}<small>{CONTEXT_NAMES[record.businessContext.type] ?? "其他服务"}</small></span><strong>{record.quantity}</strong></p>)}</div>;
 }
 
 export function OrdersScreen() {
@@ -386,7 +428,7 @@ export function OrdersScreen() {
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
   if (!orders) return <RouteSkeleton label="正在读取订单…" />;
   return (
-    <CommerceFrame title="我的订单" eyebrow="PAYMENT AND DELIVERY ARE SEPARATE">
+    <CommerceFrame title="我的订单" eyebrow="服务订单">
       <div className="order-list">{orders.map((order) => <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{order.offeringSnapshot.name}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <><button onClick={() => void cancel(order.orderId)}>关闭订单</button><Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(order.offeringSnapshot.offeringId)}`}>重新获取报价</Link></> : null}{order.status === "FULFILLED" && order.offeringSnapshot.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>)}</div>
       {orders.length === 0 ? <div className="commerce-empty">还没有人民币订单</div> : null}
     </CommerceFrame>
@@ -405,7 +447,7 @@ export function MembershipScreen() {
   const currentRank = active ? PLAN_RANKS.indexOf(active.planCode) : -1;
   const remainingDays = active ? Math.max(0, Math.ceil((new Date(active.endsAt).getTime() - loadedAt) / 86_400_000)) : 0;
   return (
-    <CommerceFrame title="会员计划" eyebrow="30 DAYS OF GENTLE COMPANY">
+    <CommerceFrame title="会员计划" eyebrow="30 天陪伴计划">
       <section className="fresh-membership-hero">
         <h2>按你的节奏<br />选择陪伴深度</h2>
         <p>三档计划均包含今日能量与抽卡问事权益，套餐、价格与周期由服务端实时提供。</p>
@@ -455,7 +497,7 @@ export function RefundsScreen() {
   async function check() { setBusy(true); setError(""); try { setQuote(await api.refundQuote(orderId)); } catch (reason) { setError(apiMessage(reason)); } finally { setBusy(false); } }
   async function request() { if (!quote) return; setBusy(true); setError(""); try { const refund = await api.requestRefund(orderId); setRefunds((items) => [refund, ...items.filter((item) => item.refundId !== refund.refundId)]); setQuote(null); } catch (reason) { setError(apiMessage(reason)); } finally { setBusy(false); } }
   return (
-    <CommerceFrame title="普通退款" eyebrow="UNUSED ORDINARY BENEFITS ONLY">
+    <CommerceFrame title="普通退款" eyebrow="未使用服务退款">
       <p className="commerce-lead">仅支持符合商品快照规则、未使用且没有核销预留的普通订单。会员升级原方案剩余权益不属于退款范围。</p>
       {orderId ? <div className="refund-action"><small>订单</small><strong>{orderId}</strong>{quote ? <><p>服务端报价：{money(quote.amount.amount)}</p><p>有效至：{date(quote.expiresAt)}</p><button disabled={busy} onClick={() => void request()}>确认提交普通退款</button></> : <button disabled={busy} onClick={() => void check()}>{busy ? "正在校验…" : "检查退款资格"}</button>}</div> : <div className="commerce-safe-note">请从“我的订单”选择需要检查的普通订单。</div>}
       {error ? <p className="commerce-error" role="alert">{error}</p> : null}
@@ -502,7 +544,7 @@ export function ReadingPrepareScreen() {
   if (!resolution) return <RouteSkeleton label="系统正在按固定规则确认可用权益…" />;
   const selected = resolution.selectedSource;
   return (
-    <CommerceFrame title={selected ? "本次问事权益已确认" : "需要先获得问事权益"} eyebrow="SYSTEM RULE · NO MANUAL SWITCH">
+    <CommerceFrame title={selected ? "本次问事权益已确认" : "需要先获得问事权益"} eyebrow="系统自动选择">
       {selected ? <><div className="resolution-card"><small>系统自动选择</small><h2>{SOURCE_NAMES[selected.sourceType] ?? selected.sourceType}</h2><p>本次使用 {selected.cost} {selected.unit === "WISDOM_SEED" ? "颗智慧种子" : "次权益"}</p>{selected.expiresAt ? <span>该批次有效至 {date(selected.expiresAt)}</span> : null}</div><div className="commerce-safe-note">扣减顺序与来源由系统固定，页面不提供切换入口。正式抽卡后预留进入运行状态。</div><button className="commerce-primary" disabled={busy} onClick={() => void reserve()}>{busy ? "正在锁定权益…" : "确认后进入抽卡"}</button></> : <><div className="commerce-empty">当前会员权益、已购权益包和可用智慧种子均不足。</div><Link className="commerce-primary" href={`${ROUTES.shop}?returnTo=${encodeURIComponent(ROUTES.readingPrepare)}`}>查看问事权益包</Link></>}
       {error ? <p className="commerce-error">{error}</p> : null}
     </CommerceFrame>
