@@ -411,7 +411,7 @@ class SatoriApiClient {
   createPaymentAttempt(orderId: string) {
     return this.command<Schemas["PaymentAttemptEnvelope"]>(`/money-orders/${encodeURIComponent(orderId)}/payment-attempts`, {
       method: "POST",
-      body: JSON.stringify({ provider: "WECHAT_PAY" }),
+      body: JSON.stringify({}),
     }).then((x) => x.data);
   }
 

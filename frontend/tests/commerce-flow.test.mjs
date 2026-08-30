@@ -51,8 +51,11 @@ test("支付结果明确区分资金成功与权益交付完成", async () => {
 });
 
 test("Fake 支付跳过微信收银台并直接进入服务端支付结果轮询", async () => {
-  const screens = await readFile(screensUrl, "utf8");
+  const [screens, client] = await Promise.all([readFile(screensUrl, "utf8"), readFile(clientUrl, "utf8")]);
   const scope = screens.match(/async function submit\(\)[\s\S]*?if \(!ready\)/)?.[0] ?? "";
+  const createAttempt = client.slice(client.indexOf("createPaymentAttempt(orderId"), client.indexOf("paymentAttempt(paymentAttemptId"));
+  assert.doesNotMatch(createAttempt, /provider:\s*["']WECHAT_PAY["']/);
+  assert.match(createAttempt, /JSON\.stringify\(\{\}\)/);
   assert.match(scope, /payment\.provider === ["']WECHAT_PAY["']/);
   assert.match(scope, /invokeWechatPay\(payment\.clientParameters\)/);
   assert.match(scope, /router\.push\(`\$\{ROUTES\.paymentResult\}/);

@@ -1580,10 +1580,10 @@ export interface components {
         };
         CreatePaymentAttemptRequest: {
             /**
-             * @default WECHAT_PAY
+             * @default FAKE
              * @enum {string}
              */
-            provider: "WECHAT_PAY";
+            provider: "WECHAT_PAY" | "FAKE";
         };
         PaymentAttempt: {
             paymentAttemptId: string;
