@@ -33,6 +33,15 @@ test("商城查询只发送后端允许的展示场景参数", async () => {
   assert.doesNotMatch(scope, /limit=/);
 });
 
+test("订单页兼容历史快照且单条异常数据不会导致整页崩溃", async () => {
+  const screens = await readFile(screensUrl, "utf8");
+  assert.match(screens, /function orderOffering/);
+  assert.match(screens, /snapshot\.name \?\? snapshot\.displayName \?\? "服务订单"/);
+  assert.match(screens, /snapshot\.kind/);
+  assert.match(screens, /snapshot\.offeringKind/);
+  assert.doesNotMatch(screens, /productName\(order\.offeringSnapshot\.name\)/);
+});
+
 test("会员、权益和使用记录不向用户暴露英文枚举", async () => {
   const screens = await readFile(screensUrl, "utf8");
   for (const value of ["TERMINATED_BY_UPGRADE", "ACTIVE", "PROMOTION", "COMPENSATION", "MIGRATION", "GRANT", "CARD_READING_INTENT"]) {
