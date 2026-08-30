@@ -52,7 +52,7 @@ function serialize(order: MoneyOrderView) {
     orderId: order.orderId,
     orderNumber: order.orderNumber,
     status: orderStatus(order.status),
-    offeringSnapshot: order.offeringSnapshot,
+    offeringSnapshot: toPublicOfferingSnapshot(order.offeringSnapshot),
     amount: order.amount,
     paymentStatus: order.paymentStatus,
     fulfillmentStatus: fulfillmentStatus(order.fulfillmentStatus),
@@ -61,6 +61,63 @@ function serialize(order: MoneyOrderView) {
     expiresAt: order.expiresAt.toISOString(),
     paidAt: order.paidAt?.toISOString() ?? null,
   };
+}
+
+export function toPublicOfferingSnapshot(snapshot: Readonly<Record<string, unknown>>) {
+  const benefits = asRecord(snapshot.entitlementSpec).benefits;
+  return {
+    offeringId: asString(snapshot.offeringId),
+    offeringVersionId: asString(snapshot.offeringVersionId),
+    offeringVersion: asString(snapshot.offeringVersion),
+    businessSpace: 'C_CONSUMER',
+    code: asString(snapshot.offeringCode),
+    name: asString(snapshot.displayName, '服务订单'),
+    kind:
+      snapshot.offeringKind === 'SINGLE'
+        ? 'SINGLE_SERVICE'
+        : snapshot.offeringKind === 'PACKAGE'
+          ? 'SERVICE_PACK'
+          : snapshot.offeringKind === 'MEMBERSHIP'
+            ? 'MEMBERSHIP_PLAN'
+            : 'SINGLE_SERVICE',
+    serviceType: toPublicServiceType(asString(snapshot.serviceType)),
+    status: 'ACTIVE',
+    price: {
+      amount: Number(snapshot.amountMinor ?? 0),
+      currency: asString(snapshot.currency, 'CNY'),
+    },
+    benefits: Array.isArray(benefits) ? benefits.map(toPublicBenefit) : [],
+    validityDays: Number(snapshot.validityDays ?? 0),
+    purchaseLimit:
+      typeof asRecord(snapshot.purchaseLimit).lifetime === 'number'
+        ? asRecord(snapshot.purchaseLimit).lifetime
+        : null,
+    refundPolicyVersion: asString(snapshot.refundPolicyVersion),
+    agreementVersion: asString(snapshot.termsVersion),
+  };
+}
+
+function toPublicBenefit(value: unknown) {
+  const benefit = asRecord(value);
+  return {
+    serviceType: toPublicServiceType(asString(benefit.serviceType)),
+    unit: 'COUNT',
+    quantity: Number(benefit.quantity ?? 0),
+  };
+}
+
+function toPublicServiceType(value: string) {
+  return value === 'DAILY_INSIGHT' ? 'DAILY_ENERGY' : 'CARD_READING';
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
 }
 
 function orderStatus(status: string) {

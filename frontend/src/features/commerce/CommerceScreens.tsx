@@ -84,6 +84,17 @@ function productName(value: string) {
   return value.replace(/\s*·\s*R1\.1体验版/g, "").trim();
 }
 
+function orderOffering(order: MoneyOrder) {
+  const snapshot = order.offeringSnapshot as unknown as Record<string, unknown>;
+  const publicKind = typeof snapshot.kind === "string" ? snapshot.kind : null;
+  const legacyKind = snapshot.offeringKind;
+  return {
+    offeringId: String(snapshot.offeringId ?? ""),
+    name: productName(String(snapshot.name ?? snapshot.displayName ?? "服务订单")),
+    kind: publicKind ?? (legacyKind === "PACKAGE" ? "SERVICE_PACK" : legacyKind === "MEMBERSHIP" ? "MEMBERSHIP_PLAN" : "SINGLE_SERVICE"),
+  };
+}
+
 function statusLabel(value: string) {
   const labels: Record<string, string> = {
     AWAITING_PAYMENT: "等待支付",
@@ -476,11 +487,11 @@ export function OrdersScreen() {
   }
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
   if (!orders) return <RouteSkeleton label="正在读取订单…" />;
-  const visibleOrders = orders.filter((order) => kind === "all" || (kind === "membership") === (order.offeringSnapshot.kind === "MEMBERSHIP_PLAN"));
+  const visibleOrders = orders.filter((order) => kind === "all" || (kind === "membership") === (orderOffering(order).kind === "MEMBERSHIP_PLAN"));
   const title = kind === "membership" ? "会员订单" : kind === "service" ? "服务订单" : "我的订单";
   return (
     <CommerceFrame title={title} eyebrow="购买记录" backHref={backHref}>
-      <div className="order-list">{visibleOrders.map((order) => <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{productName(order.offeringSnapshot.name)}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <><button onClick={() => void cancel(order.orderId)}>关闭订单</button><Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(order.offeringSnapshot.offeringId)}`}>重新获取报价</Link></> : null}{order.status === "FULFILLED" && order.offeringSnapshot.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>)}</div>
+      <div className="order-list">{visibleOrders.map((order) => { const offering = orderOffering(order); return <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{offering.name}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <><button onClick={() => void cancel(order.orderId)}>关闭订单</button>{offering.offeringId ? <Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}`}>重新获取报价</Link> : null}</> : null}{order.status === "FULFILLED" && offering.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>; })}</div>
       {visibleOrders.length === 0 ? <div className="commerce-empty">这里还没有订单</div> : null}
     </CommerceFrame>
   );
