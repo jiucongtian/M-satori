@@ -126,17 +126,26 @@ export function ShopScreen() {
   const [offerings, plans, membership] = data;
   const services = offerings.filter((item) => item.kind !== "MEMBERSHIP_PLAN");
   return (
-    <CommerceFrame title="选择此刻需要的服务" eyebrow="FRESH SERVICES · SERVER PRICED">
-      <p className="commerce-lead">价格、资格与限购均由服务端确认。智慧种子只用于活动资格，不折算金额，也不与人民币组合支付。</p>
-      <section className="commerce-section">
-        <header><h2>单次与权益包</h2><small>每个权益包独立计算有效期</small></header>
+    <CommerceFrame title="服务商城" eyebrow="SERVICES AVAILABLE NOW">
+      <section className="fresh-store-hero">
+        <h2>只为已经上线的服务<br />选择合适的方式</h2>
+        <p>人民币购买明确服务与使用次数；价格、资格与限购均由服务端确认。</p>
+      </section>
+      <Link className="fresh-membership-entry" href={membership?.activePeriod ? ROUTES.myMembership : ROUTES.serviceMembership}>
+        <span>和</span>
+        <div>
+          <small>30 天月度计划</small>
+          <strong>{plans.map((plan) => PLAN_NAMES[plan.planCode] ?? plan.name).join(" · ")}</strong>
+          <p>{membership?.activePeriod ? `当前正在使用${PLAN_NAMES[membership.activePeriod.planCode]}计划` : "按周期获得今日能量与抽卡问事权益"}</p>
+        </div>
+        <b>{membership?.activePeriod ? "查看与续费 ›" : "比较方案 ›"}</b>
+      </Link>
+      <section className="commerce-section fresh-store-section">
+        <header><h2>按需购买</h2><small>不加入会员也可以使用</small></header>
         <div className="offering-list">{services.map((item) => <OfferingCard key={item.offeringId} offering={item} returnTo={returnTo} />)}</div>
       </section>
-      <section className="commerce-section">
-        <header><h2>30 天会员</h2><small>按方案周期发放服务权益</small></header>
-        <div className="plan-grid">{plans.map((plan) => <PlanCard key={plan.offeringId} plan={plan} hasMembership={Boolean(membership?.activePeriod)} />)}</div>
-      </section>
-      <div className="commerce-safe-note">会员升级会按新方案全额创建新订单；原方案在新方案安全生效后结束，未使用次数不保留。</div>
+      <div className="fresh-store-boundary"><strong>清楚、独立的服务权益</strong><p>会员与服务包分别记录，使用次数和有效期均以后端权益账本为准。智慧种子只用于活动资格，不折算金额，也不与人民币组合支付。</p></div>
+      <Link className="fresh-store-link" href={ROUTES.myBenefits}>查看我的服务权益 <span>→</span></Link>
     </CommerceFrame>
   );
 }
@@ -144,22 +153,10 @@ export function ShopScreen() {
 function OfferingCard({ offering, returnTo = "" }: { offering: ServiceOffering; returnTo?: string }) {
   const quantity = offering.benefits.reduce((sum, benefit) => sum + benefit.quantity, 0);
   return (
-    <Link className="offering-card" href={`${ROUTES.shopDetail}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`}>
+    <Link className="offering-card fresh-offering-card" href={`${ROUTES.shopDetail}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`}>
       <i>{offering.kind === "SERVICE_PACK" ? "包" : "次"}</i>
       <span><small>{kindLabel(offering.kind)}</small><strong>{offering.name}</strong><p>{quantity} {offering.benefits[0]?.unit === "COUNT" ? "次" : "份"} · 购买后 {offering.validityDays} 天有效</p></span>
       <b>{money(offering.price.amount)}</b>
-    </Link>
-  );
-}
-
-function PlanCard({ plan, hasMembership = false }: { plan: MembershipPlan; hasMembership?: boolean }) {
-  return (
-    <Link className="plan-card" href={hasMembership ? ROUTES.myMembership : `${ROUTES.shopDetail}?offeringId=${encodeURIComponent(plan.offeringId)}`}>
-      <small>{PLAN_NAMES[plan.planCode] ?? plan.name}</small>
-      <strong>{money(plan.price.amount)}</strong>
-      <span>30 天</span>
-      <p>{plan.benefits.map((benefit) => `${serviceLabel(benefit.serviceType)} ${benefit.quantity} 次`).join(" · ")}</p>
-      {hasMembership ? <em>前往会员中心办理续费或升级</em> : null}
     </Link>
   );
 }
@@ -397,31 +394,45 @@ export function OrdersScreen() {
   );
 }
 export function MembershipScreen() {
-  const loader = useCallback(() => Promise.all([api.currentMembership(), api.membershipPeriods(), api.membershipPlans()]), []);
+  const loader = useCallback(async () => {
+    const [membership, periods, plans] = await Promise.all([api.currentMembership(), api.membershipPeriods(), api.membershipPlans()]);
+    return { membership, periods, plans, loadedAt: Date.now() };
+  }, []);
   const { data, error } = useLoad(loader, [loader]);
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
   if (!data) return <RouteSkeleton label="正在读取会员周期…" />;
-  const [membership, periods, plans] = data;
+  const { membership, periods, plans, loadedAt } = data;
   const active = membership?.activePeriod ?? periods.find((period) => period.status === "ACTIVE") ?? null;
   const currentRank = active ? PLAN_RANKS.indexOf(active.planCode) : -1;
-  const currentPlan = active ? plans.find((plan) => plan.planCode === active.planCode) ?? null : null;
+  const remainingDays = active ? Math.max(0, Math.ceil((new Date(active.endsAt).getTime() - loadedAt) / 86_400_000)) : 0;
   return (
-    <CommerceFrame title="会员与周期" eyebrow="EACH PERIOD STARTS IN ORDER">
-      {active ? <div className="membership-hero"><small>当前方案</small><h2>{PLAN_NAMES[active.planCode]}</h2><p>{date(active.startsAt)} — {date(active.endsAt)}</p><span>本期未使用权益到期不结转</span></div> : <div className="commerce-empty">当前没有生效中的会员周期</div>}
-      {periods.length ? <section className="commerce-section"><header><h2>周期安排</h2><small>续费周期依次开始</small></header><div className="period-list">{periods.map((period) => <p key={period.periodId}><i>{PLAN_NAMES[period.planCode]}</i><span>{date(period.startsAt)} — {date(period.endsAt)}</span><strong>{statusLabel(period.status)}</strong></p>)}</div></section> : null}
-      {active && currentPlan ? <section className="commerce-section"><header><h2>续费当前方案</h2><small>新周期在已有周期结束后依次开始</small></header><div className="plan-grid"><MembershipAction plan={currentPlan} membership={membership} activePlanCode={active.planCode} /></div></section> : null}
-      <section className="commerce-section"><header><h2>{active ? "升级方案" : "选择会员方案"}</h2><small>{active ? "仅支持升级到更高方案" : "支付交付后立即开始"}</small></header><div className="plan-grid">{plans.filter((plan) => !active || PLAN_RANKS.indexOf(plan.planCode) > currentRank).map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} />)}</div></section>
-      {active ? <div className="upgrade-notice"><strong>替换式升级</strong><p>新方案按全额新订单支付。新方案安全生效后，原方案结束，剩余次数不保留。</p></div> : null}
+    <CommerceFrame title="会员计划" eyebrow="30 DAYS OF GENTLE COMPANY">
+      <section className="fresh-membership-hero">
+        <h2>按你的节奏<br />选择陪伴深度</h2>
+        <p>三档计划均包含今日能量与抽卡问事权益，套餐、价格与周期由服务端实时提供。</p>
+        {active ? <div><span>当前计划</span><strong>{PLAN_NAMES[active.planCode]}计划</strong><b>还剩 {remainingDays} 天</b></div> : <div><span>当前计划</span><strong>尚未开通</strong><b>选择后开始</b></div>}
+      </section>
+      <div className="fresh-plan-note"><strong>续费与升级</strong><p>续费周期在当前周期结束后依次开始；升级会在新方案安全生效后结束原方案，暂不支持降级。</p></div>
+      <div className="fresh-membership-plans">{plans.map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} currentRank={currentRank} />)}</div>
+      {periods.length ? <section className="commerce-section fresh-period-section"><header><h2>周期安排</h2><small>以服务端记录为准</small></header><div className="period-list">{periods.map((period) => <p key={period.periodId}><i>{PLAN_NAMES[period.planCode]}</i><span>{date(period.startsAt)} — {date(period.endsAt)}</span><strong>{statusLabel(period.status)}</strong></p>)}</div></section> : null}
+      <div className="fresh-store-boundary"><strong>共同规则</strong><p>权益按会员周期记录，未使用次数到期不结转；会员名称表示陪伴方案，不是身份等级。</p></div>
     </CommerceFrame>
   );
 }
 
-function MembershipAction({ plan, membership, activePlanCode }: { plan: MembershipPlan; membership: MembershipSubscription | null; activePlanCode?: string }) {
+function MembershipAction({ plan, membership, activePlanCode, currentRank }: { plan: MembershipPlan; membership: MembershipSubscription | null; activePlanCode?: string; currentRank: number }) {
   const renewal = Boolean(membership && activePlanCode === plan.planCode);
-  const href = membership && !renewal
+  const rank = PLAN_RANKS.indexOf(plan.planCode);
+  const downgrade = Boolean(membership && rank < currentRank);
+  const href = membership && !renewal && !downgrade
     ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(plan.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(plan.offeringVersionId)}`
     : `${ROUTES.checkout}?offeringId=${encodeURIComponent(plan.offeringId)}`;
-  return <Link className="plan-card" href={href}><small>{PLAN_NAMES[plan.planCode]}</small><strong>{money(plan.price.amount)}</strong><p>{renewal ? "续费并排入后续周期" : membership ? "升级并结束原方案" : "开通 30 天会员"}</p></Link>;
+  const benefits = plan.benefits.map((benefit) => `${serviceLabel(benefit.serviceType)} ${benefit.quantity} 次`).join(" ＋ ");
+  return <Link className={`fresh-membership-plan ${plan.planCode === "SERENITY" ? "recommended" : ""} ${downgrade ? "disabled" : ""}`} aria-disabled={downgrade} href={downgrade ? ROUTES.myMembership : href}>
+    {plan.planCode === "SERENITY" ? <em>推荐</em> : null}
+    <span>{plan.planCode === "GLOW" ? "光" : plan.planCode === "SERENITY" ? "和" : "自"}</span>
+    <div><small>{PLAN_NAMES[plan.planCode]} · 30 天</small><h2>{plan.name}</h2><p>{benefits}</p><strong>{money(plan.price.amount)}<i> / 30 天</i></strong><b>{downgrade ? "当前不可降级" : renewal ? "续费当前方案 ›" : membership ? "升级方案 ›" : "查看并开通 ›"}</b></div>
+  </Link>;
 }
 
 function membershipPlanCode(code: string): MembershipPlan["planCode"] | null {
