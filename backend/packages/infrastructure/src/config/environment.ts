@@ -17,7 +17,7 @@ const environmentShape = {
   CORS_ORIGINS: z.string().default('http://localhost:3001'),
   CURSOR_SIGNING_SECRET: z.string().min(16).default('development-cursor-secret'),
   SEED_BATCH_READ_MODE: z.enum(['LEGACY', 'SHADOW', 'BATCH']).default('LEGACY'),
-  DAILY_INSIGHT_CONSUMPTION_MODE: z.enum(['LEGACY', 'SHADOW', 'UNIFIED']).default('LEGACY'),
+  DAILY_INSIGHT_CONSUMPTION_MODE: z.enum(['LEGACY', 'SHADOW', 'UNIFIED']).default('UNIFIED'),
   R11_CATALOG_PRICING_ENABLED: booleanFromString,
   R11_ENTITLEMENT_CONSUMPTION_ENABLED: booleanFromString,
   R11_NEW_ORDERS_ENABLED: booleanFromString,

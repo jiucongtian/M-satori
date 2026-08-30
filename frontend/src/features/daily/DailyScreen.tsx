@@ -90,8 +90,8 @@ export default function DailyScreen() {
   const energy = home?.dailyEnergySummary.data?.energyLevel;
   let body;
   if (machine.state === "loading") body = <div className="legal-state" aria-live="polite"><i>芽</i><p>正在恢复今天的指引…</p></div>;
-  else if (machine.state === "start") body = <DailyStart name={name} energyLevel={energy} balance={balance} onBack={() => router.push(ROUTES.home)} onNext={() => dispatch({ type: "CONFIRM_COST" })} />;
-  else if (machine.state === "confirming-cost") body = <SeedPayment balance={balance} busy={busy} onBack={() => dispatch({ type: "RESTORE_START" })} onNext={() => void create()} onSupport={() => router.push(ROUTES.mySupport)} />;
+  else if (machine.state === "start") body = <DailyStart name={name} energyLevel={energy} balance={balance} costLabel="1 次今日能量权益" onBack={() => router.push(ROUTES.home)} onNext={() => dispatch({ type: "CONFIRM_COST" })} />;
+  else if (machine.state === "confirming-cost") body = <SeedPayment balance={balance} busy={busy} unified onBack={() => dispatch({ type: "RESTORE_START" })} onNext={() => void create()} onSupport={() => router.push(ROUTES.mySupport)} />;
   else if (machine.state === "generating") body = <DailyGenerating name={name} balance={balance} onBack={() => router.push(ROUTES.home)} />;
   else body = <div className="legal-state legal-error" role="alert"><i>!</i><h1>今日指引暂时没有完成</h1><p>{error || "可以安全重试，不会重复扣除智慧种子。"}</p><button onClick={() => dispatch({ type: "RETRY" })}>返回重试</button></div>;
 

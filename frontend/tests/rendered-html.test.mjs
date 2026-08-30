@@ -174,7 +174,7 @@ test("R1.0 智慧种子统一为不可交易的 AI 体验额度，赠送页不�
   const daily = page.match(/function SeedPayment[\s\S]*?\n}\n/)?.[0] ?? "";
   const seeds = page.match(/function MySeeds[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.doesNotMatch(gift, /智慧种子是平台免费赠送、会员附赠或学院配置的 AI 体验额度/);
-  assert.match(daily, /确认后将预留体验额度/);
+  assert.match(daily, /确认后由服务端预留/);
   assert.match(daily, /未形成有效内容会自动恢复/);
   assert.match(daily, /AI 体验额度不足/);
   assert.match(seeds, /可用 AI 体验额度/);
@@ -711,6 +711,19 @@ test("R1.0 DAILY-01—03 始终展示真实智慧种子余额", async () => {
   assert.match(payment, /const syncing = balance === null/);
   assert.match(payment, /disabled=\{busy \|\| syncing\}/);
   assert.match(createDaily, /await loadOverview\(\);/);
+});
+
+test("R1.1 每日能量由服务端按固定顺序选择会员、权益包或智慧种子", async () => {
+  const [daily, legacy, environment] = await Promise.all([
+    readFile(new URL("../src/features/daily/DailyScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../backend/packages/infrastructure/src/config/environment.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(daily, /costLabel="1 次今日能量权益"/);
+  assert.match(daily, /<SeedPayment[^>]*unified/);
+  assert.match(legacy, /会员 → 权益包 → 智慧种子/);
+  assert.match(legacy, /成功核销，失败自动释放/);
+  assert.match(environment, /DAILY_INSIGHT_CONSUMPTION_MODE:[\s\S]*default\('UNIFIED'\)/);
 });
 
 test("MY-18 不再通过页面内容硬编码调试编号", async () => {

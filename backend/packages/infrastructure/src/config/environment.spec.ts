@@ -24,6 +24,7 @@ describe('runtime baseline', () => {
     expect(environment.R11_ORDINARY_REFUNDS_ENABLED).toBe(false);
     expect(environment.R11_MEMBERSHIP_UPGRADES_ENABLED).toBe(false);
     expect(environment.FAKE_PAYMENT_RESULT).toBe('PENDING');
+    expect(environment.DAILY_INSIGHT_CONSUMPTION_MODE).toBe('UNIFIED');
   });
 
   it('rejects invalid configuration', () => {
