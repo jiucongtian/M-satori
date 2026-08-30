@@ -87,17 +87,11 @@ function CommerceFrame({ title, eyebrow, children }: { title: string; eyebrow?: 
           <header className="commerce-topbar">
             <Link href={ROUTES.my} aria-label="返回我的">‹</Link>
             <span>初见 · FRESH</span>
-            <Link href={ROUTES.shop} aria-label="进入商城">商</Link>
+            <i aria-hidden="true" />
           </header>
           {eyebrow ? <p className="commerce-eyebrow">{eyebrow}</p> : null}
           <h1>{title}</h1>
           {children}
-          <nav className="commerce-nav" aria-label="商业服务导航">
-            <Link href={ROUTES.shop}>商城</Link>
-            <Link href={ROUTES.myBenefits}>权益</Link>
-            <Link href={ROUTES.myOrders}>订单</Link>
-            <Link href={ROUTES.myMembership}>会员</Link>
-          </nav>
         </section>
       </RouteFrame>
     </ProtectedRoute>
@@ -128,21 +122,26 @@ export function ShopScreen() {
   return (
     <CommerceFrame title="服务商城" eyebrow="SERVICES AVAILABLE NOW">
       <section className="fresh-store-hero">
-        <h2>只为已经上线的服务<br />选择合适的方式</h2>
-        <p>人民币购买明确服务与使用次数；价格、资格与限购均由服务端确认。</p>
+        <h2>选择此刻需要的陪伴</h2>
+        <p>每一份服务的内容、次数与有效期，都以后端实时信息为准。</p>
       </section>
-      <Link className="fresh-membership-entry" href={membership?.activePeriod ? ROUTES.myMembership : ROUTES.serviceMembership}>
-        <span>和</span>
-        <div>
-          <small>30 天月度计划</small>
-          <strong>{plans.map((plan) => PLAN_NAMES[plan.planCode] ?? plan.name).join(" · ")}</strong>
-          <p>{membership?.activePeriod ? `当前正在使用${PLAN_NAMES[membership.activePeriod.planCode]}计划` : "按周期获得今日能量与抽卡问事权益"}</p>
-        </div>
-        <b>{membership?.activePeriod ? "查看与续费 ›" : "比较方案 ›"}</b>
-      </Link>
       <section className="commerce-section fresh-store-section">
-        <header><h2>按需购买</h2><small>不加入会员也可以使用</small></header>
-        <div className="offering-list">{services.map((item) => <OfferingCard key={item.offeringId} offering={item} returnTo={returnTo} />)}</div>
+        <header><h2>按需选择</h2><small>单独购买，独立使用</small></header>
+        {services.length
+          ? <div className="offering-list">{services.map((item) => <OfferingCard key={item.offeringId} offering={item} returnTo={returnTo} />)}</div>
+          : <div className="commerce-empty">服务正在准备中，请稍后再来看看。</div>}
+      </section>
+      <section className="commerce-section fresh-membership-section">
+        <header><h2>月度陪伴</h2><small>持续使用可以选择会员计划</small></header>
+        <Link className="fresh-membership-entry" href={membership?.activePeriod ? ROUTES.myMembership : ROUTES.serviceMembership}>
+          <span>和</span>
+          <div>
+            <small>30 天月度计划</small>
+            <strong>{plans.map((plan) => PLAN_NAMES[plan.planCode] ?? plan.name).join(" · ")}</strong>
+            <p>{membership?.activePeriod ? `当前正在使用${PLAN_NAMES[membership.activePeriod.planCode]}计划` : "按周期获得今日能量与抽卡问事权益"}</p>
+          </div>
+          <b>{membership?.activePeriod ? "查看与续费 ›" : "比较方案 ›"}</b>
+        </Link>
       </section>
       <div className="fresh-store-boundary"><strong>清楚、独立的服务权益</strong><p>会员与服务包分别记录，使用次数和有效期均以后端权益账本为准。智慧种子只用于活动资格，不折算金额，也不与人民币组合支付。</p></div>
       <Link className="fresh-store-link" href={ROUTES.myBenefits}>查看我的服务权益 <span>→</span></Link>
@@ -416,6 +415,10 @@ export function MembershipScreen() {
       <div className="fresh-membership-plans">{plans.map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} currentRank={currentRank} />)}</div>
       {periods.length ? <section className="commerce-section fresh-period-section"><header><h2>周期安排</h2><small>以服务端记录为准</small></header><div className="period-list">{periods.map((period) => <p key={period.periodId}><i>{PLAN_NAMES[period.planCode]}</i><span>{date(period.startsAt)} — {date(period.endsAt)}</span><strong>{statusLabel(period.status)}</strong></p>)}</div></section> : null}
       <div className="fresh-store-boundary"><strong>共同规则</strong><p>权益按会员周期记录，未使用次数到期不结转；会员名称表示陪伴方案，不是身份等级。</p></div>
+      <nav className="commerce-related-links" aria-label="会员相关服务">
+        <Link href={ROUTES.myBenefits}>查看我的权益 <span>→</span></Link>
+        <Link href={ROUTES.myOrders}>查看服务订单 <span>→</span></Link>
+      </nav>
     </CommerceFrame>
   );
 }
