@@ -149,11 +149,23 @@ test("R1.1 我的页面展示商业闭环且不混入后续报告产品", async 
   assert.match(myHome, /生命智慧档案库/);
   assert.match(myHome, /智慧种子/);
   assert.match(myHome, /当前可用权益/);
-  assert.match(myHome, /清和计划/);
+  assert.match(myHome, /serviceSummary\?\.membership/);
+  assert.match(myHome, /选择会员计划/);
   assert.match(myHome, /会员计划/);
   assert.match(myHome, /服务商城/);
   assert.match(myHome, /服务订单/);
   assert.doesNotMatch(myHome, /助学童子|生命之光|月运|年运|关系匹配/);
+});
+
+test("R1.1 我的首页会员与服务权益来自后端事实", async () => {
+  const my = await readFile(new URL("../src/features/my/MyScreens.tsx", import.meta.url), "utf8");
+  const legacy = await readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
+  assert.match(my, /api\.currentMembership\(\)/);
+  assert.match(my, /api\.entitlements\(\)/);
+  assert.match(my, /toMyServiceSummary\(membership,entitlements\)/);
+  assert.match(legacy, /serviceSummary\?\.membership/);
+  assert.match(legacy, /当前尚未开通会员/);
+  assert.doesNotMatch(my, /剩余 18 天|12<em> \/ 15次|4<em> \/ 5份/);
 });
 
 test("R1.0 智慧种子统一为不可交易的 AI 体验额度，赠送页不重复展示说明", async () => {
