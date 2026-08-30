@@ -2,6 +2,36 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { PageDebugLabel } from "./ui";
+
+const ROUTE_DEBUG_LABELS: Record<string, string> = {
+  "/my": "R1.1 · MY-01",
+  "/my/profile": "R1.1 · MY-02",
+  "/my/archive": "R1.1 · MY-09",
+  "/my/seeds": "R1.1 · SEED-01",
+  "/my/benefits": "R1.1 · SEED-02",
+  "/my/membership": "R1.1 · SHOP-02",
+  "/my/orders": "R1.1 · ORDER-01",
+  "/my/orders/demo": "R1.1 · ORDER-02",
+  "/my/refunds": "R1.1 · ORDER-03",
+  "/my/refunds/new": "R1.1 · ORDER-04",
+  "/my/refunds/status": "R1.1 · ORDER-05",
+  "/my/reports": "R1.1 · MY-03",
+  "/my/support": "R1.1 · MY-08",
+  "/my/growth-records": "R1.1 · MY-19",
+  "/services": "R1.1 · SHOP-01",
+  "/services/membership": "R1.1 · SHOP-02",
+  "/services/membership/detail": "R1.1 · SHOP-03",
+  "/services/energy-pack": "R1.1 · GOODS-01",
+  "/services/reading-pack": "R1.1 · GOODS-02",
+  "/shop": "R1.1 · SHOP-01",
+  "/shop/detail": "R1.1 · SHOP-04",
+  "/checkout": "R1.1 · ORDER-01",
+  "/checkout/pay": "R1.1 · ORDER-02",
+  "/checkout/result": "R1.1 · ORDER-03",
+  "/payment/result": "R1.1 · ORDER-03",
+  "/reading/prepare": "R1.1 · READ-03",
+};
 
 export function RouteFrame({ title, label, children, mode = "profile-mode" }: { title: string; label: string; children: ReactNode; mode?: string }) {
   const headingRef = useRef<HTMLElement>(null);
@@ -13,6 +43,7 @@ export function RouteFrame({ title, label, children, mode = "profile-mode" }: { 
   return <main className="stage">
     <section ref={headingRef} tabIndex={-1} className={`phone ${mode}`} aria-label={label}>
       <div className="ambient ambient-one" /><div className="ambient ambient-two" />
+      {ROUTE_DEBUG_LABELS[pathname] ? <PageDebugLabel>{ROUTE_DEBUG_LABELS[pathname]}</PageDebugLabel> : null}
       {children}
     </section>
   </main>;

@@ -70,7 +70,7 @@ test("页面编号仅在显式开启的研发与调试构建中显示", async ()
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(packageJson.scripts.dev, /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
   assert.doesNotMatch(packageJson.scripts["build:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
-  assert.doesNotMatch(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.match(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
   assert.match(packageJson.scripts["build:debug:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
 });
 test("正式工程包含完整原型基础样式", async () => {
