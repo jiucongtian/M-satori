@@ -148,12 +148,12 @@ test("R1.1 我的页面展示商业闭环且不混入后续报告产品", async 
   assert.doesNotMatch(myHome, /成长记录|每日指引记录/);
   assert.match(myHome, /生命智慧档案库/);
   assert.match(myHome, /智慧种子/);
-  assert.match(myHome, /当前可用权益/);
+  assert.match(myHome, /我的权益/);
   assert.match(myHome, /serviceSummary\?\.membership/);
   assert.match(myHome, /选择会员计划/);
   assert.match(myHome, /会员计划/);
   assert.match(myHome, /服务商城/);
-  assert.match(myHome, /服务订单/);
+  assert.match(myHome, /我的订单/);
   assert.doesNotMatch(myHome, /助学童子|生命之光|月运|年运|关系匹配/);
 });
 
@@ -494,6 +494,17 @@ test("R1.1 我的页面以服务权益为主并降低赠送体验额度层级", 
   assert.match(css, /\.my-seed-credit-secondary\{/);
 });
 
+test("SEED-01 使用可滚动的自适应布局与统一字号层级", async () => {
+  const [page, css] = await Promise.all([readPageSources(), readCssSources()]);
+  const seeds = page.match(/export function MySeeds[\s\S]*?export function MyReports/)?.[0] ?? "";
+  assert.match(seeds, /my-seeds-page/);
+  assert.match(seeds, /role="tablist"/);
+  assert.match(seeds, /aria-selected=\{tab===x\}/);
+  assert.match(css, /\.my-seeds-page\{[^}]*overflow-y:auto/);
+  assert.match(css, /\.my-seeds-page \.asset-tabs button\{[^}]*min-height:44px/);
+  assert.match(css, /\.my-seeds-page \.asset-list strong\{[^}]*var\(--type-body\)/);
+});
+
 test("MY-01 明确提示生命智慧档案库可以进入", async () => {
   const page = await readPageSources();
   const myHome = page.match(/function MyHome[\s\S]*?\n}/)?.[0] ?? "";
@@ -509,10 +520,11 @@ test("R1.1 商业闭环只销售已上线服务并使用确认价格", async () 
   ]);
   assert.match(catalog, /今日能量·10次体验[\s\S]*?amountMinor: 990/);
   assert.match(catalog, /抽卡问事·10次包[\s\S]*?amountMinor: 5_990/);
-  assert.match(catalog, /membership\('glow', '微光计划·R1\.1体验版', 1_290/);
-  assert.match(catalog, /membership\('serenity', '清和计划·R1\.1体验版', 2_490/);
-  assert.match(catalog, /membership\('freedom', '自在计划·R1\.1体验版', 3_990/);
-  assert.match(commerce, /价格、资格与限购均由服务端确认/);
+  assert.match(catalog, /membership\('glow', '微光计划', 1_290/);
+  assert.match(catalog, /membership\('serenity', '清和计划', 2_490/);
+  assert.match(catalog, /membership\('freedom', '自在计划', 3_990/);
+  assert.doesNotMatch(catalog, /R1\.1体验版/);
+  assert.match(commerce, /最终金额以服务端报价为准/);
   assert.doesNotMatch(commerce, /const PRODUCTS|price:"¥/);
 });
 

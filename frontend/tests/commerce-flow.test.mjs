@@ -26,14 +26,40 @@ test("R1.1 商业页面全部使用真实 API 且不在前端计算价格", asyn
   assert.doesNotMatch(screens, /price\s*\*|amount\s*\*|seed.*rate|exchangeRate/i);
 });
 
-test("商城优先展示真实服务包，会员与订单入口按使用场景呈现", async () => {
+test("商城查询只发送后端允许的展示场景参数", async () => {
+  const client = await readFile(clientUrl, "utf8");
+  const scope = client.match(/serviceOfferings\(\)[\s\S]*?serviceOffering\(offeringId/)?.[0] ?? "";
+  assert.match(scope, /service-offerings\?context=STORE/);
+  assert.doesNotMatch(scope, /limit=/);
+});
+
+test("会员、权益和使用记录不向用户暴露英文枚举", async () => {
+  const screens = await readFile(screensUrl, "utf8");
+  for (const value of ["TERMINATED_BY_UPGRADE", "ACTIVE", "PROMOTION", "COMPENSATION", "MIGRATION", "GRANT", "CARD_READING_INTENT"]) {
+    assert.match(screens, new RegExp(`${value}:[^\\n]*[\\u4e00-\\u9fff]`));
+  }
+  assert.match(screens, /return labels\[value\] \?\? "状态更新中"/);
+  assert.doesNotMatch(screens, /<i>\{record\.type\}<\/i>/);
+  assert.doesNotMatch(screens, /<small>\{record\.businessContext\.type\}<\/small>/);
+});
+
+test("会员页只管理会员计划，服务入口统一回到我的", async () => {
+  const screens = await readFile(screensUrl, "utf8");
+  const membership = screens.match(/export function MembershipScreen[\s\S]*?function MembershipAction/)?.[0] ?? "";
+  assert.match(membership, /会员记录/);
+  assert.match(membership, /查看过去的会员计划/);
+  assert.doesNotMatch(membership, /会员相关服务|查看我的权益|查看服务订单/);
+  assert.match(screens, /function productName/);
+});
+
+test("商城优先展示真实服务包，会员入口按使用场景呈现", async () => {
   const screens = await readFile(screensUrl, "utf8");
   const shop = screens.match(/export function ShopScreen[\s\S]*?function OfferingCard/)?.[0] ?? "";
   assert.ok(shop.indexOf("按需选择") < shop.indexOf("月度陪伴"));
   assert.match(shop, /services\.length/);
   assert.match(shop, /服务正在准备中/);
   assert.doesNotMatch(screens, /className="commerce-nav"/);
-  assert.match(screens, /aria-label="会员相关服务"/);
+  assert.match(shop, /fresh-membership-entry/);
 });
 
 test("商业页面遵循项目视觉变量、交互热区与小屏适配规则", async () => {

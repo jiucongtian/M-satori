@@ -371,7 +371,7 @@ class SatoriApiClient {
   profileGroups() { return PROTOTYPE_MODE ? prototypeResult([] as ProfileGroup[]) : this.request<Schemas["ProfileGroupListEnvelope"]>("/me/life-profile-groups").then((x) => x.data); }
 
   serviceOfferings() {
-    return this.request<Schemas["ServiceOfferingListEnvelope"]>("/service-offerings?limit=50").then((x) => x.data);
+    return this.request<Schemas["ServiceOfferingListEnvelope"]>("/service-offerings?context=STORE").then((x) => x.data);
   }
 
   serviceOffering(offeringId: string) {

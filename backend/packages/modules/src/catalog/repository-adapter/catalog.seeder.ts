@@ -7,6 +7,7 @@ import { R11_CATALOG_SEED } from '../domain/seed-data.js';
 export async function seedR11CommerceCatalog(database: Database) {
   await database.transaction(async (tx) => {
     for (const definition of R11_CATALOG_SEED) {
+      const catalogVersion = definition.version ?? 1;
       let [offering] = await tx
         .select()
         .from(serviceOfferings)
@@ -30,7 +31,7 @@ export async function seedR11CommerceCatalog(database: Database) {
       let [version] = await tx
         .select()
         .from(offeringVersions)
-        .where(and(eq(offeringVersions.offeringId, offering.id), eq(offeringVersions.version, 1)))
+        .where(and(eq(offeringVersions.offeringId, offering.id), eq(offeringVersions.version, catalogVersion)))
         .limit(1);
       if (!version) {
         [version] = await tx
@@ -38,7 +39,7 @@ export async function seedR11CommerceCatalog(database: Database) {
           .values({
             id: randomUUID(),
             offeringId: offering.id,
-            version: 1,
+            version: catalogVersion,
             status: 'PUBLISHED',
             displayName: definition.displayName,
             description: definition.description,
