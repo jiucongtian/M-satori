@@ -19,7 +19,7 @@ import {
   type UsageRecord,
 } from "@/src/api/client";
 import { ProtectedRoute } from "@/src/shared/guards";
-import { ROUTES } from "@/src/shared/routes";
+import { ROUTES, safeReturnPath, withReturnPath, type AppPath } from "@/src/shared/routes";
 import { RouteError, RouteFrame, RouteSkeleton } from "@/src/shared/shell";
 import { apiMessage } from "@/src/shared/ui";
 import {
@@ -33,25 +33,12 @@ import { invokeWechatPay } from "./wechatPay";
 const PLAN_NAMES: Record<string, string> = { GLOW: "微光", SERENITY: "清和", FREEDOM: "自在" };
 const PLAN_RANKS = ["GLOW", "SERENITY", "FREEDOM"] as const;
 const SOURCE_NAMES: Record<string, string> = {
-  MEMBERSHIP: "本期会员权益",
-  PURCHASE: "已购买权益",
-  COMPLIMENTARY_SEED: "智慧种子额度",
-  PROMOTION: "活动赠送权益",
-  COMPENSATION: "官方补发权益",
-  MIGRATION: "历史权益",
-};
-
-const USAGE_NAMES: Record<string, string> = {
-  GRANT: "获得",
-  RESERVE: "使用中",
-  COMMIT: "已使用",
-  RELEASE: "已退回",
-  REVERSE: "已撤销",
-  EXPIRE: "已过期",
-  FREEZE: "已冻结",
-  UNFREEZE: "已恢复",
-  FORFEIT: "已失效",
-  ADJUSTMENT: "额度调整",
+  MEMBERSHIP: "会员计划内可用次数",
+  PURCHASE: "单独购买的服务次数",
+  COMPLIMENTARY_SEED: "赠送的智慧种子额度",
+  PROMOTION: "活动赠送的服务次数",
+  COMPENSATION: "官方补发的服务次数",
+  MIGRATION: "历史服务次数",
 };
 
 const CONTEXT_NAMES: Record<string, string> = {
@@ -59,6 +46,15 @@ const CONTEXT_NAMES: Record<string, string> = {
   CARD_READING_INTENT: "抽卡问事",
   MEMBERSHIP_RENEWAL: "会员续费",
   MEMBERSHIP_UPGRADE: "会员升级",
+  ENTITLEMENT_GRANT: "服务次数发放",
+  ENTITLEMENT_SOURCE: "服务次数批次",
+  OPERATOR_ADJUSTMENT: "官方调整",
+  MEMBERSHIP: "会员计划",
+  PURCHASE: "单独购买",
+  COMPLIMENTARY_SEED: "智慧种子赠送",
+  PROMOTION: "活动赠送",
+  COMPENSATION: "官方补发",
+  MIGRATION: "历史记录迁移",
 };
 
 function readQuery() {
@@ -114,24 +110,24 @@ function statusLabel(value: string) {
     CANCELLED: "已取消",
     SCHEDULED: "待生效",
     ACTIVE: "使用中",
-    EXPIRED: "已结束",
+    EXPIRED: "已到期",
     TERMINATED_BY_UPGRADE: "升级后已结束",
     AVAILABLE: "可使用",
     RESERVED: "使用中",
     FROZEN: "暂不可用",
     EXHAUSTED: "已用完",
-    FORFEITED: "已失效",
+    FORFEITED: "因权益变更已结束",
   };
   return labels[value] ?? "状态更新中";
 }
 
-function CommerceFrame({ title, eyebrow, children }: { title: string; eyebrow?: string; children: ReactNode }) {
+function CommerceFrame({ title, eyebrow, backHref = ROUTES.my, children }: { title: string; eyebrow?: string; backHref?: string; children: ReactNode }) {
   return (
     <ProtectedRoute>
       <RouteFrame title={title} label={title} mode="commerce-mode">
         <section className="r11-commerce">
           <header className="commerce-topbar">
-            <Link href={ROUTES.my} aria-label="返回我的">‹</Link>
+            <Link href={backHref} aria-label="返回上一页">‹</Link>
             <span>初见 · FRESH</span>
             <i aria-hidden="true" />
           </header>
@@ -142,6 +138,15 @@ function CommerceFrame({ title, eyebrow, children }: { title: string; eyebrow?: 
       </RouteFrame>
     </ProtectedRoute>
   );
+}
+
+function useCommerceBack(fallback: AppPath) {
+  const [backHref, setBackHref] = useState<AppPath>(fallback);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setBackHref(safeReturnPath(readQuery().get("from"), fallback)), 0);
+    return () => window.clearTimeout(timer);
+  }, [fallback]);
+  return backHref;
 }
 
 function useLoad<T>(loader: () => Promise<T>, dependencies: readonly unknown[] = []) {
@@ -158,6 +163,7 @@ function useLoad<T>(loader: () => Promise<T>, dependencies: readonly unknown[] =
 
 export function ShopScreen() {
   const [returnTo, setReturnTo] = useState("");
+  const backHref = useCommerceBack(ROUTES.my);
   useEffect(() => { const timer = window.setTimeout(() => setReturnTo(readQuery().get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ""), 0); return () => window.clearTimeout(timer); }, []);
   const loader = useCallback(() => Promise.all([api.serviceOfferings(), api.membershipPlans(), api.currentMembership()]), []);
   const { data, error } = useLoad(loader, [loader]);
@@ -166,7 +172,7 @@ export function ShopScreen() {
   const [offerings, plans, membership] = data;
   const services = offerings.filter((item) => item.kind !== "MEMBERSHIP_PLAN");
   return (
-    <CommerceFrame title="服务商城" eyebrow="选择服务">
+    <CommerceFrame title="服务商城" eyebrow="选择服务" backHref={backHref}>
       <section className="fresh-store-hero">
         <h2>选择此刻需要的陪伴</h2>
         <p>每一份服务的内容、次数与有效期，都以后端实时信息为准。</p>
@@ -179,7 +185,7 @@ export function ShopScreen() {
       </section>
       <section className="commerce-section fresh-membership-section">
         <header><h2>月度陪伴</h2><small>持续使用可以选择会员计划</small></header>
-        <Link className="fresh-membership-entry" href={membership?.activePeriod ? ROUTES.myMembership : ROUTES.serviceMembership}>
+        <Link className="fresh-membership-entry" href={withReturnPath(membership?.activePeriod ? ROUTES.myMembership : ROUTES.serviceMembership, ROUTES.shop)}>
           <span>和</span>
           <div>
             <small>30 天月度计划</small>
@@ -190,7 +196,7 @@ export function ShopScreen() {
         </Link>
       </section>
       <div className="fresh-store-boundary"><strong>清楚、独立的服务权益</strong><p>会员与服务包分别记录，使用次数和有效期均以后端权益账本为准。智慧种子只用于活动资格，不折算金额，也不与人民币组合支付。</p></div>
-      <Link className="fresh-store-link" href={ROUTES.myBenefits}>查看我的服务权益 <span>→</span></Link>
+      <div className="commerce-context-actions"><Link href={withReturnPath(ROUTES.myBenefits, ROUTES.shop)}>查看我的服务权益 <span>→</span></Link><Link href={withReturnPath(`${ROUTES.myOrders}?kind=service`, ROUTES.shop)}>查看已购买的服务 <span>→</span></Link></div>
     </CommerceFrame>
   );
 }
@@ -229,7 +235,7 @@ export function ShopDetailScreen() {
     ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(offering.offeringVersionId)}`
     : `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`;
   return (
-    <CommerceFrame title={productName(offering.name)} eyebrow={kindLabel(offering.kind)}>
+    <CommerceFrame title={productName(offering.name)} eyebrow={kindLabel(offering.kind)} backHref={ROUTES.shop}>
       <div className="offering-hero"><span>{serviceLabel(offering.serviceType)}</span><strong>{money(offering.price.amount)}</strong><small>最终金额以服务端报价为准</small></div>
       <section className="detail-facts">
         {offering.benefits.map((benefit, index) => <p key={`${benefit.serviceType}-${index}`}><span>{serviceLabel(benefit.serviceType)}</span><strong>{benefit.quantity} 次</strong></p>)}
@@ -320,7 +326,7 @@ export function CheckoutScreen() {
   if (error && !quote) return <RouteError message={error} backHref={ROUTES.shop} />;
   if (!quote) return <RouteSkeleton label="服务端正在确认价格与购买资格…" />;
   return (
-    <CommerceFrame title="确认订单" eyebrow="价格与资格确认">
+    <CommerceFrame title="确认订单" eyebrow="价格与资格确认" backHref={ROUTES.shop}>
       <div className="checkout-card">
         <small>{kindLabel(quote.offering.kind)}</small><h2>{productName(quote.offering.name)}</h2>
         <p><span>服务端报价</span><strong>{money(quote.price.amount)}</strong></p>
@@ -379,7 +385,7 @@ export function PaymentResultScreen() {
   const failed = ["FAILED", "CLOSED"].includes(payment.status) || order.status === "FULFILLMENT_FAILED";
   const title = fulfilled ? "权益已经到账" : paid ? "支付成功，权益发放中" : failed ? "本次支付未完成" : "正在确认支付结果";
   return (
-    <CommerceFrame title={title} eyebrow="支付与权益进度">
+    <CommerceFrame title={title} eyebrow="支付与权益进度" backHref={ROUTES.myOrders}>
       <div className={`payment-orbit ${fulfilled ? "success" : failed ? "failed" : "pending"}`}><span>{fulfilled ? "✓" : failed ? "!" : "…"}</span></div>
       <section className="detail-facts">
         <p><span>支付状态</span><strong>{statusLabel(payment.status)}</strong></p>
@@ -395,6 +401,7 @@ export function PaymentResultScreen() {
 }
 
 export function BenefitsScreen() {
+  const backHref = useCommerceBack(ROUTES.my);
   const loader = useCallback(() => Promise.all([api.entitlements(), api.usageRecords()]), []);
   const { data, error } = useLoad(loader, [loader]);
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
@@ -404,11 +411,11 @@ export function BenefitsScreen() {
     (all[grant.sourceType] ??= []).push(grant); return all;
   }, {});
   return (
-    <CommerceFrame title="我的服务权益" eyebrow="服务权益明细">
+    <CommerceFrame title="我的服务权益" eyebrow="服务权益明细" backHref={backHref}>
       <p className="commerce-lead">每份权益都有自己的使用次数和有效期，可以分别查看。</p>
       {Object.entries(grouped).map(([source, items]) => <section className="benefit-group" key={source}><header><h2>{SOURCE_NAMES[source] ?? source}</h2><span>{items.reduce((sum, item) => sum + item.available, 0)} 次可用</span></header>{items.map((grant) => <GrantCard key={grant.entitlementId} grant={grant} />)}</section>)}
       {grants.length === 0 ? <div className="commerce-empty">还没有可展示的服务权益</div> : null}
-      <section className="commerce-section"><header><h2>最近使用记录</h2><small>查看权益的获得与使用情况</small></header><UsageList records={records} /></section>
+      <section className="commerce-section"><header><h2>服务次数变化记录</h2><small>每次增加、使用、退回或到期都会记录</small></header><UsageList records={records} /></section>
     </CommerceFrame>
   );
 }
@@ -417,28 +424,69 @@ function GrantCard({ grant }: { grant: EntitlementGrant }) {
   return <article className="grant-card"><i>{serviceLabel(grant.serviceType).slice(0, 1)}</i><span><strong>{serviceLabel(grant.serviceType)}</strong><small>{date(grant.validFrom)} — {date(grant.expiresAt)}</small><p>{statusLabel(grant.status)}{grant.reserved > 0 ? ` · ${grant.reserved} 次正在使用中` : ""}</p></span><b>{grant.available}<small> / {grant.total}</small></b></article>;
 }
 
+function usageDescription(record: UsageRecord) {
+  const descriptions: Record<UsageRecord["type"], string> = {
+    GRANT: "新增可用次数",
+    RESERVE: "本次服务暂时占用",
+    COMMIT: "本次服务已经完成",
+    RELEASE: "服务未完成，次数已经退回",
+    REVERSE: "原使用记录已撤回，次数已经退回",
+    EXPIRE: "超过有效期，未使用次数已经结束",
+    FREEZE: "这部分次数暂时不能使用",
+    UNFREEZE: "这部分次数已经恢复使用",
+    FORFEIT: "权益发生变更，未使用次数已经结束",
+    ADJUSTMENT: "官方调整可用次数",
+  };
+  return descriptions[record.type];
+}
+
+function usageQuantity(record: UsageRecord) {
+  const adds = ["GRANT", "RELEASE", "REVERSE", "UNFREEZE"];
+  const removes = ["RESERVE", "COMMIT", "EXPIRE", "FREEZE", "FORFEIT"];
+  const prefix = adds.includes(record.type) ? "+" : removes.includes(record.type) ? "−" : record.quantity >= 0 ? "+" : "−";
+  return `${prefix}${Math.abs(record.quantity)} 次`;
+}
+
+function usageIcon(record: UsageRecord) {
+  if (record.businessContext.type === "CARD_READING_INTENT") return "问";
+  if (record.businessContext.type === "DAILY_INSIGHT") return "日";
+  return "变";
+}
+
 function UsageList({ records }: { records: UsageRecord[] }) {
   if (!records.length) return <div className="commerce-empty">暂无使用记录</div>;
-  return <div className="usage-list">{records.slice(0, 20).map((record) => <p key={record.recordId}><i>{USAGE_NAMES[record.type] ?? "权益变化"}</i><span>{date(record.createdAt)}<small>{CONTEXT_NAMES[record.businessContext.type] ?? "其他服务"}</small></span><strong>{record.quantity}</strong></p>)}</div>;
+  return <><div className="usage-list plain-language">{records.slice(0, 20).map((record) => <p key={record.recordId}><i>{usageIcon(record)}</i><span><b>{usageDescription(record)}</b><small>{date(record.createdAt)} · {CONTEXT_NAMES[record.businessContext.type] ?? "服务次数调整"}</small></span><strong>{usageQuantity(record)}</strong></p>)}</div><div className="commerce-safe-note">“退回”表示之前暂时占用的次数重新可以使用；“结束”表示该批次不能继续使用，常见于到期或会员方案变更。</div></>;
 }
 
 export function OrdersScreen() {
+  const backHref = useCommerceBack(ROUTES.my);
+  const [kind, setKind] = useState<"membership" | "service" | "all">("all");
   const loader = useCallback(() => api.moneyOrders(), []);
   const { data: orders, error, setData } = useLoad(loader, [loader]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const value = readQuery().get("kind");
+      setKind(value === "membership" || value === "service" ? value : "all");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   async function cancel(orderId: string) {
     const updated = await api.cancelMoneyOrder(orderId);
     setData((orders ?? []).map((item) => item.orderId === orderId ? updated : item));
   }
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
   if (!orders) return <RouteSkeleton label="正在读取订单…" />;
+  const visibleOrders = orders.filter((order) => kind === "all" || (kind === "membership") === (order.offeringSnapshot.kind === "MEMBERSHIP_PLAN"));
+  const title = kind === "membership" ? "会员订单" : kind === "service" ? "服务订单" : "我的订单";
   return (
-    <CommerceFrame title="我的订单" eyebrow="服务订单">
-      <div className="order-list">{orders.map((order) => <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{productName(order.offeringSnapshot.name)}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <><button onClick={() => void cancel(order.orderId)}>关闭订单</button><Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(order.offeringSnapshot.offeringId)}`}>重新获取报价</Link></> : null}{order.status === "FULFILLED" && order.offeringSnapshot.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>)}</div>
-      {orders.length === 0 ? <div className="commerce-empty">还没有人民币订单</div> : null}
+    <CommerceFrame title={title} eyebrow="购买记录" backHref={backHref}>
+      <div className="order-list">{visibleOrders.map((order) => <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{productName(order.offeringSnapshot.name)}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <><button onClick={() => void cancel(order.orderId)}>关闭订单</button><Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(order.offeringSnapshot.offeringId)}`}>重新获取报价</Link></> : null}{order.status === "FULFILLED" && order.offeringSnapshot.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>)}</div>
+      {visibleOrders.length === 0 ? <div className="commerce-empty">这里还没有订单</div> : null}
     </CommerceFrame>
   );
 }
 export function MembershipScreen() {
+  const backHref = useCommerceBack(ROUTES.shop);
   const loader = useCallback(async () => {
     const [membership, periods, plans] = await Promise.all([api.currentMembership(), api.membershipPeriods(), api.membershipPlans()]);
     return { membership, periods, plans, loadedAt: Date.now() };
@@ -453,7 +501,7 @@ export function MembershipScreen() {
   const visiblePeriods = periods.filter((period) => period.status === "ACTIVE" || period.status === "SCHEDULED");
   const historyPeriods = periods.filter((period) => period.status !== "ACTIVE" && period.status !== "SCHEDULED");
   return (
-    <CommerceFrame title="会员计划" eyebrow="30 天陪伴计划">
+    <CommerceFrame title="会员计划" eyebrow="30 天陪伴计划" backHref={backHref}>
       <section className="fresh-membership-hero">
         <h2>按你的节奏<br />选择陪伴深度</h2>
         <p>三档计划均包含今日能量与抽卡问事权益，套餐、价格与周期由服务端实时提供。</p>
@@ -463,6 +511,7 @@ export function MembershipScreen() {
       <div className="fresh-membership-plans">{plans.map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} currentRank={currentRank} />)}</div>
       {periods.length ? <section className="commerce-section fresh-period-section"><header><h2>会员记录</h2><small>当前与即将生效的计划</small></header>{visiblePeriods.length ? <PeriodList periods={visiblePeriods} /> : <div className="commerce-empty">当前没有正在使用或等待生效的计划</div>}{historyPeriods.length ? <details className="membership-history"><summary>查看过去的会员计划</summary><PeriodList periods={historyPeriods} /></details> : null}</section> : null}
       <div className="fresh-store-boundary"><strong>共同规则</strong><p>权益按会员周期记录，未使用次数到期不结转；会员名称表示陪伴方案，不是身份等级。</p></div>
+      <div className="commerce-context-actions"><Link href={withReturnPath(`${ROUTES.myOrders}?kind=membership`, ROUTES.myMembership)}>查看会员订单 <span>→</span></Link></div>
     </CommerceFrame>
   );
 }
@@ -503,7 +552,7 @@ export function RefundsScreen() {
   async function check() { setBusy(true); setError(""); try { setQuote(await api.refundQuote(orderId)); } catch (reason) { setError(apiMessage(reason)); } finally { setBusy(false); } }
   async function request() { if (!quote) return; setBusy(true); setError(""); try { const refund = await api.requestRefund(orderId); setRefunds((items) => [refund, ...items.filter((item) => item.refundId !== refund.refundId)]); setQuote(null); } catch (reason) { setError(apiMessage(reason)); } finally { setBusy(false); } }
   return (
-    <CommerceFrame title="普通退款" eyebrow="未使用服务退款">
+    <CommerceFrame title="普通退款" eyebrow="未使用服务退款" backHref={ROUTES.myOrders}>
       <p className="commerce-lead">仅支持符合商品快照规则、未使用且没有核销预留的普通订单。会员升级原方案剩余权益不属于退款范围。</p>
       {orderId ? <div className="refund-action"><small>订单</small><strong>{orderId}</strong>{quote ? <><p>服务端报价：{money(quote.amount.amount)}</p><p>有效至：{date(quote.expiresAt)}</p><button disabled={busy} onClick={() => void request()}>确认提交普通退款</button></> : <button disabled={busy} onClick={() => void check()}>{busy ? "正在校验…" : "检查退款资格"}</button>}</div> : <div className="commerce-safe-note">请从“我的订单”选择需要检查的普通订单。</div>}
       {error ? <p className="commerce-error" role="alert">{error}</p> : null}
@@ -550,7 +599,7 @@ export function ReadingPrepareScreen() {
   if (!resolution) return <RouteSkeleton label="系统正在按固定规则确认可用权益…" />;
   const selected = resolution.selectedSource;
   return (
-    <CommerceFrame title={selected ? "本次问事权益已确认" : "需要先获得问事权益"} eyebrow="系统自动选择">
+    <CommerceFrame title={selected ? "本次问事权益已确认" : "需要先获得问事权益"} eyebrow="系统自动选择" backHref={ROUTES.readings}>
       {selected ? <><div className="resolution-card"><small>系统自动选择</small><h2>{SOURCE_NAMES[selected.sourceType] ?? selected.sourceType}</h2><p>本次使用 {selected.cost} {selected.unit === "WISDOM_SEED" ? "颗智慧种子" : "次权益"}</p>{selected.expiresAt ? <span>该批次有效至 {date(selected.expiresAt)}</span> : null}</div><div className="commerce-safe-note">扣减顺序与来源由系统固定，页面不提供切换入口。正式抽卡后预留进入运行状态。</div><button className="commerce-primary" disabled={busy} onClick={() => void reserve()}>{busy ? "正在锁定权益…" : "确认后进入抽卡"}</button></> : <><div className="commerce-empty">当前会员权益、已购权益包和可用智慧种子均不足。</div><Link className="commerce-primary" href={`${ROUTES.shop}?returnTo=${encodeURIComponent(ROUTES.readingPrepare)}`}>查看问事权益包</Link></>}
       {error ? <p className="commerce-error">{error}</p> : null}
     </CommerceFrame>

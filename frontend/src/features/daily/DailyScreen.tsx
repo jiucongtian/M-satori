@@ -7,7 +7,7 @@ import { DailyGenerating, DailyStart, SeedPayment } from "@/src/features/legacy/
 import { ProtectedRoute } from "@/src/shared/guards";
 import { dailyReportPath, ROUTES } from "@/src/shared/routes";
 import { RouteFrame } from "@/src/shared/shell";
-import { apiMessage } from "@/src/shared/ui";
+import { apiMessage, PageDebugLabel } from "@/src/shared/ui";
 import { dailyReducer, initialDailyMachine } from "./dailyMachine";
 
 export default function DailyScreen() {
@@ -95,5 +95,6 @@ export default function DailyScreen() {
   else if (machine.state === "generating") body = <DailyGenerating name={name} balance={balance} onBack={() => router.push(ROUTES.home)} />;
   else body = <div className="legal-state legal-error" role="alert"><i>!</i><h1>今日指引暂时没有完成</h1><p>{error || "可以安全重试，不会重复扣除智慧种子。"}</p><button onClick={() => dispatch({ type: "RETRY" })}>返回重试</button></div>;
 
-  return <ProtectedRoute><RouteFrame title="每日指引" label="每日指引"><div className="profile-flow">{body}</div></RouteFrame></ProtectedRoute>;
+  const pageCode = machine.state === "confirming-cost" ? "PAY-01" : machine.state === "generating" ? "DAILY-02" : "DAILY-01";
+  return <ProtectedRoute><RouteFrame title="每日指引" label="每日指引"><div className="profile-flow"><PageDebugLabel>{`R1.0 · ${pageCode}`}</PageDebugLabel>{body}</div></RouteFrame></ProtectedRoute>;
 }

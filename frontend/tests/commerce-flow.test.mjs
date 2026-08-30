@@ -127,3 +127,43 @@ test("商业路由进入保护列表且不允许敏感查询参数", async () =>
   assert.match(routes, /SENSITIVE_QUERY_KEYS/);
   assert.match(routes, /"question", "prompt"/);
 });
+
+test("商城详情保留来源页面，返回操作不再统一跳到我的", async () => {
+  const [screens, routes] = await Promise.all([readFile(screensUrl, "utf8"), readFile(routesUrl, "utf8")]);
+  assert.match(screens, /function useCommerceBack\(fallback: AppPath\)/);
+  assert.match(screens, /<CommerceFrame title=\{productName\(offering\.name\)\} eyebrow=\{kindLabel\(offering\.kind\)\} backHref=\{ROUTES\.shop\}>/);
+  assert.match(screens, /withReturnPath\(membership\?\.activePeriod \? ROUTES\.myMembership : ROUTES\.serviceMembership, ROUTES\.shop\)/);
+  assert.match(screens, /withReturnPath\(`\$\{ROUTES\.myOrders\}\?kind=service`, ROUTES\.shop\)/);
+  assert.match(routes, /\[ROUTES\.shop\]: new Set\(\["returnTo", "from"\]\)/);
+  assert.match(routes, /\[ROUTES\.myOrders\]: new Set\(\["orderId", "kind", "from"\]\)/);
+});
+
+test("服务次数记录使用用户能理解的完整句子", async () => {
+  const screens = await readFile(screensUrl, "utf8");
+  assert.match(screens, /服务次数变化记录/);
+  assert.match(screens, /新增可用次数/);
+  assert.match(screens, /次数已经退回/);
+  assert.match(screens, /因权益变更已结束/);
+  assert.doesNotMatch(screens, /其他服务/);
+});
+
+test("订单入口按会员与服务归位，我的首页不再展示重复订单按钮", async () => {
+  const [screens, styles] = await Promise.all([readFile(screensUrl, "utf8"), readFile(new URL("../src/features/legacy/legacy.css", import.meta.url), "utf8")]);
+  assert.match(screens, /查看会员订单/);
+  assert.match(screens, /查看已购买的服务/);
+  assert.match(screens, /kind === "membership"/);
+  assert.match(styles, /\.my-r11-service-center>header>button\{display:none\}/);
+});
+
+test("测试构建同时标注 R1.0 核心页面，报告行动与反思采用纵向卡片", async () => {
+  const [shell, daily, styles] = await Promise.all([
+    readFile(new URL("../src/shared/shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/daily/DailyScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/legacy/legacy.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(shell, /R1\.0 · HOME-01/);
+  assert.match(shell, /R1\.0 · DAILY-03/);
+  assert.match(shell, /R1\.0 · AUTH-04/);
+  assert.match(daily, /R1\.0 · \$\{pageCode\}/);
+  assert.match(styles, /\.report-columns \{ margin-top: 10px; display: grid; grid-template-columns: 1fr/);
+});

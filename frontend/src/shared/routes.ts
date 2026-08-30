@@ -99,11 +99,15 @@ const SENSITIVE_QUERY_KEYS = new Set([
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-([012]\d|3[01])$/;
 const DOCUMENT_ID = /^[a-zA-Z0-9_-]{1,128}$/;
 const COMMERCE_QUERY_KEYS: Partial<Record<AppPath, ReadonlySet<string>>> = {
-  [ROUTES.shop]: new Set(["returnTo"]),
+  [ROUTES.shop]: new Set(["returnTo", "from"]),
   [ROUTES.shopDetail]: new Set(["offeringId", "returnTo"]),
   [ROUTES.checkout]: new Set(["offeringId", "returnTo", "previousSubscriptionId", "targetPlanVersionId"]),
   [ROUTES.paymentResult]: new Set(["orderId", "paymentAttemptId"]),
-  [ROUTES.myOrders]: new Set(["orderId"]),
+  [ROUTES.myBenefits]: new Set(["from"]),
+  [ROUTES.myMembership]: new Set(["from"]),
+  [ROUTES.serviceMembership]: new Set(["from"]),
+  [ROUTES.serviceMembershipDetail]: new Set(["from"]),
+  [ROUTES.myOrders]: new Set(["orderId", "kind", "from"]),
   [ROUTES.myRefunds]: new Set(["orderId"]),
 };
 const RETURN_PATHS = new Set<AppPath>([
@@ -116,6 +120,7 @@ const RETURN_PATHS = new Set<AppPath>([
   ROUTES.myBenefits,
   ROUTES.myGrowthRecords,
   ROUTES.myOrders,
+  ROUTES.myMembership,
   ROUTES.shop,
   ROUTES.readingPrepare,
 ]);
@@ -182,8 +187,9 @@ export function safeNextPath(value: string | null | undefined, fallback: AppPath
     if (source && source !== "my-reports" && source !== "growth-records") return fallback;
   }
   for (const [key, value] of parsed.searchParams) {
-    if (key === "returnTo" && !COMMERCE_RETURN_PATHS.has(value)) return fallback;
-    if (key !== "returnTo" && parsed.pathname !== ROUTES.dailyReport && !isDocumentId(value)) return fallback;
+    const commerceKeys = COMMERCE_QUERY_KEYS[parsed.pathname as AppPath];
+    if (commerceKeys && (key === "returnTo" || key === "from") && !COMMERCE_RETURN_PATHS.has(value)) return fallback;
+    if (key !== "returnTo" && key !== "from" && parsed.pathname !== ROUTES.dailyReport && !isDocumentId(value)) return fallback;
   }
   return `${parsed.pathname}${parsed.search}`;
 }
