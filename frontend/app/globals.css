@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../src/shared/responsive-shell.css";
 
 :root {
   /* 初见·FRESH project-level foundation tokens */
