@@ -21,6 +21,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { R1_CARD_READING_SEED_COST_RULE } from '@satori/domain';
 import type { AuthenticatedRequest } from '../../identity/auth/authenticated-request.js';
 import { ConsumptionApplicationService } from '../application/index.js';
 import type { ConsumptionIntentDetail, EntitlementResolutionView } from '../domain/index.js';
@@ -51,6 +52,7 @@ export class ConsumptionController {
     @Headers('idempotency-key') key: string | undefined,
     @Body() body: CreateResolutionDto,
   ) {
+    const attributes = requirementAttributes(body);
     const resolution = await this.consumption.createResolution(
       {
         userId: request.auth.userId,
@@ -59,7 +61,7 @@ export class ConsumptionController {
         quantity: body.quantity,
         unit: body.serviceType === 'CARD_READING' ? 'READING_CREDIT' : 'DAILY_INSIGHT_CREDIT',
         businessContext: body.businessContext,
-        ...(body.cardCount ? { attributes: { cardCount: body.cardCount } } : {}),
+        ...(attributes ? { attributes } : {}),
       },
       requireKey(key),
     );
@@ -101,6 +103,20 @@ export class ConsumptionController {
     await this.consumption.start(intentId, requireKey(key));
     return { data: intentResponse((await this.consumption.getIntent(intentId))!) };
   }
+}
+
+function requirementAttributes(body: CreateResolutionDto) {
+  if (body.serviceType !== 'CARD_READING') return null;
+  if (!body.cardCount) {
+    throw new BadRequestException({ code: 'CARD_COUNT_REQUIRED' });
+  }
+  const cardCount = body.cardCount as 1 | 2 | 3 | 4 | 5;
+  const rule = R1_CARD_READING_SEED_COST_RULE;
+  return {
+    cardCount,
+    seedQuantity: rule.costByCardCount[cardCount],
+    seedCostRuleVersion: rule.version,
+  };
 }
 
 function requireKey(value: string | undefined) {

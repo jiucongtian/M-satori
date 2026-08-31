@@ -1,3 +1,5 @@
+import { R1_CARD_READING_SEED_COST_RULE } from '@satori/domain';
+
 /**
  * Satori R1 的非敏感、版本化运行策略。
  *
@@ -85,6 +87,16 @@ export const R1_RUNTIME_POLICY = {
      * 在数据库保存价格快照前不得直接修改；预留、消费、释放、退款和接口显示必须使用同一值。
      */
     price: 1,
+  },
+
+  cardReading: {
+    /**
+     * 智慧种子兜底按已确认的抽卡张数计费；会员和已购问事权益仍固定核销 1 次。
+     * 规则版本和价格会随消费解析快照保存，已有预留不受后续调价影响。
+     */
+    seedCost: {
+      ...R1_CARD_READING_SEED_COST_RULE,
+    },
   },
 
   registration: {

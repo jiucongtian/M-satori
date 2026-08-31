@@ -9,6 +9,10 @@ describe('R1 runtime policy', () => {
     expect(R1_RUNTIME_POLICY.queue.maxAttempts).toBe(5);
     expect(R1_RUNTIME_POLICY.aqua.dailyInsight.workflowId).toBe('daily-insight');
     expect(R1_RUNTIME_POLICY.dailyInsight.price).toBe(1);
+    expect(R1_RUNTIME_POLICY.cardReading.seedCost).toEqual({
+      version: 'reading-seed-cost-r1.1-v1',
+      costByCardCount: { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9 },
+    });
     expect(R1_RUNTIME_POLICY.registration.rewardAmount).toBe(18);
     expect(R1_RUNTIME_POLICY.accountDeletion.cancellationHours).toBe(168);
   });
