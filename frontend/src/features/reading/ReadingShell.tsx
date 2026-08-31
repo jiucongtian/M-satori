@@ -3,10 +3,12 @@
 import { usePathname, useRouter } from "next/navigation";
 import { AppBottomNav, type AppTab } from "@/src/shared/AppBottomNav";
 import { ROUTES } from "@/src/shared/routes";
+import { useWisdomSeedBalance } from "./useWisdomSeedBalance";
 
 export function ReadingHeader({ backHref }: { backHref?: string }) {
   const router = useRouter();
-  return <header className="reading-header">{backHref?<button className="back-button" type="button" onClick={()=>router.push(backHref)}>←</button>:<span className="brand brand-compact"><span className="brand-mark"><i/></span></span>}<span>问事</span><div className="mini-balance"><i>权益</i></div></header>;
+  const balance = useWisdomSeedBalance();
+  return <header className="reading-header">{backHref?<button className="back-button" type="button" onClick={()=>router.push(backHref)}>←</button>:<span className="brand brand-compact"><span className="brand-mark"><i/></span></span>}<span>问事</span><div className="mini-balance" aria-label={`智慧种子 ${balance ?? "正在同步"}`}><i>●</i>{balance ?? "—"}</div></header>;
 }
 
 export function RouteMainNav() {

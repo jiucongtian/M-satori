@@ -7,6 +7,7 @@ import { BackButton, FreshButton } from "@/src/components/FreshPrimitives";
 import { api, ApiError } from "@/src/api/client";
 import { AppBottomNav, type AppTab } from "@/src/shared/AppBottomNav";
 import type { BirthInput, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
+import { useWisdomSeedBalance } from "@/src/features/reading/useWisdomSeedBalance";
 
 type EnergyLevel = "高" | "中" | "低";
 export type HomeNavTarget = "today" | "reading" | "relationship" | "growth" | "my";
@@ -841,7 +842,8 @@ function ShareFailure({ onBack, onRetry, onHome }: { onBack: () => void; onRetry
 }
 
 function ReadingHeader({ onBack }: { onBack?: () => void }) {
-  return <header className="reading-header">{onBack ? <BackButton onClick={onBack} /> : <Brand compact />}<span>问事</span><div className="mini-balance"><i>●</i>2</div></header>;
+  const balance = useWisdomSeedBalance();
+  return <header className="reading-header">{onBack ? <BackButton onClick={onBack} /> : <Brand compact />}<span>问事</span><div className="mini-balance" aria-label={`智慧种子 ${balance ?? "正在同步"}`}><i>●</i>{balance ?? "—"}</div></header>;
 }
 
 function ReadingHome({ navigate, onNext, onHistory }: { navigate: (step: number) => void; onNext: () => void; onHistory: () => void }) {
@@ -908,7 +910,7 @@ export function ReadingGenerate({ cardCount=2, onBack, onSuccess, onFailure, onL
 }
 
 export function ReadingFailure({ onBack, onRetry }: { onBack: () => void; onRetry: () => void }) {
-  return <ReadingStep onBack={onBack} eyebrow="PAUSED, NOT LOST" title={<>报告暂时没有长成</>} lead="问题、卡牌和抽取结果都已安全保存，不需要重新抽牌。"><div className="failure-seed"><span>●</span><i/></div><div className="failure-card"><p><strong>智慧种子没有损失</strong></p><span><b>01</b>本次 2 颗种子仍处于预留状态</span><span><b>02</b>重新生成不会再次扣除</span><span><b>03</b>超过处理时间会自动退回</span></div><button className="primary" onClick={onRetry}>使用原卡牌重新生成 <span>↻</span></button><button className="text-action">稍后在问事历史继续</button></ReadingStep>;
+  return <ReadingStep onBack={onBack} eyebrow="PAUSED, NOT LOST" title={<>报告暂时没有长成</>} lead="问题、卡牌和抽取结果都已安全保存，不需要重新抽牌。"><div className="failure-seed"><span>●</span><i/></div><div className="failure-card"><p><strong>本次使用记录已安全保存</strong></p><span><b>01</b>当前结算状态以服务端记录为准</span><span><b>02</b>重新生成不会重复核销</span><span><b>03</b>超过处理时间会按规则自动恢复</span></div><button className="primary" onClick={onRetry}>使用原卡牌重新生成 <span>↻</span></button><button className="text-action">稍后在问事历史继续</button></ReadingStep>;
 }
 
 export function ReadingReport({ cardCount=2, onBack, onNext }: { cardCount?:number; onBack: () => void; onNext: () => void }) {
@@ -919,7 +921,7 @@ export function ReadingReport({ cardCount=2, onBack, onNext }: { cardCount?:numb
 
 export function ReadingFeedback({ onBack, onHome, onShare }: { onBack: () => void; onHome: () => void; onShare: () => void }) {
   const [feeling,setFeeling]=useState("更清楚了");
-  return <section className="reading-page reading-feedback"><ReadingHeader onBack={onBack}/><div className="feedback-bloom"><span>✓</span><i/><i/></div><p className="eyebrow">READING COMPLETE</p><h1>这次问事已经完成</h1><p className="reading-lead">你的问题、卡牌与报告都已保存。</p><div className="feedback-question"><strong>现在的你，感觉怎么样？</strong><div>{["更清楚了","有些启发","还需要时间","没有帮助"].map(x=><button className={feeling===x?"active":""} onClick={()=>setFeeling(x)} key={x}>{x}</button>)}</div></div><div className="feedback-summary"><span>问事报告 <b>已保存</b></span><span>问事记录 <b>已归档</b></span><span>智慧种子 <b>-2</b></span></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button><button className="text-action" onClick={onShare}>生成问事分享卡</button></section>;
+  return <section className="reading-page reading-feedback"><ReadingHeader onBack={onBack}/><div className="feedback-bloom"><span>✓</span><i/><i/></div><p className="eyebrow">READING COMPLETE</p><h1>这次问事已经完成</h1><p className="reading-lead">你的问题、卡牌与报告都已保存。</p><div className="feedback-question"><strong>现在的你，感觉怎么样？</strong><div>{["更清楚了","有些启发","还需要时间","没有帮助"].map(x=><button className={feeling===x?"active":""} onClick={()=>setFeeling(x)} key={x}>{x}</button>)}</div></div><div className="feedback-summary"><span>问事报告 <b>已保存</b></span><span>问事记录 <b>已归档</b></span><span>本次使用 <b>已记录</b></span></div><button className="primary" onClick={onHome}>完成，回到问事首页 <span>→</span></button><button className="text-action" onClick={onShare}>生成问事分享卡</button></section>;
 }
 
 function ReadingHistory({ onBack, onOpen, navigate }: { onBack: () => void; onOpen: () => void; navigate: (step: number) => void }) {
@@ -928,7 +930,7 @@ function ReadingHistory({ onBack, onOpen, navigate }: { onBack: () => void; onOp
 }
 
 function ReadingInsufficient({ onBack, onRecharge, onUseSingle }: { onBack: () => void; onRecharge: () => void; onUseSingle: () => void }) {
-  return <section className="reading-page reading-empty"><ReadingHeader onBack={onBack}/><div className="empty-seed"><span>●</span><i/></div><p className="eyebrow">NEED MORE SEEDS</p><h1>还差 1 颗智慧种子</h1><p className="reading-lead">本次双卡问事需要 2 颗，你当前有 1 颗。问题与配置已经替你保存。</p><div className="seed-gap"><span>当前余额 <b>1 ●</b></span><i>→</i><span>本次需要 <b>2 ●</b></span></div><button className="primary" onClick={onRecharge}>去获得智慧种子 <span>→</span></button><button className="outline-button" onClick={onUseSingle}>改为单卡问事</button><button className="text-action" onClick={onBack}>暂时保存，稍后继续</button></section>;
+  return <section className="reading-page reading-empty"><ReadingHeader onBack={onBack}/><div className="empty-seed"><span>●</span><i/></div><p className="eyebrow">NEED MORE SUPPORT</p><h1>当前可用额度不足</h1><p className="reading-lead">问题与配置已经替你保存，补充可用服务后可以从这里继续。</p><button className="primary" onClick={onRecharge}>查看可用服务 <span>→</span></button><button className="outline-button" onClick={onUseSingle}>调整本次问事</button><button className="text-action" onClick={onBack}>暂时保存，稍后继续</button></section>;
 }
 
 function ReadingMessageReturn({ onBack, onOpen }: { onBack: () => void; onOpen: () => void }) {
