@@ -18,6 +18,7 @@ export const SEED_PROMOTION_LIFECYCLE_PORT = Symbol('SEED_PROMOTION_LIFECYCLE_PO
 export const CONSUMPTION_PORT = Symbol('CONSUMPTION_PORT');
 export const CONSUMPTION_OUTCOME_QUERY_PORT = Symbol('CONSUMPTION_OUTCOME_QUERY_PORT');
 export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
+export const PAYMENT_ORDER_LIFECYCLE_PORT = Symbol('PAYMENT_ORDER_LIFECYCLE_PORT');
 export const MEMBERSHIP_GRANT_PORT = Symbol('MEMBERSHIP_GRANT_PORT');
 export const FULFILLMENT_COMMAND_PORT = Symbol('FULFILLMENT_COMMAND_PORT');
 export const REFUND_COMMAND_PORT = Symbol('REFUND_COMMAND_PORT');
@@ -170,9 +171,14 @@ export interface ProviderRefundResult {
 export interface PaymentProvider {
   createPayment(request: CreatePaymentRequest): Promise<ProviderPaymentResult>;
   queryPayment(providerAttemptId: string): Promise<ProviderPaymentResult>;
+  closePayment?(providerAttemptId: string): Promise<void>;
   refund(request: ProviderRefundRequest): Promise<ProviderRefundResult>;
   queryRefund?(providerRefundId: string): Promise<ProviderRefundResult>;
   verifyWebhook?(headers: Readonly<Record<string, string>>, body: string): Promise<ProviderWebhookEvent>;
+}
+
+export interface PaymentOrderLifecyclePort {
+  closeAfterPaymentFailure(orderId: string, paymentAttemptId: string, requestId: string): Promise<boolean>;
 }
 
 export interface BenefitCandidate {

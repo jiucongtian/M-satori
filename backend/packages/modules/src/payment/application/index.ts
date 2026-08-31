@@ -1,12 +1,13 @@
 import {
   hashPayload,
+  type PaymentOrderLifecyclePort,
   type PaymentProvider,
   type ProviderPaymentResult,
   type ProviderWebhookEvent,
   type SeedPromotionLifecyclePort,
 } from '@satori/application';
 import { randomUUID } from 'node:crypto';
-import { PaymentError } from '../domain/index.js';
+import { PAYMENT_RECOVERY_STALE_AFTER_MS, PaymentError } from '../domain/index.js';
 
 export const PAYMENT_REPOSITORY = Symbol('PAYMENT_REPOSITORY');
 export const WECHAT_WEBHOOK_ALLOWED_IPS = Symbol('WECHAT_WEBHOOK_ALLOWED_IPS');
@@ -40,6 +41,8 @@ export interface PaymentRepository {
   findByProviderAttempt(providerAttemptId: string): Promise<PaymentAttemptView | null>;
   recordEvent(event: ProviderWebhookEvent, attemptId: string): Promise<boolean>;
   applyResult(attemptId: string, result: ProviderPaymentResult): Promise<PaymentAttemptView>;
+  listRecoverable(dueBefore: Date, limit: number): Promise<readonly PaymentAttemptView[]>;
+  deferRecovery(attemptId: string, failure: Error): Promise<void>;
 }
 
 export class PaymentApplicationService {
@@ -47,6 +50,7 @@ export class PaymentApplicationService {
     private readonly repository: PaymentRepository,
     private readonly provider: PaymentProvider,
     private readonly seeds: SeedPromotionLifecyclePort,
+    private readonly orders: PaymentOrderLifecyclePort,
   ) {}
 
   async create(command: {
@@ -69,7 +73,7 @@ export class PaymentApplicationService {
       description: `Satori ${prepared.view.orderId}`,
       expiresAt: prepared.view.orderExpiresAt,
     });
-    return this.processResult(prepared.view, result);
+    return this.finalizeResult(prepared.view, result);
   }
 
   async query(ownerUserId: string, attemptId: string) {
@@ -77,7 +81,7 @@ export class PaymentApplicationService {
     if (!attempt) throw new PaymentError('PAYMENT_ATTEMPT_NOT_FOUND', 'Payment attempt was not found');
     if (!attempt.providerAttemptId || ['SUCCEEDED', 'FAILED', 'CANCELLED', 'CLOSED'].includes(attempt.status))
       return attempt;
-    return this.processResult(attempt, await this.provider.queryPayment(attempt.providerAttemptId));
+    return this.finalizeResult(attempt, await this.provider.queryPayment(attempt.providerAttemptId));
   }
 
   async acceptWebhook(headers: Readonly<Record<string, string>>, rawBody: string) {
@@ -93,7 +97,7 @@ export class PaymentApplicationService {
     )
       throw new PaymentError('PAYMENT_FACT_MISMATCH', 'Provider payment fact does not match the order');
     if (!(await this.repository.recordEvent(event, attempt.paymentAttemptId))) return attempt;
-    return this.processResult(attempt, {
+    return this.finalizeResult(attempt, {
       providerAttemptId: event.providerAttemptId,
       state: event.state,
       orderId: event.orderId,
@@ -101,6 +105,72 @@ export class PaymentApplicationService {
       currency: event.currency,
       providerOccurredAt: event.occurredAt,
     });
+  }
+
+  async maintain(limit = 100) {
+    const dueBefore = new Date(Date.now() - PAYMENT_RECOVERY_STALE_AFTER_MS);
+    const attempts = await this.repository.listRecoverable(dueBefore, limit);
+    const report = { checked: attempts.length, succeeded: 0, closed: 0, pending: 0, failed: 0 };
+    for (const attempt of attempts) {
+      try {
+        if (['FAILED', 'CANCELLED', 'CLOSED'].includes(attempt.status)) {
+          const closed = await this.orders.closeAfterPaymentFailure(
+            attempt.orderId,
+            attempt.paymentAttemptId,
+            randomUUID(),
+          );
+          if (closed) report.closed += 1;
+          else report.pending += 1;
+          continue;
+        }
+        let result = attempt.providerAttemptId
+          ? await this.provider.queryPayment(attempt.providerAttemptId)
+          : await this.provider.createPayment({
+              attemptId: attempt.paymentAttemptId,
+              orderId: attempt.orderId,
+              amountMinor: attempt.amountMinor,
+              currency: attempt.currency,
+              description: `Satori ${attempt.orderId}`,
+              expiresAt: attempt.orderExpiresAt,
+            });
+        let updated = await this.finalizeResult(attempt, result);
+        if (updated.status === 'SUCCEEDED') {
+          report.succeeded += 1;
+          continue;
+        }
+        if (['FAILED', 'CANCELLED', 'CLOSED'].includes(updated.status)) {
+          report.closed += 1;
+          continue;
+        }
+        if (updated.orderExpiresAt > new Date()) {
+          report.pending += 1;
+          continue;
+        }
+        if (!this.provider.closePayment) {
+          report.pending += 1;
+          continue;
+        }
+        await this.provider.closePayment(updated.providerAttemptId!);
+        result = await this.provider.queryPayment(updated.providerAttemptId!);
+        updated = await this.finalizeResult(updated, result);
+        if (updated.status === 'SUCCEEDED') report.succeeded += 1;
+        else if (['FAILED', 'CANCELLED', 'CLOSED'].includes(updated.status)) report.closed += 1;
+        else report.pending += 1;
+      } catch (error) {
+        const failure = error instanceof Error ? error : new Error('Unknown payment recovery failure');
+        await this.repository.deferRecovery(attempt.paymentAttemptId, failure).catch(() => undefined);
+        report.failed += 1;
+      }
+    }
+    return report;
+  }
+
+  private async finalizeResult(attempt: PaymentAttemptView, result: ProviderPaymentResult) {
+    const updated = await this.processResult(attempt, result);
+    if (['FAILED', 'CANCELLED', 'CLOSED'].includes(updated.status)) {
+      await this.orders.closeAfterPaymentFailure(updated.orderId, updated.paymentAttemptId, randomUUID());
+    }
+    return updated;
   }
 
   private async processResult(attempt: PaymentAttemptView, result: ProviderPaymentResult) {

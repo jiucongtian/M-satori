@@ -80,7 +80,7 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       runtime,
       new FieldCipher('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'),
     );
-    payments = new PaymentApplicationService(paymentRepository, provider, seeds);
+    payments = new PaymentApplicationService(paymentRepository, provider, seeds, orders);
     entitlements = new EntitlementApplicationService(
       new PostgresEntitlementRepository(runtime),
       'fulfillment-integration-cursor-secret',
@@ -235,6 +235,7 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       paymentRepository,
       new DeterministicFakePaymentProvider('SUCCEEDED'),
       seeds,
+      orders,
     );
     const attempt = await automaticPayments.create({
       ownerUserId: userId,
@@ -451,6 +452,41 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
     expect(await expiringOrders.closeExpired()).toBe(1);
     expect(await expiringOrders.closeExpired()).toBe(0);
     expect(seeds.released.filter((id) => id === order.orderId)).toHaveLength(1);
+    expect(
+      Number(
+        (
+          await pool.query<{ count: string }>(
+            "select count(*)::text count from outbox where aggregate_id=$1 and event_type='commerce.order.seed-release.requested'",
+            [order.orderId],
+          )
+        ).rows[0]!.count,
+      ),
+    ).toBe(1);
+  });
+
+  it('repairs a terminal payment left behind before its order could be closed', async () => {
+    const order = await orders.create({
+      ownerUserId: userId,
+      quoteId: await insertQuote(20),
+      idempotencyKey: `order-terminal-recovery-${randomUUID()}`,
+      requestId: randomUUID(),
+    });
+    const attempt = await payments.create({
+      ownerUserId: userId,
+      orderId: order.orderId,
+      provider: 'FAKE',
+      idempotencyKey: `payment-terminal-recovery-${randomUUID()}`,
+      requestId: randomUUID(),
+    });
+    await pool.query("update payment_attempts set status='CANCELLED' where id=$1", [
+      attempt.paymentAttemptId,
+    ]);
+
+    expect((await payments.maintain()).closed).toBeGreaterThanOrEqual(1);
+    expect(await orders.get(userId, order.orderId)).toMatchObject({
+      status: 'CLOSED',
+      paymentStatus: 'CANCELLED',
+    });
   });
 
   async function insertQuote(seedQuantity: number) {

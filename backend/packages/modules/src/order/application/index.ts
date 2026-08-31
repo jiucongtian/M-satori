@@ -1,4 +1,9 @@
-import { hashPayload, type BusinessClock, type SeedPromotionLifecyclePort } from '@satori/application';
+import {
+  hashPayload,
+  type BusinessClock,
+  type PaymentOrderLifecyclePort,
+  type SeedPromotionLifecyclePort,
+} from '@satori/application';
 import type { BusinessContext } from '@satori/domain';
 import { randomUUID } from 'node:crypto';
 import { MONEY_ORDER_TTL_MS } from '../domain/index.js';
@@ -43,11 +48,21 @@ export interface OrderRepository {
   ): Promise<MoneyOrderView>;
   getOwned(ownerUserId: string, orderId: string): Promise<MoneyOrderView | null>;
   listOwned(ownerUserId: string, limit: number): Promise<readonly MoneyOrderView[]>;
-  closeOwned(ownerUserId: string, orderId: string): Promise<MoneyOrderView>;
+  closeOwned(
+    ownerUserId: string,
+    orderId: string,
+    reason: 'ORDER_CANCELLED' | 'ORDER_EXPIRED',
+    requestId: string,
+  ): Promise<MoneyOrderView>;
+  closeAfterPaymentFailure(
+    orderId: string,
+    paymentAttemptId: string,
+    requestId: string,
+  ): Promise<MoneyOrderView | null>;
   closeExpired(now: Date, limit: number): Promise<readonly MoneyOrderView[]>;
 }
 
-export class OrderApplicationService {
+export class OrderApplicationService implements PaymentOrderLifecyclePort {
   constructor(
     private readonly repository: OrderRepository,
     private readonly seeds: SeedPromotionLifecyclePort,
@@ -89,7 +104,7 @@ export class OrderApplicationService {
   }
 
   async cancel(ownerUserId: string, orderId: string, requestId: string) {
-    const order = await this.repository.closeOwned(ownerUserId, orderId);
+    const order = await this.repository.closeOwned(ownerUserId, orderId, 'ORDER_CANCELLED', requestId);
     if (order.promotionSeedReservationId) {
       await this.seeds.releaseAfterOrderClosure(
         order.promotionSeedReservationId,
@@ -114,5 +129,19 @@ export class OrderApplicationService {
       }
     }
     return orders.length;
+  }
+
+  async closeAfterPaymentFailure(orderId: string, paymentAttemptId: string, requestId: string) {
+    const order = await this.repository.closeAfterPaymentFailure(orderId, paymentAttemptId, requestId);
+    if (!order) return false;
+    if (order.promotionSeedReservationId) {
+      await this.seeds.releaseAfterOrderClosure(
+        order.promotionSeedReservationId,
+        order.orderId,
+        'PAYMENT_FAILED',
+        requestId,
+      );
+    }
+    return true;
   }
 }

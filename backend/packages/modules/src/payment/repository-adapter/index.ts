@@ -9,11 +9,12 @@ import {
   paymentEvents,
   RuntimeInfrastructure,
 } from '@satori/infrastructure';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte, or } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { PaymentAttemptView, PaymentRepository } from '../application/index.js';
 import { PaymentError } from '../domain/index.js';
 import {
+  closeWechatPayment,
   parseWechatWebhook,
   queryWechatPayment,
   queryWechatRefund,
@@ -23,6 +24,7 @@ import {
 
 export {
   buildWechatAuthorization,
+  closeWechatPayment,
   decryptWechatResource,
   merchantReference,
   parseWechatWebhook,
@@ -93,6 +95,7 @@ export class DrizzlePaymentRepository implements PaymentRepository {
         providerAttemptId: result.providerAttemptId,
         status: result.state === 'CREATED' || result.state === 'SUCCEEDED' ? 'PENDING' : result.state,
         clientParameters: result.clientParameters ?? null,
+        failure: null,
         updatedAt: new Date(),
       })
       .where(eq(paymentAttempts.id, attemptId))
@@ -223,6 +226,43 @@ export class DrizzlePaymentRepository implements PaymentRepository {
     });
   }
 
+  async listRecoverable(dueBefore: Date, limit: number) {
+    const rows = await this.infrastructure.database
+      .select({ attempt: paymentAttempts })
+      .from(paymentAttempts)
+      .innerJoin(moneyOrders, eq(paymentAttempts.orderId, moneyOrders.id))
+      .where(
+        and(
+          inArray(moneyOrders.status, ['PENDING_PAYMENT', 'PAYMENT_PROCESSING']),
+          or(
+            and(
+              inArray(paymentAttempts.status, ['CREATED', 'PENDING']),
+              lte(paymentAttempts.updatedAt, dueBefore),
+            ),
+            inArray(paymentAttempts.status, ['FAILED', 'CANCELLED']),
+          ),
+        ),
+      )
+      .orderBy(asc(paymentAttempts.updatedAt), asc(paymentAttempts.id))
+      .limit(limit);
+    return Promise.all(rows.map((row) => this.toView(row.attempt)));
+  }
+
+  async deferRecovery(attemptId: string, failure: Error) {
+    const failureCode = (failure as Error & { code?: unknown }).code;
+    await this.infrastructure.database
+      .update(paymentAttempts)
+      .set({
+        failure: {
+          code: typeof failureCode === 'string' ? failureCode : 'PAYMENT_RECOVERY_FAILED',
+          message: failure.message,
+          recoverable: true,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(paymentAttempts.id, attemptId));
+  }
+
   private async getAttempt(id: string) {
     const [row] = await this.infrastructure.database
       .select()
@@ -283,6 +323,12 @@ export class DeterministicFakePaymentProvider implements PaymentProvider {
     const result = this.results.get(providerAttemptId);
     if (!result) throw new PaymentError('PROVIDER_PAYMENT_NOT_FOUND', 'Fake payment was not found');
     return Promise.resolve(result);
+  }
+  closePayment(providerAttemptId: string) {
+    const result = this.results.get(providerAttemptId);
+    if (!result) throw new PaymentError('PROVIDER_PAYMENT_NOT_FOUND', 'Fake payment was not found');
+    if (result.state !== 'SUCCEEDED') this.results.set(providerAttemptId, { ...result, state: 'CANCELLED' });
+    return Promise.resolve();
   }
   refund(request: Parameters<PaymentProvider['refund']>[0]) {
     return Promise.resolve({
@@ -346,6 +392,9 @@ export class WechatPayAdapter implements PaymentProvider {
   }
   queryPayment(providerAttemptId: string) {
     return queryWechatPayment(this.config, providerAttemptId);
+  }
+  closePayment(providerAttemptId: string) {
+    return closeWechatPayment(this.config, providerAttemptId);
   }
   refund(request: Parameters<PaymentProvider['refund']>[0]) {
     return requestWechatRefund(this.config, request);

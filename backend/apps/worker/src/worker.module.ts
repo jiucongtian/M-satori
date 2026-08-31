@@ -19,6 +19,8 @@ import { FulfillmentMaintenanceWorker } from '../../../packages/modules/src/fulf
 import { MembershipMaintenanceWorker } from '../../../packages/modules/src/membership/membership-maintenance.worker.js';
 import { RefundMaintenanceWorker } from '../../../packages/modules/src/refund/refund-maintenance.worker.js';
 import { CommerceReconciliationWorker } from '../../../packages/modules/src/operations/commerce/commerce-reconciliation.worker.js';
+import { OrderMaintenanceWorker } from '../../../packages/modules/src/order/order-maintenance.worker.js';
+import { PaymentMaintenanceWorker } from '../../../packages/modules/src/payment/payment-maintenance.worker.js';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { CommerceReconciliationWorker } from '../../../packages/modules/src/oper
     MembershipMaintenanceWorker,
     RefundMaintenanceWorker,
     CommerceReconciliationWorker,
+    OrderMaintenanceWorker,
+    PaymentMaintenanceWorker,
   ],
 })
 export class WorkerModule {}

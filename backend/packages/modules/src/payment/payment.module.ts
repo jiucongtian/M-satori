@@ -1,8 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import {
   PAYMENT_PROVIDER,
+  PAYMENT_ORDER_LIFECYCLE_PORT,
   SEED_PROMOTION_LIFECYCLE_PORT,
   type PaymentProvider,
+  type PaymentOrderLifecyclePort,
   type SeedPromotionLifecyclePort,
 } from '@satori/application';
 import {
@@ -34,12 +36,18 @@ import { DrizzlePaymentRepository, PaymentRuntimeAdapter } from './repository-ad
     },
     {
       provide: PaymentApplicationService,
-      inject: [PAYMENT_REPOSITORY, PAYMENT_PROVIDER, SEED_PROMOTION_LIFECYCLE_PORT],
+      inject: [
+        PAYMENT_REPOSITORY,
+        PAYMENT_PROVIDER,
+        SEED_PROMOTION_LIFECYCLE_PORT,
+        PAYMENT_ORDER_LIFECYCLE_PORT,
+      ],
       useFactory: (
         repository: DrizzlePaymentRepository,
         provider: PaymentProvider,
         seeds: SeedPromotionLifecyclePort,
-      ) => new PaymentApplicationService(repository, provider, seeds),
+        orders: PaymentOrderLifecyclePort,
+      ) => new PaymentApplicationService(repository, provider, seeds, orders),
     },
   ],
   exports: [PaymentApplicationService, PAYMENT_PROVIDER],

@@ -2,8 +2,10 @@ import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } fro
 import {
   FULFILLMENT_COMMAND_PORT,
   REFUND_COMMAND_PORT,
+  SEED_PROMOTION_LIFECYCLE_PORT,
   type FulfillmentCommandPort,
   type RefundCommandPort,
+  type SeedPromotionLifecyclePort,
 } from '@satori/application';
 import { GENERATION_QUEUE, queueExecutionPolicy, RuntimeInfrastructure } from '@satori/infrastructure';
 import { Worker, type Job } from 'bullmq';
@@ -23,6 +25,7 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
     private readonly accountDeletion: AccountDeletionService,
     @Inject(FULFILLMENT_COMMAND_PORT) private readonly fulfillment: FulfillmentCommandPort,
     @Inject(REFUND_COMMAND_PORT) private readonly refunds: RefundCommandPort,
+    @Inject(SEED_PROMOTION_LIFECYCLE_PORT) private readonly seeds: SeedPromotionLifecyclePort,
   ) {}
 
   onModuleInit() {
@@ -51,6 +54,24 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
   }
 
   private async process(job: Job<{ taskId?: string; requestId?: string }>, timeoutMs: number) {
+    if (job.name === 'commerce.order.seed-release.requested') {
+      const data = job.data as {
+        orderId?: string;
+        reservationId?: string;
+        reason?: 'ORDER_CANCELLED' | 'ORDER_EXPIRED' | 'PAYMENT_FAILED';
+        requestId?: string;
+      };
+      if (!data.orderId || !data.reservationId || !data.reason || !data.requestId) {
+        throw new Error('Order seed release payload is incomplete');
+      }
+      await this.seeds.releaseAfterOrderClosure(
+        data.reservationId,
+        data.orderId,
+        data.reason,
+        data.requestId,
+      );
+      return;
+    }
     if (job.name === 'commerce.payment.reversal.requested') {
       const data = job.data as { orderId?: string; reason?: string };
       if (!data.orderId) throw new Error('Refund reversal payload is incomplete');

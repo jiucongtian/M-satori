@@ -22,6 +22,8 @@ describe('payment providers', () => {
       expiresAt: new Date('2026-08-29T01:00:00.000Z'),
     });
     expect(created).toMatchObject({ state: 'PENDING', amountMinor: 9900, orderId: 'order-1' });
+    await provider.closePayment(created.providerAttemptId);
+    expect(await provider.queryPayment(created.providerAttemptId)).toMatchObject({ state: 'CANCELLED' });
     provider.setResult(created.providerAttemptId, 'SUCCEEDED');
     expect(await provider.queryPayment(created.providerAttemptId)).toMatchObject({ state: 'SUCCEEDED' });
     expect(
@@ -154,6 +156,12 @@ describe('payment providers', () => {
         body,
       );
 
+      if (url.pathname.endsWith('/close')) {
+        expect(method).toBe('POST');
+        expect(JSON.parse(body)).toEqual({ mchid: fixture.config.merchantId });
+        return Promise.resolve(new Response(null, { status: 204, headers: fixture.signedHeaders('') }));
+      }
+
       let payload: Record<string, unknown>;
       if (url.pathname.includes('/pay/transactions/out-trade-no/')) {
         payload = {
@@ -195,6 +203,7 @@ describe('payment providers', () => {
       state: 'SUCCEEDED',
       amountMinor: 1290,
     });
+    await expect(adapter.closePayment(outTradeNo)).resolves.toBeUndefined();
     await expect(
       adapter.refund({
         refundId: '00000000-0000-4000-8000-000000000020',
@@ -210,7 +219,7 @@ describe('payment providers', () => {
       providerRefundId: outRefundNo,
       state: 'SUCCEEDED',
     });
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(4);
   });
 });
 

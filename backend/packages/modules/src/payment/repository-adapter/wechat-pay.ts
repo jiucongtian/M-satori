@@ -178,6 +178,12 @@ export async function queryWechatPayment(
   };
 }
 
+export async function closeWechatPayment(config: WechatPayConfig, providerAttemptId: string) {
+  const outTradeNo = merchantReference(providerAttemptId);
+  const path = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(outTradeNo)}/close`;
+  await requestWechat(config, 'POST', path, JSON.stringify({ mchid: config.merchantId }));
+}
+
 export async function requestWechatRefund(
   config: WechatPayConfig,
   request: ProviderRefundRequest,
@@ -224,6 +230,15 @@ async function requestWechatJson<T>(
   canonicalUrl: string,
   body = '',
 ): Promise<T> {
+  return parseJson<T>(await requestWechat(config, method, canonicalUrl, body), 'WECHAT_RESPONSE_INVALID');
+}
+
+async function requestWechat(
+  config: WechatPayConfig,
+  method: 'GET' | 'POST',
+  canonicalUrl: string,
+  body = '',
+) {
   const timestamp = String(Math.floor((config.now?.() ?? new Date()).getTime() / 1000));
   const nonce = config.nonce?.() ?? randomBytes(16).toString('hex');
   let response: Response;
@@ -255,7 +270,7 @@ async function requestWechatJson<T>(
       `WeChat API rejected the request (${response.status}${providerCode ? ` ${providerCode}` : ''})`,
     );
   }
-  return parseJson<T>(responseBody, 'WECHAT_RESPONSE_INVALID');
+  return responseBody;
 }
 
 function verifyWechatResponse(

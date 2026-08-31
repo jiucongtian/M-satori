@@ -6,10 +6,12 @@ import {
   moneyOrders,
   offeringVersions,
   orderSnapshots,
+  outbox,
   paymentAttempts,
+  newId,
   RuntimeInfrastructure,
 } from '@satori/infrastructure';
-import { and, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { CreateMoneyOrderCommand, MoneyOrderView, OrderRepository } from '../application/index.js';
 import { MoneyOrderError } from '../domain/index.js';
@@ -155,7 +157,12 @@ export class DrizzleOrderRepository implements OrderRepository, PurchaseHistoryP
     return Promise.all(rows.map((row) => this.toView(row)));
   }
 
-  async closeOwned(ownerUserId: string, orderId: string) {
+  async closeOwned(
+    ownerUserId: string,
+    orderId: string,
+    reason: 'ORDER_CANCELLED' | 'ORDER_EXPIRED',
+    requestId: string,
+  ) {
     return this.infrastructure.database.transaction(async (tx) => {
       const [row] = await tx
         .select()
@@ -177,6 +184,45 @@ export class DrizzleOrderRepository implements OrderRepository, PurchaseHistoryP
         })
         .where(eq(moneyOrders.id, row.id))
         .returning();
+      await appendSeedReleaseEvent(tx, closed!, reason, requestId);
+      return this.toView(closed!);
+    });
+  }
+
+  async closeAfterPaymentFailure(orderId: string, paymentAttemptId: string, requestId: string) {
+    return this.infrastructure.database.transaction(async (tx) => {
+      const [order] = await tx
+        .select()
+        .from(moneyOrders)
+        .where(eq(moneyOrders.id, orderId))
+        .for('update')
+        .limit(1);
+      if (!order) throw new MoneyOrderError('MONEY_ORDER_NOT_FOUND', 'Money order was not found');
+      if (order.status === 'CLOSED') return this.toView(order);
+      if (!['PENDING_PAYMENT', 'PAYMENT_PROCESSING'].includes(order.status)) return null;
+      const [otherActiveAttempt] = await tx
+        .select({ id: paymentAttempts.id })
+        .from(paymentAttempts)
+        .where(
+          and(
+            eq(paymentAttempts.orderId, order.id),
+            ne(paymentAttempts.id, paymentAttemptId),
+            inArray(paymentAttempts.status, ['CREATED', 'PENDING']),
+          ),
+        )
+        .limit(1);
+      if (otherActiveAttempt) return null;
+      const [closed] = await tx
+        .update(moneyOrders)
+        .set({
+          status: 'CLOSED',
+          closedAt: new Date(),
+          version: order.version + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(moneyOrders.id, order.id))
+        .returning();
+      await appendSeedReleaseEvent(tx, closed!, 'PAYMENT_FAILED', requestId);
       return this.toView(closed!);
     });
   }
@@ -190,7 +236,7 @@ export class DrizzleOrderRepository implements OrderRepository, PurchaseHistoryP
     const closed: MoneyOrderView[] = [];
     for (const order of due) {
       try {
-        closed.push(await this.closeOwned(order.ownerUserId, order.id));
+        closed.push(await this.closeOwned(order.ownerUserId, order.id, 'ORDER_EXPIRED', randomUUID()));
       } catch {
         /* payment won */
       }
@@ -252,6 +298,30 @@ export class DrizzleOrderRepository implements OrderRepository, PurchaseHistoryP
       paidAt: row.paidAt,
     };
   }
+}
+
+async function appendSeedReleaseEvent(
+  tx: Parameters<Parameters<RuntimeInfrastructure['database']['transaction']>[0]>[0],
+  order: typeof moneyOrders.$inferSelect,
+  reason: 'ORDER_CANCELLED' | 'ORDER_EXPIRED' | 'PAYMENT_FAILED',
+  requestId: string,
+) {
+  if (!order.promotionSeedReservationId) return;
+  await tx.insert(outbox).values({
+    id: newId(),
+    aggregateType: 'MONEY_ORDER',
+    aggregateId: order.id,
+    eventType: 'commerce.order.seed-release.requested',
+    producer: 'order',
+    requestId,
+    correlationId: order.id,
+    payload: {
+      orderId: order.id,
+      reservationId: order.promotionSeedReservationId,
+      reason,
+      requestId,
+    },
+  });
 }
 
 function orderNumber(id: string, now: Date) {
