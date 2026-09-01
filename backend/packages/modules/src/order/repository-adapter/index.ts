@@ -79,7 +79,7 @@ export class DrizzleOrderRepository implements OrderRepository, PurchaseHistoryP
               ),
             );
           if ((purchases?.value ?? 0) >= lifetime)
-            throw new MoneyOrderError('PURCHASE_LIMIT_REACHED', 'Offering purchase limit reached');
+            throw new MoneyOrderError('PURCHASE_LIMIT_REACHED', '该体验服务每位用户限购一次');
         }
         const serviceType = offering.serviceType;
         if (quote.reservedSeedQuantity > 0) {

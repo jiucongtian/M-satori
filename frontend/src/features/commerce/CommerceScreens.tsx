@@ -98,10 +98,10 @@ function orderOffering(order: MoneyOrder) {
 function statusLabel(value: string) {
   const labels: Record<string, string> = {
     AWAITING_PAYMENT: "等待支付",
-    PAID: "已支付，等待交付",
+    PAID: "已支付，等待到账",
     FULFILLING: "权益发放中",
     FULFILLED: "已完成",
-    FULFILLMENT_FAILED: "交付异常处理中",
+    FULFILLMENT_FAILED: "服务到账异常处理中",
     CLOSED: "已关闭",
     REFUNDING: "退款处理中",
     REFUNDED: "已退款",
@@ -176,12 +176,17 @@ export function ShopScreen() {
   const [returnTo, setReturnTo] = useState("");
   const backHref = useCommerceBack(ROUTES.my);
   useEffect(() => { const timer = window.setTimeout(() => setReturnTo(readQuery().get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ""), 0); return () => window.clearTimeout(timer); }, []);
-  const loader = useCallback(() => Promise.all([api.serviceOfferings(), api.membershipPlans(), api.currentMembership()]), []);
+  const loader = useCallback(() => Promise.all([api.serviceOfferings(), api.membershipPlans(), api.currentMembership(), api.moneyOrders()]), []);
   const { data, error } = useLoad(loader, [loader]);
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
   if (!data) return <RouteSkeleton label="正在获取最新商品与会员方案…" />;
-  const [offerings, plans, membership] = data;
+  const [offerings, plans, membership, orders] = data;
   const services = offerings.filter((item) => item.kind !== "MEMBERSHIP_PLAN");
+  const fulfilledPurchases = orders.filter((order) => order.status === "FULFILLED").reduce<Record<string, number>>((counts, order) => {
+    const id = orderOffering(order).offeringId;
+    if (id) counts[id] = (counts[id] ?? 0) + 1;
+    return counts;
+  }, {});
   return (
     <CommerceFrame title="服务商城" eyebrow="选择服务" backHref={backHref}>
       <section className="fresh-store-hero">
@@ -191,7 +196,7 @@ export function ShopScreen() {
       <section className="commerce-section fresh-store-section">
         <header><h2>按需选择</h2><small>单独购买，独立使用</small></header>
         {services.length
-          ? <div className="offering-list">{services.map((item) => <OfferingCard key={item.offeringId} offering={item} returnTo={returnTo} />)}</div>
+          ? <div className="offering-list">{services.map((item) => <OfferingCard key={item.offeringId} offering={item} returnTo={returnTo} purchaseLimitReached={typeof item.purchaseLimit === "number" && (fulfilledPurchases[item.offeringId] ?? 0) >= item.purchaseLimit} />)}</div>
           : <div className="commerce-empty">服务正在准备中，请稍后再来看看。</div>}
       </section>
       <section className="commerce-section fresh-membership-section">
@@ -206,19 +211,19 @@ export function ShopScreen() {
           <b>{membership?.activePeriod ? "查看与续费 ›" : "比较方案 ›"}</b>
         </Link>
       </section>
-      <div className="fresh-store-boundary"><strong>清楚、独立的服务权益</strong><p>会员与服务包分别记录，使用次数和有效期均以后端权益账本为准。智慧种子只用于活动资格，不折算金额，也不与人民币组合支付。</p></div>
+      <div className="fresh-store-boundary"><strong>清楚、独立的服务权益</strong><p>会员与服务包分别记录，页面会实时更新可用次数和有效期。智慧种子只用于活动资格，不折算金额，也不与人民币组合支付。</p></div>
       <div className="commerce-context-actions"><Link href={withReturnPath(ROUTES.myBenefits, ROUTES.shop)}>查看我的服务权益 <span>→</span></Link><Link href={withReturnPath(`${ROUTES.myOrders}?kind=service`, ROUTES.shop)}>查看已购买的服务 <span>→</span></Link></div>
     </CommerceFrame>
   );
 }
 
-function OfferingCard({ offering, returnTo = "" }: { offering: ServiceOffering; returnTo?: string }) {
+function OfferingCard({ offering, returnTo = "", purchaseLimitReached = false }: { offering: ServiceOffering; returnTo?: string; purchaseLimitReached?: boolean }) {
   const quantity = offering.benefits.reduce((sum, benefit) => sum + benefit.quantity, 0);
   return (
     <Link className="offering-card fresh-offering-card" href={`${ROUTES.shopDetail}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`}>
       <i>{offering.kind === "SERVICE_PACK" ? "包" : "次"}</i>
       <span><small>{kindLabel(offering.kind)}</small><strong>{productName(offering.name)}</strong><p>{quantity} {offering.benefits[0]?.unit === "COUNT" ? "次" : "份"} · 购买后 {offering.validityDays} 天有效</p></span>
-      <b>{money(offering.price.amount)}</b>
+      <b>{purchaseLimitReached ? "已购买" : money(offering.price.amount)}</b>
     </Link>
   );
 }
@@ -228,13 +233,15 @@ export function ShopDetailScreen() {
   const [returnTo, setReturnTo] = useState("");
   const [ready, setReady] = useState(false);
   useEffect(() => { const timer = window.setTimeout(() => { const query = readQuery(); setOfferingId(query.get("offeringId") ?? ""); setReturnTo(query.get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ""); setReady(true); }, 0); return () => window.clearTimeout(timer); }, []);
-  const loader = useCallback(() => offeringId ? Promise.all([api.serviceOffering(offeringId), api.currentMembership()]) : Promise.resolve(null), [offeringId]);
+  const loader = useCallback(() => offeringId ? Promise.all([api.serviceOffering(offeringId), api.currentMembership(), api.moneyOrders()]) : Promise.resolve(null), [offeringId]);
   const { data, error } = useLoad(loader, [loader, offeringId]);
   if (!ready) return <RouteSkeleton label="正在读取商品详情…" />;
   if (!offeringId) return <RouteError title="商品地址无效" message="没有找到对应商品。" backHref={ROUTES.shop} />;
   if (error) return <RouteError message={error} backHref={ROUTES.shop} />;
   if (!data) return <RouteSkeleton label="正在读取商品详情…" />;
-  const [offering, membership] = data;
+  const [offering, membership, orders] = data;
+  const fulfilledPurchaseCount = orders.filter((order) => order.status === "FULFILLED" && orderOffering(order).offeringId === offering.offeringId).length;
+  const purchaseLimitReached = typeof offering.purchaseLimit === "number" && fulfilledPurchaseCount >= offering.purchaseLimit;
   const active = membership?.activePeriod ?? null;
   const targetPlanCode = offering.kind === "MEMBERSHIP_PLAN" ? membershipPlanCode(offering.code) : null;
   const currentRank = active ? PLAN_RANKS.indexOf(active.planCode) : -1;
@@ -247,16 +254,18 @@ export function ShopDetailScreen() {
     : `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`;
   return (
     <CommerceFrame title={productName(offering.name)} eyebrow={kindLabel(offering.kind)} backHref={ROUTES.shop}>
-      <div className="offering-hero"><span>{serviceLabel(offering.serviceType)}</span><strong>{money(offering.price.amount)}</strong><small>最终金额以服务端报价为准</small></div>
+      <div className="offering-hero"><span>{serviceLabel(offering.serviceType)}</span><strong>{money(offering.price.amount)}</strong><small>结算前会再次确认金额</small></div>
       <section className="detail-facts">
         {offering.benefits.map((benefit, index) => <p key={`${benefit.serviceType}-${index}`}><span>{serviceLabel(benefit.serviceType)}</span><strong>{benefit.quantity} 次</strong></p>)}
         <p><span>有效期</span><strong>{offering.kind === "MEMBERSHIP_PLAN" ? `${offering.validityDays} 天会员周期` : `购买日起 ${offering.validityDays} 天`}</strong></p>
-        <p><span>生效方式</span><strong>{isRenewal ? "当前周期结束后按顺序生效" : offering.kind === "MEMBERSHIP_PLAN" ? "支付并安全交付后生效" : "每个权益包分别计时"}</strong></p>
+        <p><span>生效方式</span><strong>{isRenewal ? "当前周期结束后按顺序生效" : offering.kind === "MEMBERSHIP_PLAN" ? "支付完成并到账后生效" : "每个服务包分别计时"}</strong></p>
       </section>
-      <div className="commerce-safe-note">使用时由系统按照固定规则自动选择会员权益、购买权益包或智慧种子额度，无法手动切换来源。</div>
-      {membershipChangeUnavailable
+      <div className="commerce-safe-note">使用服务时，系统会自动选择当前可用的次数或智慧种子，无需手动设置。</div>
+      {purchaseLimitReached
+        ? <div className="commerce-safe-note"><strong>该体验服务每位用户限购一次</strong><br />你已经购买过，可以选择其他可用项目或会员计划。</div>
+        : membershipChangeUnavailable
         ? <div className="commerce-safe-note">当前方案不能降级购买；你可以续费当前方案，或升级到更高方案。</div>
-        : <Link className="commerce-primary" href={checkoutHref}>{isRenewal ? "续费当前方案" : isUpgrade ? "升级并确认新订单" : "获取服务端报价并确认订单"}</Link>}
+        : <Link className="commerce-primary" href={checkoutHref}>{isRenewal ? "续费当前方案" : isUpgrade ? "升级当前方案" : "立即购买"}</Link>}
     </CommerceFrame>
   );
 }
@@ -350,20 +359,20 @@ export function CheckoutScreen() {
   if (!ready) return <RouteSkeleton label="正在恢复订单上下文…" />;
   if (!params.offeringId) return <RouteError title="订单地址无效" message="缺少商品信息。" backHref={ROUTES.shop} />;
   if (error && !quote) return <RouteError message={error} backHref={ROUTES.shop} />;
-  if (!quote) return <RouteSkeleton label="服务端正在确认价格与购买资格…" />;
+  if (!quote) return <RouteSkeleton label="正在确认购买信息…" />;
   return (
     <CommerceFrame title="确认订单" eyebrow="价格与资格确认" backHref={ROUTES.shop}>
       <div className="checkout-card">
         <small>{kindLabel(quote.offering.kind)}</small><h2>{productName(quote.offering.name)}</h2>
-        <p><span>服务端报价</span><strong>{money(quote.price.amount)}</strong></p>
-        <p><span>报价有效至</span><strong>{new Date(quote.expiresAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</strong></p>
+        <p><span>应付金额</span><strong>{money(quote.price.amount)}</strong></p>
+        <p><span>请在此时间前支付</span><strong>{new Date(quote.expiresAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</strong></p>
         <p><span>支付方式</span><strong>微信支付</strong></p>
       </div>
-      {quote.promotion.eligible && quote.promotion.seedReservationRequired > 0 ? <div className="commerce-safe-note">已满足智慧种子活动资格，将按活动人民币价支付；种子仅用于资格预留。</div> : null}
+      {quote.promotion.eligible && quote.promotion.seedReservationRequired > 0 ? <div className="commerce-safe-note">已满足智慧种子活动资格，将按活动价格支付；智慧种子仅用于确认活动资格。</div> : null}
       {upgradeNotice ? <div className="upgrade-notice"><strong>升级确认</strong><p>{upgradeNotice}</p><p>新方案生效后原方案结束，原方案未使用次数不保留。</p></div> : null}
       {error ? <p className="commerce-error" role="alert">{error}</p> : null}
-      <button className="commerce-primary" type="button" disabled={busy} onClick={() => void submit()}>{busy ? "正在创建订单…" : `微信支付 ${money(quote.price.amount)}`}</button>
-      <p className="commerce-footnote">支付成功不等于权益已经发放；本页将继续确认交付结果，请勿重复支付。</p>
+      <button className="commerce-primary" type="button" disabled={busy} onClick={() => void submit()}>{busy ? "正在提交…" : `微信支付 ${money(quote.price.amount)}`}</button>
+      <p className="commerce-footnote">支付完成后，服务可能需要几秒到账，请勿重复支付。</p>
     </CommerceFrame>
   );
 }
@@ -405,7 +414,7 @@ export function PaymentResultScreen() {
   }, [identity]);
   if (!ready) return <RouteSkeleton label="正在恢复支付上下文…" />;
   if (!identity.orderId || !identity.paymentAttemptId) return <RouteError title="支付结果地址无效" message="无法恢复对应订单。" backHref={ROUTES.myOrders} />;
-  if (!order || !payment) return <RouteSkeleton label="正在向服务端确认支付与权益发放结果…" />;
+  if (!order || !payment) return <RouteSkeleton label="正在确认支付与服务到账结果…" />;
   const fulfilled = order.status === "FULFILLED";
   const paid = payment.status === "SUCCEEDED" || ["PAID", "FULFILLING", "FULFILLED"].includes(order.status);
   const failed = ["FAILED", "CLOSED"].includes(payment.status) || order.status === "FULFILLMENT_FAILED";
@@ -431,7 +440,7 @@ export function BenefitsScreen() {
   const loader = useCallback(() => Promise.all([api.entitlements(), api.usageRecords()]), []);
   const { data, error } = useLoad(loader, [loader]);
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
-  if (!data) return <RouteSkeleton label="正在读取服务权益账本…" />;
+  if (!data) return <RouteSkeleton label="正在读取可用服务…" />;
   const [grants, records] = data;
   const grouped = grants.reduce<Record<string, EntitlementGrant[]>>((all, grant) => {
     (all[grant.sourceType] ??= []).push(grant); return all;
@@ -506,7 +515,7 @@ export function OrdersScreen() {
   const title = kind === "membership" ? "会员订单" : kind === "service" ? "服务订单" : "我的订单";
   return (
     <CommerceFrame title={title} eyebrow="购买记录" backHref={backHref}>
-      <div className="order-list">{visibleOrders.map((order) => { const offering = orderOffering(order); const paymentStarted = order.paymentStatus !== "NOT_STARTED"; return <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{offering.name}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <>{paymentStarted ? <span>正在确认支付结果，请勿重复支付</span> : <button onClick={() => void cancel(order.orderId)}>关闭订单</button>}{!paymentStarted && offering.offeringId ? <Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}`}>重新获取报价</Link> : null}</> : null}{order.status === "FULFILLED" && offering.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>普通退款资格</Link> : null}</footer></article>; })}</div>
+      <div className="order-list">{visibleOrders.map((order) => { const offering = orderOffering(order); const paymentStarted = order.paymentStatus !== "NOT_STARTED"; return <article className="order-card" key={order.orderId}><header><small>{order.orderNumber}</small><b>{statusLabel(order.status)}</b></header><h2>{offering.name}</h2><p><span>{date(order.createdAt)}</span><strong>{money(order.amount.amount)}</strong></p><footer>{order.status === "AWAITING_PAYMENT" ? <>{paymentStarted ? <span>正在确认支付结果，请勿重复支付</span> : <button onClick={() => void cancel(order.orderId)}>关闭订单</button>}{!paymentStarted && offering.offeringId ? <Link href={`${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}`}>重新确认并支付</Link> : null}</> : null}{order.status === "FULFILLED" && offering.kind !== "MEMBERSHIP_PLAN" ? <Link href={`${ROUTES.myRefunds}?orderId=${encodeURIComponent(order.orderId)}`}>查看退款条件</Link> : null}</footer></article>; })}</div>
       {visibleOrders.length === 0 ? <div className="commerce-empty">这里还没有订单</div> : null}
     </CommerceFrame>
   );
@@ -530,7 +539,7 @@ export function MembershipScreen() {
     <CommerceFrame title="会员计划" eyebrow="30 天陪伴计划" backHref={backHref}>
       <section className="fresh-membership-hero">
         <h2>按你的节奏<br />选择陪伴深度</h2>
-        <p>三档计划均包含今日能量与抽卡问事权益，套餐、价格与周期由服务端实时提供。</p>
+        <p>三档计划均包含今日能量与抽卡问事服务，套餐、价格与周期会实时更新。</p>
         {active ? <div><span>当前计划</span><strong>{PLAN_NAMES[active.planCode]}计划</strong><b>还剩 {remainingDays} 天</b></div> : <div><span>当前计划</span><strong>尚未开通</strong><b>选择后开始</b></div>}
       </section>
       <div className="fresh-plan-note"><strong>续费与升级</strong><p>续费周期在当前周期结束后依次开始；升级会在新方案安全生效后结束原方案，暂不支持降级。</p></div>
@@ -579,8 +588,8 @@ export function RefundsScreen() {
   async function request() { if (!quote) return; setBusy(true); setError(""); try { const refund = await api.requestRefund(orderId); setRefunds((items) => [refund, ...items.filter((item) => item.refundId !== refund.refundId)]); setQuote(null); } catch (reason) { setError(apiMessage(reason)); } finally { setBusy(false); } }
   return (
     <CommerceFrame title="普通退款" eyebrow="未使用服务退款" backHref={ROUTES.myOrders}>
-      <p className="commerce-lead">仅支持符合商品快照规则、未使用且没有核销预留的普通订单。会员升级原方案剩余权益不属于退款范围。</p>
-      {orderId ? <div className="refund-action"><small>订单</small><strong>{orderId}</strong>{quote ? <><p>服务端报价：{money(quote.amount.amount)}</p><p>有效至：{date(quote.expiresAt)}</p><button disabled={busy} onClick={() => void request()}>确认提交普通退款</button></> : <button disabled={busy} onClick={() => void check()}>{busy ? "正在校验…" : "检查退款资格"}</button>}</div> : <div className="commerce-safe-note">请从“我的订单”选择需要检查的普通订单。</div>}
+      <p className="commerce-lead">仅支持尚未使用、也未进入服务流程的普通订单。会员升级前的剩余服务不属于退款范围。</p>
+      {orderId ? <div className="refund-action"><small>订单</small><strong>{orderId}</strong>{quote ? <><p>预计退款金额：{money(quote.amount.amount)}</p><p>请在此时间前确认：{date(quote.expiresAt)}</p><button disabled={busy} onClick={() => void request()}>确认申请退款</button></> : <button disabled={busy} onClick={() => void check()}>{busy ? "正在检查…" : "查看是否可以退款"}</button>}</div> : <div className="commerce-safe-note">请从“我的订单”选择需要退款的订单。</div>}
       {error ? <p className="commerce-error" role="alert">{error}</p> : null}
       <section className="commerce-section"><header><h2>退款记录</h2><small>最终状态以支付渠道事实为准</small></header><div className="refund-list">{refunds.map((refund) => <p key={refund.refundId}><span><strong>{money(refund.amount.amount)}</strong><small>{date(refund.createdAt)}</small></span><b>{statusLabel(refund.status)}</b></p>)}</div>{refunds.length === 0 ? <div className="commerce-empty">暂无普通退款记录</div> : null}</section>
     </CommerceFrame>
@@ -626,7 +635,7 @@ export function ReadingPrepareScreen() {
   const selected = resolution.selectedSource;
   return (
     <CommerceFrame title={selected ? "本次问事权益已确认" : "需要先获得问事权益"} eyebrow="系统自动选择" backHref={ROUTES.readings}>
-      {selected ? <><div className="resolution-card"><small>系统自动选择</small><h2>{SOURCE_NAMES[selected.sourceType] ?? selected.sourceType}</h2><p>本次使用 {selected.cost} {selected.unit === "WISDOM_SEED" ? "颗智慧种子" : "次权益"}</p>{selected.expiresAt ? <span>该批次有效至 {date(selected.expiresAt)}</span> : null}</div><div className="commerce-safe-note">扣减顺序与来源由系统固定，页面不提供切换入口。正式抽卡后预留进入运行状态。</div><button className="commerce-primary" disabled={busy} onClick={() => void reserve()}>{busy ? "正在锁定权益…" : "确认后进入抽卡"}</button></> : <><div className="commerce-empty">当前会员权益、已购权益包和可用智慧种子均不足。</div><Link className="commerce-primary" href={`${ROUTES.shop}?returnTo=${encodeURIComponent(ROUTES.readingPrepare)}`}>查看问事权益包</Link></>}
+      {selected ? <><div className="resolution-card"><small>系统自动选择</small><h2>{SOURCE_NAMES[selected.sourceType] ?? selected.sourceType}</h2><p>本次使用 {selected.cost} {selected.unit === "WISDOM_SEED" ? "颗智慧种子" : "次服务"}</p>{selected.expiresAt ? <span>有效至 {date(selected.expiresAt)}</span> : null}</div><div className="commerce-safe-note">系统会自动使用合适的可用次数，无需手动选择。</div><button className="commerce-primary" disabled={busy} onClick={() => void reserve()}>{busy ? "正在确认…" : "确认后进入抽卡"}</button></> : <><div className="commerce-empty">当前会员服务、已购服务包和可用智慧种子均不足。</div><Link className="commerce-primary" href={`${ROUTES.shop}?returnTo=${encodeURIComponent(ROUTES.readingPrepare)}`}>查看问事服务包</Link></>}
       {error ? <p className="commerce-error">{error}</p> : null}
     </CommerceFrame>
   );

@@ -22,7 +22,9 @@ test("R1.1 商业页面全部使用真实 API 且不在前端计算价格", asyn
     "currentMembership",
     "refundQuote",
   ]) assert.match(client, new RegExp(`${method}\\(`));
-  assert.match(screens, /服务端报价/);
+  assert.match(screens, /api\.createCheckoutQuote/);
+  assert.match(screens, /应付金额/);
+  assert.doesNotMatch(screens, /获取服务端报价|服务端正在|权益账本|核销预留/);
   assert.doesNotMatch(screens, /price\s*\*|amount\s*\*|seed.*rate|exchangeRate/i);
 });
 
@@ -66,6 +68,8 @@ test("商城优先展示真实服务包，会员入口按使用场景呈现", as
   const shop = screens.match(/export function ShopScreen[\s\S]*?function OfferingCard/)?.[0] ?? "";
   assert.ok(shop.indexOf("按需选择") < shop.indexOf("月度陪伴"));
   assert.match(shop, /services\.length/);
+  assert.match(shop, /fulfilledPurchases/);
+  assert.match(screens, /该体验服务每位用户限购一次/);
   assert.match(shop, /服务正在准备中/);
   assert.doesNotMatch(screens, /className="commerce-nav"/);
   assert.match(shop, /fresh-membership-entry/);
@@ -95,7 +99,7 @@ test("固定核销页只展示系统选择结果且没有来源切换命令", as
   const screens = await readFile(screensUrl, "utf8");
   const scope = screens.match(/export function ReadingPrepareScreen[\s\S]*$/)?.[0] ?? "";
   assert.match(scope, /系统自动选择/);
-  assert.match(scope, /页面不提供切换入口/);
+  assert.match(scope, /无需手动选择/);
   assert.doesNotMatch(scope, /selectSource|selectedSourceId|切换来源/);
 });
 

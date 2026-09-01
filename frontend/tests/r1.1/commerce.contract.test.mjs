@@ -46,9 +46,9 @@ test("R11-PAY-003：支付提交具有进行中锁且 Fake 支付不会调用微
 
 test("R11-PAY-004：商品价格、资格与支付结果不由前端自行确认", async () => {
   const page = await readFile(new URL("../../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8");
-  assert.match(page, /最终金额以服务端报价为准/);
-  assert.match(page, /服务端正在确认价格与购买资格/);
-  assert.match(page, /服务端报价/);
+  assert.match(page, /结算前会再次确认金额/);
+  assert.match(page, /正在确认购买信息/);
+  assert.match(page, /应付金额/);
   assert.match(page, /api\.createMoneyOrder\(quote\.quoteId\)/);
 });
 
@@ -65,9 +65,9 @@ test("R11-PAY-006：普通退款由服务端校验并冻结权益，会员升级
     readFile(new URL("../../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../backend/packages/modules/src/refund/application/index.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /检查退款资格/);
-  assert.match(page, /服务端报价/);
-  assert.match(page, /会员升级原方案剩余权益不属于退款范围/);
+  assert.match(page, /查看是否可以退款/);
+  assert.match(page, /预计退款金额/);
+  assert.match(page, /会员升级前的剩余服务不属于退款范围/);
   assert.match(refund, /freezeBySource\(orderId, 'ORDINARY_REFUND_REQUESTED'\)/);
   assert.match(refund, /MEMBERSHIP_REFUND_NOT_SUPPORTED/);
 });
@@ -77,7 +77,7 @@ test("R11-GOODS-001：智慧种子仅作为活动资格，不承担现金抵扣�
   assert.match(page, /智慧种子只用于活动资格/);
   assert.match(page, /不折算金额/);
   assert.match(page, /不与人民币组合支付/);
-  assert.match(page, /种子仅用于资格预留/);
+  assert.match(page, /智慧种子仅用于确认活动资格/);
 });
 
 test("R11-SHARE-001：分享内容默认排除敏感资料与完整报告", async () => {

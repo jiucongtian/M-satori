@@ -96,7 +96,7 @@ export class PricingApplicationService {
     );
     const lifetimeLimit = numberValue(offering.purchaseLimit.lifetime);
     if (lifetimeLimit !== null && purchaseCount >= lifetimeLimit) {
-      throw new QuoteRejectedError('PURCHASE_LIMIT_REACHED', 'Offering purchase limit reached');
+      throw new QuoteRejectedError('PURCHASE_LIMIT_REACHED', '该体验服务每位用户限购一次');
     }
 
     const now = this.clock.now();

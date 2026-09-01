@@ -198,6 +198,8 @@ test("R1.0 AI 与确定性知识内容分别展示准确边界声明", async () 
   }
   const daily = page.match(/function DailyReport[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(daily, /<AiContentNotice \/>/);
+  assert.match(daily, /heavenCard/);
+  assert.doesNotMatch(daily, /content\?\.notice/);
 });
 
 test("R1.0 Release 白名单阻断购种、商城与种子兑换页面", async () => {
@@ -524,7 +526,7 @@ test("R1.1 商业闭环只销售已上线服务并使用确认价格", async () 
   assert.match(catalog, /membership\('serenity', '清和计划', 2_490/);
   assert.match(catalog, /membership\('freedom', '自在计划', 3_990/);
   assert.doesNotMatch(catalog, /R1\.1体验版/);
-  assert.match(commerce, /最终金额以服务端报价为准/);
+  assert.match(commerce, /结算前会再次确认金额/);
   assert.doesNotMatch(commerce, /const PRODUCTS|price:"¥/);
 });
 
@@ -537,8 +539,8 @@ test("R1.1 会员、支付结果和退款使用独立路由与异常恢复", asy
   assert.match(commerce, /payment\.status === "SUCCEEDED"/);
   assert.match(commerce, /order\.status === "FULFILLMENT_FAILED"/);
   assert.match(commerce, /请勿重复购买/);
-  assert.match(commerce, /会员升级原方案剩余权益不属于退款范围/);
-  assert.match(commerce, /服务端报价/);
+  assert.match(commerce, /会员升级前的剩余服务不属于退款范围/);
+  assert.match(commerce, /预计退款金额/);
 });
 
 test("R1.0 退出登录二次确认且联系我们突出客服、官媒依次下沉", async () => {

@@ -28,5 +28,7 @@ describe('API protocol', () => {
     expect(reply.status).toHaveBeenLastCalledWith(503);
     filter.catch(Object.assign(new Error('wechat unavailable'), { code: 'WECHAT_API_UNAVAILABLE' }), host);
     expect(reply.status).toHaveBeenLastCalledWith(503);
+    filter.catch(Object.assign(new Error('该体验服务每位用户限购一次'), { code: 'PURCHASE_LIMIT_REACHED' }), host);
+    expect(reply.status).toHaveBeenLastCalledWith(409);
   });
 });

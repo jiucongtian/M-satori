@@ -77,6 +77,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
                   domainCode === 'INSUFFICIENT_WISDOM_SEEDS' ||
                   domainCode === 'MONEY_ORDER_CLOSED' ||
                   domainCode === 'MONEY_ORDER_NOT_PAYABLE' ||
+                  domainCode === 'PURCHASE_LIMIT_REACHED' ||
                   domainCode === 'PAYMENT_AFTER_ORDER_CLOSED'
                 ? HttpStatus.CONFLICT
                 : domainCode === 'IDEMPOTENCY_KEY_REUSED' || domainCode === 'IDEMPOTENCY_IN_PROGRESS'
