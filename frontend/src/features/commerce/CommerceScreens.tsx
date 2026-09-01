@@ -176,11 +176,11 @@ export function ShopScreen() {
   const [returnTo, setReturnTo] = useState("");
   const backHref = useCommerceBack(ROUTES.my);
   useEffect(() => { const timer = window.setTimeout(() => setReturnTo(readQuery().get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ""), 0); return () => window.clearTimeout(timer); }, []);
-  const loader = useCallback(() => Promise.all([api.serviceOfferings(), api.membershipPlans(), api.currentMembership(), api.moneyOrders()]), []);
+  const loader = useCallback(() => Promise.all([api.serviceOfferings(), api.moneyOrders()]), []);
   const { data, error } = useLoad(loader, [loader]);
   if (error) return <RouteError message={error} backHref={ROUTES.my} />;
   if (!data) return <RouteSkeleton label="正在获取最新商品与会员方案…" />;
-  const [offerings, plans, membership, orders] = data;
+  const [offerings, orders] = data;
   const services = offerings.filter((item) => item.kind !== "MEMBERSHIP_PLAN");
   const fulfilledPurchases = orders.filter((order) => order.status === "FULFILLED").reduce<Record<string, number>>((counts, order) => {
     const id = orderOffering(order).offeringId;
@@ -198,18 +198,6 @@ export function ShopScreen() {
         {services.length
           ? <div className="offering-list">{services.map((item) => <OfferingCard key={item.offeringId} offering={item} returnTo={returnTo} purchaseLimitReached={typeof item.purchaseLimit === "number" && (fulfilledPurchases[item.offeringId] ?? 0) >= item.purchaseLimit} />)}</div>
           : <div className="commerce-empty">服务正在准备中，请稍后再来看看。</div>}
-      </section>
-      <section className="commerce-section fresh-membership-section">
-        <header><h2>月度陪伴</h2><small>持续使用可以选择会员计划</small></header>
-        <Link className="fresh-membership-entry" href={withReturnPath(membership?.activePeriod ? ROUTES.myMembership : ROUTES.serviceMembership, ROUTES.shop)}>
-          <span>和</span>
-          <div>
-            <small>30 天月度计划</small>
-            <strong>{plans.map((plan) => PLAN_NAMES[plan.planCode] ?? plan.name).join(" · ")}</strong>
-            <p>{membership?.activePeriod ? `当前正在使用${PLAN_NAMES[membership.activePeriod.planCode]}计划` : "按周期获得今日能量与抽卡问事权益"}</p>
-          </div>
-          <b>{membership?.activePeriod ? "查看与续费 ›" : "比较方案 ›"}</b>
-        </Link>
       </section>
       <div className="fresh-store-boundary"><strong>清楚、独立的服务权益</strong><p>会员与服务包分别记录，页面会实时更新可用次数和有效期。智慧种子只用于活动资格，不折算金额，也不与人民币组合支付。</p></div>
       <div className="commerce-context-actions"><Link href={withReturnPath(ROUTES.myBenefits, ROUTES.shop)}>查看我的服务权益 <span>→</span></Link><Link href={withReturnPath(`${ROUTES.myOrders}?kind=service`, ROUTES.shop)}>查看已购买的服务 <span>→</span></Link></div>
@@ -274,12 +262,14 @@ export function CheckoutScreen() {
   const router = useRouter();
   const paymentRequestKey = useRef<string>("");
   const orderRef = useRef<MoneyOrder | null>(null);
+  const paymentRef = useRef<PaymentAttempt | null>(null);
   const [params, setParams] = useState<{ offeringId: string; returnTo: string; previousSubscriptionId: string; targetPlanVersionId: string }>({ offeringId: "", returnTo: ROUTES.shop, previousSubscriptionId: "", targetPlanVersionId: "" });
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [upgradeNotice, setUpgradeNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
+  const [payerReady, setPayerReady] = useState(false);
   const [ready, setReady] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -297,6 +287,27 @@ export function CheckoutScreen() {
     return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => {
+    if (!ready || !params.offeringId) return;
+    const key = `fresh:checkout:${params.offeringId}`;
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem(key) ?? "null") as { order?: MoneyOrder; payment?: PaymentAttempt; requestKey?: string } | null;
+      if (saved?.order) orderRef.current = saved.order;
+      if (saved?.payment) paymentRef.current = saved.payment;
+      if (saved?.requestKey) paymentRequestKey.current = saved.requestKey;
+    } catch { window.sessionStorage.removeItem(key); }
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("wechatPaymentTicket")) { const timer = window.setTimeout(() => setPayerReady(true), 0); return () => window.clearTimeout(timer); }
+    let active = true;
+    void api.prepareWechatPaymentPayer(`${window.location.pathname}${window.location.search}`).then((preparation) => {
+      if (!active) return;
+      if (!preparation.required) { setPayerReady(true); return; }
+      if (!/MicroMessenger/i.test(window.navigator.userAgent)) throw new Error("请在微信中打开此页面后支付");
+      if (!preparation.authorizationUrl) throw new Error("微信支付授权地址不可用");
+      window.location.replace(preparation.authorizationUrl);
+    }).catch((reason) => { if (active) { setError(apiMessage(reason)); setPayerReady(true); } });
+    return () => { active = false; };
+  }, [params.offeringId, ready]);
+  useEffect(() => {
     if (!params.offeringId || businessContext === undefined) return;
     let active = true;
     void Promise.all([
@@ -313,21 +324,12 @@ export function CheckoutScreen() {
   }, [businessContext, params.offeringId, params.previousSubscriptionId, params.targetPlanVersionId]);
 
   async function submit() {
-    if (!quote || busy) return;
+    if (!quote || busy || !payerReady) return;
     setBusy(true);
     setError("");
     try {
       const query = new URLSearchParams(window.location.search);
       const payerTicket = query.get("wechatPaymentTicket") ?? undefined;
-      if (!payerTicket) {
-        const preparation = await api.prepareWechatPaymentPayer(`${window.location.pathname}${window.location.search}`);
-        if (preparation.required) {
-          if (!/MicroMessenger/i.test(window.navigator.userAgent)) throw new Error("请在微信中打开此页面后支付");
-          if (!preparation.authorizationUrl) throw new Error("微信支付授权地址不可用");
-          window.location.assign(preparation.authorizationUrl);
-          return;
-        }
-      }
       const order = orderRef.current ?? await api.createMoneyOrder(quote.quoteId);
       orderRef.current = order;
       if (params.previousSubscriptionId && params.targetPlanVersionId) {
@@ -338,7 +340,10 @@ export function CheckoutScreen() {
         });
       }
       if (!paymentRequestKey.current) paymentRequestKey.current = crypto.randomUUID();
-      const payment = await api.createPaymentAttempt(order.orderId, payerTicket, paymentRequestKey.current);
+      const payment = paymentRef.current ?? await api.createPaymentAttempt(order.orderId, payerTicket, paymentRequestKey.current);
+      paymentRef.current = payment;
+      window.sessionStorage.setItem(`fresh:checkout:${params.offeringId}`, JSON.stringify({ order, payment, requestKey: paymentRequestKey.current }));
+      if (payerTicket) { query.delete("wechatPaymentTicket"); window.history.replaceState(window.history.state, "", `${window.location.pathname}${query.size ? `?${query.toString()}` : ""}`); }
       savePendingCommerceContext({
         orderId: order.orderId,
         paymentAttemptId: payment.paymentAttemptId,
@@ -347,7 +352,9 @@ export function CheckoutScreen() {
         savedAt: new Date().toISOString(),
       });
       if (payment.provider === "WECHAT_PAY") {
-        await invokeWechatPay(payment.clientParameters);
+        const result = await invokeWechatPay(payment.clientParameters);
+        if (result === "cancel") { setError("本次支付已取消，你可以稍后重新支付。"); setBusy(false); return; }
+        if (result === "fail" || result === "unavailable") { setError(result === "unavailable" ? "暂时无法调起微信支付，请确认已在微信中打开后重试。" : "微信支付未完成，请重新尝试。"); setBusy(false); return; }
       }
       router.push(`${ROUTES.paymentResult}?orderId=${encodeURIComponent(order.orderId)}&paymentAttemptId=${encodeURIComponent(payment.paymentAttemptId)}`);
     } catch (reason) {
@@ -371,7 +378,7 @@ export function CheckoutScreen() {
       {quote.promotion.eligible && quote.promotion.seedReservationRequired > 0 ? <div className="commerce-safe-note">已满足智慧种子活动资格，将按活动价格支付；智慧种子仅用于确认活动资格。</div> : null}
       {upgradeNotice ? <div className="upgrade-notice"><strong>升级确认</strong><p>{upgradeNotice}</p><p>新方案生效后原方案结束，原方案未使用次数不保留。</p></div> : null}
       {error ? <p className="commerce-error" role="alert">{error}</p> : null}
-      <button className="commerce-primary" type="button" disabled={busy} onClick={() => void submit()}>{busy ? "正在提交…" : `微信支付 ${money(quote.price.amount)}`}</button>
+      <button className="commerce-primary" type="button" disabled={busy || !payerReady} onClick={() => void submit()}>{!payerReady ? "正在准备微信支付…" : busy ? "正在提交…" : `微信支付 ${money(quote.price.amount)}`}</button>
       <p className="commerce-footnote">支付完成后，服务可能需要几秒到账，请勿重复支付。</p>
     </CommerceFrame>
   );
@@ -414,6 +421,7 @@ export function PaymentResultScreen() {
   }, [identity]);
   if (!ready) return <RouteSkeleton label="正在恢复支付上下文…" />;
   if (!identity.orderId || !identity.paymentAttemptId) return <RouteError title="支付结果地址无效" message="无法恢复对应订单。" backHref={ROUTES.myOrders} />;
+  if ((!order || !payment) && error) return <RouteError title="暂时无法确认支付结果" message={error} backHref={ROUTES.myOrders} />;
   if (!order || !payment) return <RouteSkeleton label="正在确认支付与服务到账结果…" />;
   const fulfilled = order.status === "FULFILLED";
   const paid = payment.status === "SUCCEEDED" || ["PAID", "FULFILLING", "FULFILLED"].includes(order.status);

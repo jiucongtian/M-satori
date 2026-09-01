@@ -18,10 +18,11 @@ import {
 } from "@/src/features/legacy/LegacyProfileFlow";
 import { ProtectedRoute } from "@/src/shared/guards";
 import { ROUTES, safeReturnPath, withReturnPath } from "@/src/shared/routes";
-import { RouteFrame } from "@/src/shared/shell";
+import { RouteError,RouteFrame } from "@/src/shared/shell";
 import { useSession } from "@/src/shared/session";
 import { readFlowDraft } from "@/src/shared/storage";
-import { PageDebugLabel } from "@/src/shared/ui";
+import { apiMessage,PageDebugLabel } from "@/src/shared/ui";
+import { api,type CardReading } from "@/src/api/client";
 
 type ReadingDraft = { question:string; category:string; cardCount:number; positions:string[] };
 
@@ -56,7 +57,9 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   const searchParams = useSearchParams();
   const{me}=useSession();
   const[draft,setDraft]=useState<ReadingDraft|null>(null);
+  const[reading,setReading]=useState<CardReading|null>(null);const[flowBusy,setFlowBusy]=useState(false);const[flowError,setFlowError]=useState("");
   useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,1)),0);return()=>window.clearTimeout(timer)},[me?.userId]);
+  useEffect(()=>{if(!me?.userId)return;const requested=searchParams.get("readingId");const saved=window.sessionStorage.getItem(`fresh:active-reading:${me.userId}`);const id=requested||saved;if(!id)return;void api.cardReading(id).then(setReading).catch(()=>{if(saved===id)window.sessionStorage.removeItem(`fresh:active-reading:${me.userId}`)})},[me?.userId,searchParams]);
   const requestedCount = Number(searchParams.get("cards")||2);
   const cardCount = Math.min(5,Math.max(1,Number.isFinite(requestedCount)?requestedCount:2));
   const requestedReturn = searchParams.get("from");
@@ -71,6 +74,9 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     else if (target === "services") router.push(ROUTES.shop);
     else router.push(flowPath(target));
   };
+  async function beginDraw(){if(!me?.userId||!draft||flowBusy)return;setFlowBusy(true);setFlowError("");try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:draft.positions});setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);go("draw")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
+  async function completeReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const completed=await api.completeCardReading(reading.readingId);setReading(completed);go("generating")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
+  async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
 
   const screens: Record<ReadingFlowStep, React.ReactNode> = {
     question: <ReadingQuestion onBack={()=>go("home")} onNext={()=>go("spread")}/>,
@@ -78,14 +84,15 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     spread: <ReadingSpread onBack={()=>go("question")} onNext={(count)=>router.push(`${path.payment}?cards=${count}`)}/>,
     config: <ReadingConfig onBack={()=>go("spread")} onNext={()=>go("payment")}/>,
     payment: <ReadingPayment cardCount={cardCount} question={draft?.question} category={draft?.category} positions={cardCount>1?draft?.positions:undefined} onBack={()=>go("question")} onNext={()=>go("shuffle")}/>,
-    shuffle: <ReadingShuffle onBack={()=>go("payment")} onNext={()=>go("draw")}/>,
+    shuffle: <ReadingShuffle onBack={()=>go("payment")} onNext={()=>void beginDraw()}/>,
     draw: <ReadingDraw cardCount={cardCount} onBack={()=>go("shuffle")} onNext={()=>go("reveal")}/>,
-    reveal: <ReadingReveal cardCount={cardCount} onBack={()=>go("draw")} onNext={()=>go("generating")}/>,
-    generating: <ReadingGenerate cardCount={cardCount} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onSuccess={()=>go("report")} onFailure={()=>go("failure")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")} onNetworkError={()=>go("failure")}/>,
-    report: <ReadingReport cardCount={cardCount} onBack={()=>router.push(returnPath)} onNext={()=>go("home")}/>,
+    reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>void completeReading()}/>,
+    generating: <ReadingGenerate cardCount={cardCount} cards={reading?.cards} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onSuccess={()=>router.push(`${path.report}?readingId=${encodeURIComponent(reading?.readingId??"")}`)} onFailure={()=>go("failure")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")} onNetworkError={()=>go("failure")}/>,
+    report: <ReadingReport cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")}/>,
     feedback: <ReadingFeedback onBack={()=>go("report")} onHome={()=>go("home")} onShare={()=>go("report")}/>,
-    failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>go("generating")}/>,
+    failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>void retryReading()}/>,
   };
 
+  if(flowError)return <RouteError title="本次问事暂时没有继续" message={flowError} backHref={ROUTES.readingHistory}/>;
   return <ProtectedRoute><RouteFrame title="抽卡问事" label="R1.1 正式主流程"><PageDebugLabel>{`R1.1 · ${pageCode[step]}`}</PageDebugLabel>{screens[step]}</RouteFrame></ProtectedRoute>;
 }

@@ -527,6 +527,30 @@ export const generationTasks = pgTable(
   ],
 );
 
+export const cardReadings = pgTable(
+  'card_readings',
+  {
+    id: id(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    question: text('question').notNull(),
+    category: varchar('category', { length: 32 }).notNull(),
+    cardCount: integer('card_count').notNull(),
+    positionLabels: jsonb('position_labels').notNull(),
+    cardCodes: jsonb('card_codes').notNull(),
+    status: varchar('status', { length: 32 }).notNull().default('DRAWN'),
+    failure: jsonb('failure'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index('card_readings_owner_created_idx').on(table.ownerUserId, table.createdAt, table.id),
+    check('card_readings_card_count_ck', sql`${table.cardCount} between 1 and 5`),
+  ],
+);
+
 export const generationAttempts = pgTable(
   'generation_attempts',
   {

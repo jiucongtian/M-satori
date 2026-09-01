@@ -31,6 +31,8 @@ type MembershipSubscription = Schemas["MembershipSubscription"];
 type RefundQuote = Schemas["RefundQuote"];
 type Refund = Schemas["Refund"];
 type BusinessContext = Schemas["BusinessContext"];
+export type CardReadingCard = { position: number; positionLabel: string; cardCode: string; displayName: string };
+export type CardReading = { readingId: string; question: string; category: string; cardCount: number; status: "DRAWN" | "GENERATING" | "READY" | "FAILED"; cards: CardReadingCard[]; failure: { code?: string; message?: string; retryable?: boolean } | null; createdAt: string; updatedAt: string; completedAt: string | null };
 
 export type {
   Bootstrap,
@@ -491,6 +493,22 @@ class SatoriApiClient {
 
   refunds() {
     return this.request<Schemas["RefundListEnvelope"]>("/refunds").then((x) => x.data);
+  }
+
+  createCardReadingDraw(input: { question: string; category: string; cardCount: number; positionLabels: string[] }) {
+    return this.command<{ data: CardReading }>("/card-readings/draws", { method: "POST", body: JSON.stringify({ ...input, drawMethod: "SYSTEM_RANDOM" }) }).then((x) => x.data);
+  }
+  cardReadings(cursor?: string) {
+    return this.request<{ data: { items: CardReading[]; nextCursor: string | null } }>(`/card-readings?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`).then((x) => x.data);
+  }
+  cardReading(readingId: string) {
+    return this.request<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}`).then((x) => x.data);
+  }
+  completeCardReading(readingId: string) {
+    return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/complete`, { method: "POST" }).then((x) => x.data);
+  }
+  retryCardReading(readingId: string) {
+    return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/retry`, { method: "POST" }).then((x) => x.data);
   }
 }
 

@@ -63,16 +63,16 @@ test("会员页只管理会员计划，服务入口统一回到我的", async ()
   assert.match(screens, /function productName/);
 });
 
-test("商城优先展示真实服务包，会员入口按使用场景呈现", async () => {
+test("商城只展示真实服务包，不再嵌套会员计划", async () => {
   const screens = await readFile(screensUrl, "utf8");
   const shop = screens.match(/export function ShopScreen[\s\S]*?function OfferingCard/)?.[0] ?? "";
-  assert.ok(shop.indexOf("按需选择") < shop.indexOf("月度陪伴"));
+  assert.match(shop, /按需选择/);
+  assert.doesNotMatch(shop, /月度陪伴|fresh-membership-entry/);
   assert.match(shop, /services\.length/);
   assert.match(shop, /fulfilledPurchases/);
   assert.match(screens, /该体验服务每位用户限购一次/);
   assert.match(shop, /服务正在准备中/);
   assert.doesNotMatch(screens, /className="commerce-nav"/);
-  assert.match(shop, /fresh-membership-entry/);
 });
 
 test("商业页面遵循项目视觉变量、交互热区与小屏适配规则", async () => {
@@ -120,17 +120,21 @@ test("支付结果明确区分资金成功与权益交付完成", async () => {
   assert.match(scope, /返回刚才的问事流程/);
 });
 
-test("Fake 支付跳过微信收银台并直接进入服务端支付结果轮询", async () => {
+test("支付预授权在点击前完成，取消收银台后停留订单页且不复用一次性票据", async () => {
   const [screens, client] = await Promise.all([readFile(screensUrl, "utf8"), readFile(clientUrl, "utf8")]);
-  const scope = screens.match(/async function submit\(\)[\s\S]*?if \(!ready\)/)?.[0] ?? "";
+  const checkout = screens.match(/export function CheckoutScreen[\s\S]*?export function PaymentResultScreen/)?.[0] ?? "";
+  const scope = checkout.match(/async function submit\(\)[\s\S]*?if \(!ready\)/)?.[0] ?? "";
   const createAttempt = client.slice(client.indexOf("createPaymentAttempt(orderId"), client.indexOf("paymentAttempt(paymentAttemptId"));
   assert.doesNotMatch(createAttempt, /provider:\s*["']WECHAT_PAY["']/);
   assert.match(createAttempt, /payerTicket/);
   assert.doesNotMatch(createAttempt, /provider\s*:/);
-  assert.match(scope, /prepareWechatPaymentPayer/);
-  assert.match(scope, /MicroMessenger/);
+  assert.match(checkout, /prepareWechatPaymentPayer/);
+  assert.match(checkout, /MicroMessenger/);
   assert.match(scope, /payment\.provider === ["']WECHAT_PAY["']/);
   assert.match(scope, /invokeWechatPay\(payment\.clientParameters\)/);
+  assert.match(scope, /result === "cancel"/);
+  assert.match(scope, /result === "fail"/);
+  assert.match(scope, /query\.delete\("wechatPaymentTicket"\)/);
   assert.match(scope, /router\.push\(`\$\{ROUTES\.paymentResult\}/);
   assert.doesNotMatch(scope, /payment\.provider === ["']FAKE["'][\s\S]*invokeWechatPay/);
 });
@@ -148,7 +152,7 @@ test("商城详情保留来源页面，返回操作不再统一跳到我的", as
   const [screens, routes] = await Promise.all([readFile(screensUrl, "utf8"), readFile(routesUrl, "utf8")]);
   assert.match(screens, /function useCommerceBack\(fallback: AppPath\)/);
   assert.match(screens, /<CommerceFrame title=\{productName\(offering\.name\)\} eyebrow=\{kindLabel\(offering\.kind\)\} backHref=\{ROUTES\.shop\}>/);
-  assert.match(screens, /withReturnPath\(membership\?\.activePeriod \? ROUTES\.myMembership : ROUTES\.serviceMembership, ROUTES\.shop\)/);
+  assert.doesNotMatch(screens, /fresh-membership-entry/);
   assert.match(screens, /withReturnPath\(`\$\{ROUTES\.myOrders\}\?kind=service`, ROUTES\.shop\)/);
   assert.match(routes, /\[ROUTES\.shop\]: new Set\(\["returnTo", "from"\]\)/);
   assert.match(routes, /\[ROUTES\.myOrders\]: new Set\(\["orderId", "kind", "from"\]\)/);

@@ -127,6 +127,13 @@
       "when": 1788266101848,
       "tag": "0017_curious_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788282527905,
+      "tag": "0018_same_stepford_cuckoos",
+      "breakpoints": true
     }
   ]
 }
