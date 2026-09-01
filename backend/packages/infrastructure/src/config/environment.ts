@@ -41,6 +41,8 @@ const environmentShape = {
   FAKE_PAYMENT_RESULT: z.enum(['PENDING', 'SUCCEEDED']).default('PENDING'),
   WECHAT_MERCHANT_ID: z.string().min(6).optional(),
   WECHAT_APP_ID: z.string().min(6).optional(),
+  WECHAT_APP_SECRET: z.string().min(16).optional(),
+  WECHAT_OAUTH_REDIRECT_ORIGIN: z.string().url().optional(),
   WECHAT_API_V3_KEY: z.string().length(32).optional(),
   WECHAT_MERCHANT_PRIVATE_KEY_BASE64: z.string().min(100).optional(),
   WECHAT_MERCHANT_SERIAL_NO: z.string().min(8).optional(),
@@ -71,6 +73,8 @@ export const environmentSchema = z.object(environmentShape).superRefine((environ
     for (const key of [
       'WECHAT_MERCHANT_ID',
       'WECHAT_APP_ID',
+      'WECHAT_APP_SECRET',
+      'WECHAT_OAUTH_REDIRECT_ORIGIN',
       'WECHAT_API_V3_KEY',
       'WECHAT_MERCHANT_PRIVATE_KEY_BASE64',
       'WECHAT_MERCHANT_SERIAL_NO',

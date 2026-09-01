@@ -19,6 +19,7 @@ import {
   queryWechatPayment,
   queryWechatRefund,
   requestWechatRefund,
+  createWechatJsapiPayment,
   type WechatPayConfig,
 } from './wechat-pay.js';
 
@@ -77,6 +78,7 @@ export class DrizzlePaymentRepository implements PaymentRepository {
           idempotencyKey: command.idempotencyKey,
           requestHash: command.requestHash,
           requestId: command.requestId,
+          payerSubjectCiphertext: command.payerSubject ? this.cipher.encrypt(command.payerSubject) : null,
           expiresAt: order.expiresAt,
         })
         .returning();
@@ -86,6 +88,20 @@ export class DrizzlePaymentRepository implements PaymentRepository {
         .where(eq(moneyOrders.id, order.id));
       return { view: await this.toView(created!, order), created: true };
     });
+  }
+
+  async findByIdempotency(ownerUserId: string, idempotencyKey: string, requestHash: string) {
+    const [row] = await this.infrastructure.database
+      .select()
+      .from(paymentAttempts)
+      .where(
+        and(eq(paymentAttempts.ownerUserId, ownerUserId), eq(paymentAttempts.idempotencyKey, idempotencyKey)),
+      )
+      .limit(1);
+    if (!row) return null;
+    if (row.requestHash !== requestHash)
+      throw new PaymentError('IDEMPOTENCY_KEY_REUSED', 'Idempotency key was reused');
+    return this.toView(row);
   }
 
   async attachProvider(attemptId: string, result: ProviderPaymentResult) {
@@ -298,6 +314,9 @@ export class DrizzlePaymentRepository implements PaymentRepository {
       succeededAt: attempt.succeededAt,
       orderExpiresAt: order.expiresAt,
       promotionSeedReservationId: order.promotionSeedReservationId,
+      payerSubject: attempt.payerSubjectCiphertext
+        ? this.cipher.decrypt(attempt.payerSubjectCiphertext)
+        : null,
     };
   }
 }
@@ -384,11 +403,8 @@ export class PaymentRuntimeAdapter {
 
 export class WechatPayAdapter implements PaymentProvider {
   constructor(private readonly config: WechatPayConfig) {}
-  createPayment(): never {
-    throw new PaymentError(
-      'WECHAT_PAYMENT_SCENE_NOT_CONFIGURED',
-      'WeChat JSAPI or H5 payment scene is not configured',
-    );
+  createPayment(request: Parameters<PaymentProvider['createPayment']>[0]) {
+    return createWechatJsapiPayment(this.config, request);
   }
   queryPayment(providerAttemptId: string) {
     return queryWechatPayment(this.config, providerAttemptId);

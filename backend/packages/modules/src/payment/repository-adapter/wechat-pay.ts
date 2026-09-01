@@ -1,4 +1,5 @@
 import type {
+  CreatePaymentRequest,
   ProviderPaymentResult,
   ProviderRefundRequest,
   ProviderRefundResult,
@@ -175,6 +176,57 @@ export async function queryWechatPayment(
         : {}),
     currency: 'CNY',
     ...(transaction.success_time ? { providerOccurredAt: new Date(transaction.success_time) } : {}),
+  };
+}
+
+export async function createWechatJsapiPayment(
+  config: WechatPayConfig,
+  request: CreatePaymentRequest,
+): Promise<ProviderPaymentResult> {
+  if (!request.payerSubject)
+    throw new PaymentError('WECHAT_PAYER_REQUIRED', 'WeChat payer OpenID is required');
+  const outTradeNo = merchantReference(request.attemptId);
+  const body = JSON.stringify({
+    appid: config.appId,
+    mchid: config.merchantId,
+    description: request.description.slice(0, 127),
+    out_trade_no: outTradeNo,
+    time_expire: request.expiresAt.toISOString(),
+    notify_url: config.notifyUrl,
+    attach: request.orderId,
+    amount: { total: request.amountMinor, currency: request.currency },
+    payer: { openid: request.payerSubject },
+  });
+  const created = await requestWechatJson<{ prepay_id?: string }>(
+    config,
+    'POST',
+    '/v3/pay/transactions/jsapi',
+    body,
+  );
+  if (!created.prepay_id)
+    throw new PaymentError('WECHAT_RESPONSE_INVALID', 'WeChat prepay response is incomplete');
+  const timeStamp = String(Math.floor((config.now?.() ?? new Date()).getTime() / 1000));
+  const nonceStr = config.nonce?.() ?? randomBytes(16).toString('hex');
+  const packageValue = `prepay_id=${created.prepay_id}`;
+  const paySign = sign(
+    'RSA-SHA256',
+    Buffer.from(`${config.appId}\n${timeStamp}\n${nonceStr}\n${packageValue}\n`),
+    config.merchantPrivateKey,
+  ).toString('base64');
+  return {
+    providerAttemptId: outTradeNo,
+    state: 'PENDING',
+    orderId: request.orderId,
+    amountMinor: request.amountMinor,
+    currency: request.currency,
+    clientParameters: {
+      appId: config.appId,
+      timeStamp,
+      nonceStr,
+      package: packageValue,
+      signType: 'RSA',
+      paySign,
+    },
   };
 }
 

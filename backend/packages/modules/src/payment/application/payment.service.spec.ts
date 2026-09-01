@@ -142,6 +142,7 @@ function maintenanceFixture(
     succeededAt: null,
     orderExpiresAt: new Date('2026-08-31T08:10:00.000Z'),
     promotionSeedReservationId: null,
+    payerSubject: null,
     ...viewOverrides,
   };
   const providerStateValue = { value: providerState };

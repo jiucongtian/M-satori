@@ -1,18 +1,57 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { IsIn, IsOptional } from 'class-validator';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import { IsOptional, IsString, Matches } from 'class-validator';
 import { Public } from '@satori/contracts';
-import type { FastifyRequest } from 'fastify';
-import { PaymentApplicationService, type PaymentAttemptView } from '../application/index.js';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import {
+  PAYMENT_PAYER_AUTHORIZER,
+  PaymentApplicationService,
+  type PaymentAttemptView,
+  type PaymentPayerAuthorizer,
+} from '../application/index.js';
 import { WechatWebhookNetworkGuard } from './wechat-webhook-network.guard.js';
 
 class CreatePaymentAttemptDto {
-  @IsOptional() @IsIn(['WECHAT_PAY', 'FAKE']) provider?: 'WECHAT_PAY' | 'FAKE';
+  @IsOptional() @IsString() @Matches(/^[0-9A-Za-z_-]{32,128}$/) payerTicket?: string;
+}
+class PrepareWechatPayerDto {
+  @IsString() returnPath!: string;
 }
 type AuthRequest = FastifyRequest & { auth: { userId: string } };
 
 @Controller()
 export class PaymentController {
-  constructor(private readonly payments: PaymentApplicationService) {}
+  constructor(
+    private readonly payments: PaymentApplicationService,
+    @Inject(PAYMENT_PAYER_AUTHORIZER) private readonly payerAuthorizer: PaymentPayerAuthorizer,
+  ) {}
+
+  @Post('payment-payer/wechat/prepare')
+  async prepareWechatPayer(@Req() request: AuthRequest, @Body() body: PrepareWechatPayerDto) {
+    return { data: await this.payerAuthorizer.prepare(request.auth.userId, body.returnPath) };
+  }
+
+  @Get('payment-payer/wechat/callback')
+  @Public()
+  async completeWechatPayer(
+    @Req() request: FastifyRequest<{ Querystring: { code?: string; state?: string } }>,
+    @Res() reply: FastifyReply,
+  ) {
+    const { code, state } = request.query;
+    const target = await this.payerAuthorizer.complete(code ?? '', state ?? '');
+    return reply.code(302).redirect(target);
+  }
 
   @Post('money-orders/:orderId/payment-attempts')
   async create(
@@ -26,9 +65,10 @@ export class PaymentController {
         await this.payments.create({
           ownerUserId: request.auth.userId,
           orderId,
-          provider: body.provider ?? 'FAKE',
+          provider: this.payerAuthorizer.provider(),
           idempotencyKey: key,
           requestId: request.id,
+          ...(body.payerTicket ? { payerTicket: body.payerTicket } : {}),
         }),
       ),
     };

@@ -127,6 +127,7 @@ export interface CreatePaymentRequest {
   readonly currency: 'CNY';
   readonly description: string;
   readonly expiresAt: Date;
+  readonly payerSubject?: string;
 }
 
 export interface ProviderPaymentResult {

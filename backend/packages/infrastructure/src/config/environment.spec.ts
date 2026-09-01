@@ -76,6 +76,8 @@ describe('runtime baseline', () => {
       PAYMENT_PROVIDER_MODE: 'WECHAT_PAY',
       WECHAT_MERCHANT_ID: 'merchant-10001',
       WECHAT_APP_ID: 'wx-app-10001',
+      WECHAT_APP_SECRET: 'wechat-app-secret-for-test',
+      WECHAT_OAUTH_REDIRECT_ORIGIN: 'https://pay.example.com',
       WECHAT_API_V3_KEY: '12345678901234567890123456789012',
       WECHAT_MERCHANT_PRIVATE_KEY_BASE64: 'x'.repeat(120),
       WECHAT_MERCHANT_SERIAL_NO: 'MERCHANTSERIAL001',

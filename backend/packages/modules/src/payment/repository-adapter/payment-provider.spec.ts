@@ -81,6 +81,56 @@ describe('payment providers', () => {
     ).toBe(true);
   });
 
+  it('creates a JSAPI prepay order and signs browser parameters without exposing OpenID', async () => {
+    const fixture = wechatFixture();
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      expect(url.pathname).toBe('/v3/pay/transactions/jsapi');
+      const submitted = JSON.parse(typeof init?.body === 'string' ? init.body : '') as Record<
+        string,
+        unknown
+      >;
+      expect(submitted).toMatchObject({
+        appid: fixture.config.appId,
+        mchid: fixture.config.merchantId,
+        attach: 'order-jsapi-1',
+        amount: { total: 99, currency: 'CNY' },
+        payer: { openid: 'openid-server-only' },
+      });
+      const responseBody = JSON.stringify({ prepay_id: 'wx-prepay-1' });
+      return Promise.resolve(
+        new Response(responseBody, { status: 200, headers: fixture.signedHeaders(responseBody) }),
+      );
+    });
+    const adapter = new WechatPayAdapter({ ...fixture.config, fetch: fetchMock });
+    const result = await adapter.createPayment({
+      attemptId: '00000000-0000-4000-8000-000000000099',
+      orderId: 'order-jsapi-1',
+      amountMinor: 99,
+      currency: 'CNY',
+      description: 'JSAPI test',
+      expiresAt: new Date('2026-08-29T01:00:00.000Z'),
+      payerSubject: 'openid-server-only',
+    });
+    expect(result.clientParameters).toMatchObject({
+      appId: fixture.config.appId,
+      package: 'prepay_id=wx-prepay-1',
+      signType: 'RSA',
+    });
+    expect(JSON.stringify(result)).not.toContain('openid-server-only');
+    const parameters = result.clientParameters!;
+    expect(
+      verify(
+        'RSA-SHA256',
+        Buffer.from(
+          `${parameters.appId}\n${parameters.timeStamp}\n${parameters.nonceStr}\n${parameters.package}\n`,
+        ),
+        fixture.merchantPublicKey,
+        Buffer.from(parameters.paySign!, 'base64'),
+      ),
+    ).toBe(true);
+  });
+
   it('verifies and decrypts an API v3 transaction notification into minimal facts', async () => {
     const fixture = wechatFixture();
     const transaction = {

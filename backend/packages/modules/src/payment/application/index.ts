@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { PAYMENT_RECOVERY_STALE_AFTER_MS, PaymentError } from '../domain/index.js';
 
 export const PAYMENT_REPOSITORY = Symbol('PAYMENT_REPOSITORY');
+export const PAYMENT_PAYER_AUTHORIZER = Symbol('PAYMENT_PAYER_AUTHORIZER');
 export const WECHAT_WEBHOOK_ALLOWED_IPS = Symbol('WECHAT_WEBHOOK_ALLOWED_IPS');
 
 export interface PaymentAttemptView {
@@ -26,6 +27,16 @@ export interface PaymentAttemptView {
   succeededAt: Date | null;
   orderExpiresAt: Date;
   promotionSeedReservationId: string | null;
+  payerSubject: string | null;
+}
+export interface PaymentPayerAuthorizer {
+  provider(): 'FAKE' | 'WECHAT_PAY';
+  prepare(
+    ownerUserId: string,
+    returnPath: string,
+  ): Promise<{ required: boolean; authorizationUrl: string | null }>;
+  complete(code: string, state: string): Promise<string>;
+  resolve(ownerUserId: string, ticket: string | undefined): Promise<string | null>;
 }
 export interface PaymentRepository {
   createAttempt(command: {
@@ -35,7 +46,13 @@ export interface PaymentRepository {
     idempotencyKey: string;
     requestHash: string;
     requestId: string;
+    payerSubject: string | null;
   }): Promise<{ view: PaymentAttemptView; created: boolean }>;
+  findByIdempotency(
+    ownerUserId: string,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<PaymentAttemptView | null>;
   attachProvider(attemptId: string, result: ProviderPaymentResult): Promise<PaymentAttemptView>;
   getOwned(ownerUserId: string, attemptId: string): Promise<PaymentAttemptView | null>;
   findByProviderAttempt(providerAttemptId: string): Promise<PaymentAttemptView | null>;
@@ -51,6 +68,13 @@ export class PaymentApplicationService {
     private readonly provider: PaymentProvider,
     private readonly seeds: SeedPromotionLifecyclePort,
     private readonly orders: PaymentOrderLifecyclePort,
+    private readonly payerAuthorizer: PaymentPayerAuthorizer = {
+      provider: () => 'FAKE',
+      prepare: () => Promise.resolve({ required: false, authorizationUrl: null }),
+      complete: () =>
+        Promise.reject(new PaymentError('WECHAT_OAUTH_UNAVAILABLE', 'WeChat OAuth is unavailable')),
+      resolve: () => Promise.resolve(null),
+    },
   ) {}
 
   async create(command: {
@@ -59,10 +83,20 @@ export class PaymentApplicationService {
     provider: 'WECHAT_PAY' | 'FAKE';
     idempotencyKey: string;
     requestId: string;
+    payerTicket?: string;
   }) {
+    const requestHash = hashPayload({ orderId: command.orderId, provider: command.provider });
+    const replay = await this.repository.findByIdempotency(
+      command.ownerUserId,
+      command.idempotencyKey,
+      requestHash,
+    );
+    if (replay) return replay;
+    const payerSubject = await this.payerAuthorizer.resolve(command.ownerUserId, command.payerTicket);
     const prepared = await this.repository.createAttempt({
       ...command,
-      requestHash: hashPayload({ orderId: command.orderId, provider: command.provider }),
+      requestHash,
+      payerSubject,
     });
     if (!prepared.created) return prepared.view;
     const result = await this.provider.createPayment({
@@ -72,6 +106,7 @@ export class PaymentApplicationService {
       currency: 'CNY',
       description: `Satori ${prepared.view.orderId}`,
       expiresAt: prepared.view.orderExpiresAt,
+      ...(prepared.view.payerSubject ? { payerSubject: prepared.view.payerSubject } : {}),
     });
     return this.finalizeResult(prepared.view, result);
   }
@@ -132,6 +167,7 @@ export class PaymentApplicationService {
               currency: attempt.currency,
               description: `Satori ${attempt.orderId}`,
               expiresAt: attempt.orderExpiresAt,
+              ...(attempt.payerSubject ? { payerSubject: attempt.payerSubject } : {}),
             });
         let updated = await this.finalizeResult(attempt, result);
         if (updated.status === 'SUCCEEDED') {

@@ -918,6 +918,7 @@ export const paymentAttempts = pgTable(
     amountMinor: integer('amount_minor').notNull(),
     currency: varchar('currency', { length: 3 }).notNull().default('CNY'),
     clientParameters: jsonb('client_parameters'),
+    payerSubjectCiphertext: text('payer_subject_ciphertext'),
     failure: jsonb('failure'),
     idempotencyKey: varchar('idempotency_key', { length: 128 }).notNull(),
     requestHash: varchar('request_hash', { length: 128 }).notNull(),

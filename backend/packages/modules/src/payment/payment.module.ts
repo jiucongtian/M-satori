@@ -8,13 +8,16 @@ import {
   type SeedPromotionLifecyclePort,
 } from '@satori/application';
 import {
+  PAYMENT_PAYER_AUTHORIZER,
   PAYMENT_REPOSITORY,
   PaymentApplicationService,
+  type PaymentPayerAuthorizer,
   WECHAT_WEBHOOK_ALLOWED_IPS,
 } from './application/index.js';
 import { PaymentController } from './controller/index.js';
 import { WechatWebhookNetworkGuard } from './controller/wechat-webhook-network.guard.js';
 import { DrizzlePaymentRepository, PaymentRuntimeAdapter } from './repository-adapter/index.js';
+import { WechatPayerAuthorizer } from './repository-adapter/wechat-payer-authorizer.js';
 
 @Global()
 @Module({
@@ -23,6 +26,8 @@ import { DrizzlePaymentRepository, PaymentRuntimeAdapter } from './repository-ad
     DrizzlePaymentRepository,
     PaymentRuntimeAdapter,
     WechatWebhookNetworkGuard,
+    WechatPayerAuthorizer,
+    { provide: PAYMENT_PAYER_AUTHORIZER, useExisting: WechatPayerAuthorizer },
     {
       provide: WECHAT_WEBHOOK_ALLOWED_IPS,
       inject: [PaymentRuntimeAdapter],
@@ -41,13 +46,15 @@ import { DrizzlePaymentRepository, PaymentRuntimeAdapter } from './repository-ad
         PAYMENT_PROVIDER,
         SEED_PROMOTION_LIFECYCLE_PORT,
         PAYMENT_ORDER_LIFECYCLE_PORT,
+        PAYMENT_PAYER_AUTHORIZER,
       ],
       useFactory: (
         repository: DrizzlePaymentRepository,
         provider: PaymentProvider,
         seeds: SeedPromotionLifecyclePort,
         orders: PaymentOrderLifecyclePort,
-      ) => new PaymentApplicationService(repository, provider, seeds, orders),
+        payerAuthorizer: PaymentPayerAuthorizer,
+      ) => new PaymentApplicationService(repository, provider, seeds, orders, payerAuthorizer),
     },
   ],
   exports: [PaymentApplicationService, PAYMENT_PROVIDER],
