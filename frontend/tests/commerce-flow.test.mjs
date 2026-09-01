@@ -121,7 +121,10 @@ test("Fake 支付跳过微信收银台并直接进入服务端支付结果轮询
   const scope = screens.match(/async function submit\(\)[\s\S]*?if \(!ready\)/)?.[0] ?? "";
   const createAttempt = client.slice(client.indexOf("createPaymentAttempt(orderId"), client.indexOf("paymentAttempt(paymentAttemptId"));
   assert.doesNotMatch(createAttempt, /provider:\s*["']WECHAT_PAY["']/);
-  assert.match(createAttempt, /JSON\.stringify\(\{\}\)/);
+  assert.match(createAttempt, /payerTicket/);
+  assert.doesNotMatch(createAttempt, /provider\s*:/);
+  assert.match(scope, /prepareWechatPaymentPayer/);
+  assert.match(scope, /MicroMessenger/);
   assert.match(scope, /payment\.provider === ["']WECHAT_PAY["']/);
   assert.match(scope, /invokeWechatPay\(payment\.clientParameters\)/);
   assert.match(scope, /router\.push\(`\$\{ROUTES\.paymentResult\}/);

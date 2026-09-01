@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -263,6 +263,8 @@ export function ShopDetailScreen() {
 
 export function CheckoutScreen() {
   const router = useRouter();
+  const paymentRequestKey = useRef<string>("");
+  const orderRef = useRef<MoneyOrder | null>(null);
   const [params, setParams] = useState<{ offeringId: string; returnTo: string; previousSubscriptionId: string; targetPlanVersionId: string }>({ offeringId: "", returnTo: ROUTES.shop, previousSubscriptionId: "", targetPlanVersionId: "" });
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [upgradeNotice, setUpgradeNotice] = useState("");
@@ -306,7 +308,19 @@ export function CheckoutScreen() {
     setBusy(true);
     setError("");
     try {
-      const order = await api.createMoneyOrder(quote.quoteId);
+      const query = new URLSearchParams(window.location.search);
+      const payerTicket = query.get("wechatPaymentTicket") ?? undefined;
+      if (!payerTicket) {
+        const preparation = await api.prepareWechatPaymentPayer(`${window.location.pathname}${window.location.search}`);
+        if (preparation.required) {
+          if (!/MicroMessenger/i.test(window.navigator.userAgent)) throw new Error("请在微信中打开此页面后支付");
+          if (!preparation.authorizationUrl) throw new Error("微信支付授权地址不可用");
+          window.location.assign(preparation.authorizationUrl);
+          return;
+        }
+      }
+      const order = orderRef.current ?? await api.createMoneyOrder(quote.quoteId);
+      orderRef.current = order;
       if (params.previousSubscriptionId && params.targetPlanVersionId) {
         await api.registerMembershipUpgrade({
           previousSubscriptionId: params.previousSubscriptionId,
@@ -314,7 +328,8 @@ export function CheckoutScreen() {
           newOrderId: order.orderId,
         });
       }
-      const payment = await api.createPaymentAttempt(order.orderId);
+      if (!paymentRequestKey.current) paymentRequestKey.current = crypto.randomUUID();
+      const payment = await api.createPaymentAttempt(order.orderId, payerTicket, paymentRequestKey.current);
       savePendingCommerceContext({
         orderId: order.orderId,
         paymentAttemptId: payment.paymentAttemptId,

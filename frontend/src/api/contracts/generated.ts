@@ -676,6 +676,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payment-payer/wechat/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["prepareWechatPaymentPayer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/payment-attempts/{paymentAttemptId}": {
         parameters: {
             query?: never;
@@ -1578,12 +1594,19 @@ export interface components {
             data: components["schemas"]["MoneyOrder"][];
             meta: components["schemas"]["PageMeta"];
         };
+        PrepareWechatPayerRequest: {
+            returnPath: string;
+        };
+        WechatPayerPreparation: {
+            required: boolean;
+            /** Format: uri */
+            authorizationUrl: string | null;
+        };
+        WechatPayerPreparationEnvelope: {
+            data: components["schemas"]["WechatPayerPreparation"];
+        };
         CreatePaymentAttemptRequest: {
-            /**
-             * @default FAKE
-             * @enum {string}
-             */
-            provider: "WECHAT_PAY" | "FAKE";
+            payerTicket?: string;
         };
         PaymentAttempt: {
             paymentAttemptId: string;
@@ -3208,6 +3231,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentAttemptEnvelope"];
+                };
+            };
+        };
+    };
+    prepareWechatPaymentPayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareWechatPayerRequest"];
+            };
+        };
+        responses: {
+            /** @description WeChat OAuth preparation */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatPayerPreparationEnvelope"];
                 };
             };
             default: components["responses"]["Error"];

@@ -198,7 +198,7 @@ class SatoriApiClient {
 
   private command<T>(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
-    headers.set("Idempotency-Key", idempotencyKey());
+    if (!headers.has("Idempotency-Key")) headers.set("Idempotency-Key", idempotencyKey());
     return this.request<T>(path, { ...init, headers });
   }
 
@@ -408,10 +408,18 @@ class SatoriApiClient {
     return this.command<Schemas["MoneyOrderEnvelope"]>(`/money-orders/${encodeURIComponent(orderId)}/cancel`, { method: "POST" }).then((x) => x.data);
   }
 
-  createPaymentAttempt(orderId: string) {
+  prepareWechatPaymentPayer(returnPath: string) {
+    return this.command<Schemas["WechatPayerPreparationEnvelope"]>("/payment-payer/wechat/prepare", {
+      method: "POST",
+      body: JSON.stringify({ returnPath }),
+    }).then((x) => x.data);
+  }
+
+  createPaymentAttempt(orderId: string, payerTicket?: string, requestKey?: string) {
     return this.command<Schemas["PaymentAttemptEnvelope"]>(`/money-orders/${encodeURIComponent(orderId)}/payment-attempts`, {
       method: "POST",
-      body: JSON.stringify({}),
+      ...(requestKey ? { headers: { "Idempotency-Key": requestKey } } : {}),
+      body: JSON.stringify({ ...(payerTicket ? { payerTicket } : {}) }),
     }).then((x) => x.data);
   }
 
