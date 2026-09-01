@@ -91,3 +91,19 @@ test("R11-READ-011：问事分享默认隐藏原始问题，并提供生成失�
   assert.match(flow, /隐藏问题/);
   assert.match(flow, /查看生成失败/);
 });
+
+test("R11-READ-012：所有问事页头展示后端智慧种子余额，不展示不可操作的权益或固定数字", async () => {
+  const [shell, flow, balanceHook] = await Promise.all([
+    readFile(new URL("../../src/features/reading/ReadingShell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../src/features/reading/useWisdomSeedBalance.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(shell, /useWisdomSeedBalance\(\)/);
+  assert.match(flow, /function ReadingHeader[\s\S]{0,500}useWisdomSeedBalance\(\)/);
+  assert.match(balanceHook, /api\.seedAccount\(\)/);
+  assert.match(balanceHook, /account\.available/);
+  assert.match(balanceHook, /visibilitychange/);
+  assert.doesNotMatch(shell, /<i>权益<\/i>/);
+  assert.doesNotMatch(flow, /className="mini-balance"><i>●<\/i>2/);
+  assert.doesNotMatch(flow, /智慧种子 <b>-2<\/b>|本次 2 颗种子|当前余额 <b>1 ●<\/b>/);
+});
