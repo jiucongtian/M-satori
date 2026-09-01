@@ -80,6 +80,21 @@ export const R11_CATALOG_SEED: readonly (CatalogSeedDefinition & typeof common)[
   membership('freedom', '自在计划', 3_990, 30, 8, 168, 3_490),
 ];
 
+export const JSAPI_TEST_OFFERING_SEED: CatalogSeedDefinition & typeof common = {
+  code: 'jsapi-payment-test-001',
+  serviceType: 'CARD_READING',
+  offeringKind: 'SINGLE',
+  displayName: '微信支付联调商品',
+  description: '测试环境专用，支付 0.01 元后发放 1 次抽卡问事权益',
+  amountMinor: 1,
+  validityDays: 7,
+  entitlementSpec: {
+    benefits: [{ serviceType: 'CARD_READING', unit: 'READING_CREDIT', quantity: 1 }],
+  },
+  purchaseLimit: { testOnly: true, displayChannels: ['STORE'] },
+  ...common,
+};
+
 function membership(
   code: 'glow' | 'serenity' | 'freedom',
   displayName: string,

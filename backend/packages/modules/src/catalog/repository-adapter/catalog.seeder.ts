@@ -2,11 +2,30 @@ import type { Database } from '@satori/infrastructure';
 import { offeringVersions, seedPromotionRules, serviceOfferings } from '@satori/infrastructure';
 import { and, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { R11_CATALOG_SEED } from '../domain/seed-data.js';
+import {
+  JSAPI_TEST_OFFERING_SEED,
+  R11_CATALOG_SEED,
+  type CatalogSeedDefinition,
+} from '../domain/seed-data.js';
 
 export async function seedR11CommerceCatalog(database: Database) {
+  return seedCatalogDefinitions(database, R11_CATALOG_SEED);
+}
+
+export async function seedJsapiTestOffering(database: Database) {
+  return seedCatalogDefinitions(database, [JSAPI_TEST_OFFERING_SEED]);
+}
+
+async function seedCatalogDefinitions(
+  database: Database,
+  definitions: readonly (CatalogSeedDefinition & {
+    readonly refundPolicyVersion: string;
+    readonly refundPolicy: Readonly<Record<string, unknown>>;
+    readonly termsVersion: string;
+  })[],
+) {
   await database.transaction(async (tx) => {
-    for (const definition of R11_CATALOG_SEED) {
+    for (const definition of definitions) {
       const catalogVersion = definition.version ?? 1;
       let [offering] = await tx
         .select()
@@ -31,7 +50,9 @@ export async function seedR11CommerceCatalog(database: Database) {
       let [version] = await tx
         .select()
         .from(offeringVersions)
-        .where(and(eq(offeringVersions.offeringId, offering.id), eq(offeringVersions.version, catalogVersion)))
+        .where(
+          and(eq(offeringVersions.offeringId, offering.id), eq(offeringVersions.version, catalogVersion)),
+        )
         .limit(1);
       if (!version) {
         [version] = await tx

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CatalogApplicationService, type CatalogRepository } from './index.js';
-import { OfferingNotSellableError, type CatalogOffering } from '../domain/index.js';
+import { assertR11Sellable, OfferingNotSellableError, type CatalogOffering } from '../domain/index.js';
 
 const offering: CatalogOffering = {
   offeringId: 'offering-1',
@@ -26,6 +26,10 @@ const offering: CatalogOffering = {
 };
 
 describe('CatalogApplicationService', () => {
+  it('allows the dedicated JSAPI test offering without changing a formal product price', () => {
+    expect(() => assertR11Sellable('jsapi-payment-test-001')).not.toThrow();
+  });
+
   it('filters single fallback products out of the store channel', async () => {
     const fallback = { ...offering, offeringId: 'single', displayChannels: ['SHORTAGE'] as const };
     const service = new CatalogApplicationService(repository([offering, fallback]));

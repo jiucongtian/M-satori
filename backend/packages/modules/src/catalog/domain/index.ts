@@ -5,6 +5,7 @@ export const R11_SELLABLE_OFFERING_CODES = [
   'daily-insight-newcomer-10',
   'card-reading-single',
   'card-reading-10',
+  'jsapi-payment-test-001',
   'membership-glow-r11',
   'membership-serenity-r11',
   'membership-freedom-r11',
