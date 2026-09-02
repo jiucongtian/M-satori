@@ -1,3 +1,4 @@
 import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import test from 'node:test';
 test('运营平台保持独立 API 与品牌入口',async()=>{const [page,api]=await Promise.all([readFile(new URL('../app/page.tsx',import.meta.url),'utf8'),readFile(new URL('../app/api.ts',import.meta.url),'utf8')]);assert.match(page,/初见 · FRESH/);assert.match(api,/operations-api/)});
 test('工作台、可读用户编号和运营账号管理入口齐全',async()=>{const page=await readFile(new URL('../app/page.tsx',import.meta.url),'utf8');assert.match(page,/用户总数/);assert.match(page,/累计营收/);assert.match(page,/FRESH-/);assert.match(page,/创建运营账号/);assert.match(page,/手机号是运营账号的唯一登录标识/)});
+test('支持退出重登并统一展示用户昵称和脱敏手机号',async()=>{const page=await readFile(new URL('../app/page.tsx',import.meta.url),'utf8');assert.match(page,/退出登录/);assert.match(page,/账号与权限/);assert.match(page,/UserLabel/);assert.match(page,/phone_masked/);assert.doesNotMatch(page,/运营平台原型/)});
