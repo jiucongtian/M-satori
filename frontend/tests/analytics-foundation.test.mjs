@@ -38,6 +38,39 @@ test('注册、今日、问事和商城主链路已接入业务事件', async ()
   assert.match(apiClient, /trackBusinessRequestFailed/);
 });
 
+test('关键点击、漏斗中断、对象关联和用户状态快照均已覆盖', async () => {
+  const client = await readFile(clientUrl, 'utf8');
+  const provider = await readFile(providerUrl, 'utf8');
+  const businessEvents = await readFile(businessEventsUrl, 'utf8');
+  for (const marker of [
+    'navigation_tab_clicked', 'onboarding_gift_claim_clicked', 'daily_guidance_cta_clicked',
+    'reading_entry_clicked', 'reading_card_count_selected', 'reading_draw_cta_clicked',
+    'reading_retry_clicked', 'commerce_offering_clicked', 'commerce_purchase_clicked',
+    'commerce_payment_clicked', 'support_contact_clicked', 'legal_document_clicked',
+  ]) assert.match(businessEvents, new RegExp(marker));
+  for (const marker of ['beginAnalyticsJourney', 'completeAnalyticsJourney', 'user_journey_interrupted']) assert.match(client + businessEvents, new RegExp(marker));
+  for (const marker of ['object_type', 'object_id', 'UUID_SEGMENT', 'apiObject']) assert.match(businessEvents, new RegExp(marker));
+  for (const marker of ['user_stage', 'profile_state', 'membership_state', 'membership_plan', 'seed_balance_band']) assert.match(businessEvents, new RegExp(marker));
+  assert.match(provider, /installBusinessInteractionTracking/);
+  assert.match(client, /RESOURCE_LOAD_FAILED/);
+  assert.match(businessEvents, /rapid_interaction_detected/);
+});
+
+test('支付取消、失败和授权结果具有独立事件', async () => {
+  const commerce = await readFile(new URL('../src/features/commerce/CommerceScreens.tsx', import.meta.url), 'utf8');
+  assert.match(commerce, /commerce_payment_cancelled/);
+  assert.match(commerce, /commerce_payment_launch_failed/);
+  assert.match(commerce, /commerce_payment_authorized/);
+  assert.match(commerce, /commerce_checkout_submit_failed/);
+});
+
+test('所有声明的事件名均符合后端事件命名约束', async () => {
+  const sources = await Promise.all([clientUrl, providerUrl, businessEventsUrl, new URL('../src/features/commerce/CommerceScreens.tsx', import.meta.url)].map((url) => readFile(url, 'utf8')));
+  const names = sources.flatMap((source) => [...source.matchAll(/(?:track\(|eventName:\s*)['"]([a-z0-9_]+)['"]/g)].map((match) => match[1]));
+  assert.ok(names.length > 20);
+  for (const name of names) assert.match(name, /^[a-z][a-z0-9]*(?:_[a-z0-9]+){2,}$/);
+});
+
 test('业务埋点只记录接口模板，不记录查询参数或对象 UUID', async () => {
   const businessEvents = await readFile(businessEventsUrl, 'utf8');
   assert.match(businessEvents, /split\('\?'\)\[0\]/);

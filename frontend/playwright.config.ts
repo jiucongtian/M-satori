@@ -17,14 +17,18 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3011",
+    baseURL: "http://localhost:3011",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
   },
   webServer: {
     command: "npm run dev:e2e",
-    url: "http://127.0.0.1:3011/home",
+    url: "http://localhost:3011/home",
+    env: {
+      NEXT_PUBLIC_ANALYTICS_ENABLED: process.env.NEXT_PUBLIC_ANALYTICS_ENABLED ?? "false",
+      NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV ?? "test",
+    },
     reuseExistingServer: true,
     timeout: 120_000,
   },

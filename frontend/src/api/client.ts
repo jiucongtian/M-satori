@@ -203,7 +203,7 @@ class SatoriApiClient {
         failure?.requestId,
       );
     }
-    trackBusinessRequestSucceeded({ method, path });
+    trackBusinessRequestSucceeded({ method, path }, payload);
     return payload as T;
   }
 

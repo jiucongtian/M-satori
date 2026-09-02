@@ -31,8 +31,37 @@ const environment = normalizeEnvironment(process.env.NEXT_PUBLIC_APP_ENV);
 const forbiddenKey = /(phone|mobile|name|question|prompt|report|birth|address|password|token|cookie|secret|credential|identity|imei)/i;
 const queue: AnalyticsEvent[] = [];
 const retryCounts = new Map<string, number>();
+const analyticsContext: AnalyticsProperties = {};
+const journeyKey = 'fresh:analytics:active-journey';
 let flushTimer: number | undefined;
 let sending = false;
+
+export function updateAnalyticsContext(patch: AnalyticsProperties): void {
+  try {
+    Object.assign(analyticsContext, sanitize(patch));
+  } catch {
+    // Context enrichment must never affect the user journey.
+  }
+}
+
+export function beginAnalyticsJourney(journey: string, step: string, object?: { type: string; id: string }): void {
+  if (!enabled || typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(journeyKey, JSON.stringify({ journey, step, object, touchedAt: Date.now() }));
+  } catch {
+    // Journey persistence is best effort only.
+  }
+}
+
+export function completeAnalyticsJourney(journey: string): void {
+  if (!enabled || typeof window === 'undefined') return;
+  try {
+    const active = readActiveJourney();
+    if (active?.journey === journey) window.sessionStorage.removeItem(journeyKey);
+  } catch {
+    // Journey persistence is best effort only.
+  }
+}
 
 export function track(eventName: string, input: Partial<Omit<AnalyticsEvent, 'event_id' | 'event_name' | 'schema_version' | 'occurred_at' | 'environment' | 'release' | 'app_version' | 'anonymous_id' | 'session_id' | 'properties' | 'device'>> & { properties?: AnalyticsProperties } = {}): void {
   if (!enabled || typeof window === 'undefined') return;
@@ -50,7 +79,7 @@ export function track(eventName: string, input: Partial<Omit<AnalyticsEvent, 'ev
       session_id: sessionId(),
       route: cleanRoute(window.location.pathname),
       ...input,
-      properties: sanitize(input.properties ?? {}) as AnalyticsProperties,
+      properties: sanitize({ ...analyticsContext, ...(input.properties ?? {}) }) as AnalyticsProperties,
       device: deviceContext(),
     };
     queue.push(event);
@@ -99,8 +128,25 @@ function requeueRetryable(batch: AnalyticsEvent[]): void {
 
 export function installAnalyticsLifecycle(): () => void {
   if (!enabled || typeof window === 'undefined') return () => undefined;
-  const onPageHide = () => void flush();
-  const onError = () => track('global_client_error_occurred', { reason_code: 'UNCAUGHT_ERROR' });
+  const onPageHide = () => {
+    const active = readActiveJourney();
+    if (active) track('user_journey_interrupted', {
+      result: 'cancelled',
+      reason_code: 'PAGE_HIDDEN',
+      object_type: active.object?.type,
+      object_id: active.object?.id,
+      properties: { journey: active.journey, step: active.step },
+    });
+    void flush();
+  };
+  const onError = (event: Event) => {
+    const target = event.target;
+    const resourceType = target instanceof HTMLElement ? target.tagName.toLowerCase() : undefined;
+    track('global_client_error_occurred', {
+      reason_code: resourceType ? 'RESOURCE_LOAD_FAILED' : 'UNCAUGHT_ERROR',
+      properties: resourceType ? { resource_type: resourceType } : {},
+    });
+  };
   const onRejection = () => track('global_client_error_occurred', { reason_code: 'UNHANDLED_REJECTION' });
   window.addEventListener('pagehide', onPageHide);
   window.addEventListener('error', onError);
@@ -110,6 +156,18 @@ export function installAnalyticsLifecycle(): () => void {
     window.removeEventListener('error', onError);
     window.removeEventListener('unhandledrejection', onRejection);
   };
+}
+
+type ActiveJourney = { journey: string; step: string; object?: { type: string; id: string }; touchedAt: number };
+
+function readActiveJourney(): ActiveJourney | null {
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(journeyKey) ?? 'null') as ActiveJourney | null;
+    if (!parsed?.journey || !parsed.step || Date.now() - parsed.touchedAt > 24 * 60 * 60 * 1000) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 function scheduleFlush(): void {

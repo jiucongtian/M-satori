@@ -29,6 +29,7 @@ import {
   savePendingCommerceContext,
 } from "./commerceContext";
 import { invokeWechatPay } from "./wechatPay";
+import { track } from "@/src/analytics/client";
 
 const PLAN_NAMES: Record<string, string> = { GLOW: "微光", SERENITY: "清和", FREEDOM: "自在" };
 const PLAN_RANKS = ["GLOW", "SERENITY", "FREEDOM"] as const;
@@ -357,11 +358,19 @@ export function CheckoutScreen() {
       });
       if (payment.provider === "WECHAT_PAY") {
         const result = await invokeWechatPay(payment.clientParameters);
-        if (result === "cancel") { setError("本次支付已取消，你可以稍后重新支付。"); setBusy(false); return; }
-        if (result === "fail" || result === "unavailable") { setError(result === "unavailable" ? "暂时无法调起微信支付，请确认已在微信中打开后重试。" : "微信支付未完成，请重新尝试。"); setBusy(false); return; }
+        if (result === "cancel") {
+          track("commerce_payment_cancelled", { result: "cancelled", reason_code: "USER_CANCELLED", object_type: "payment_attempt", object_id: payment.paymentAttemptId });
+          setError("本次支付已取消，你可以稍后重新支付。"); setBusy(false); return;
+        }
+        if (result === "fail" || result === "unavailable") {
+          track("commerce_payment_launch_failed", { result: "failed", reason_code: result === "unavailable" ? "WECHAT_UNAVAILABLE" : "WECHAT_FAILED", object_type: "payment_attempt", object_id: payment.paymentAttemptId });
+          setError(result === "unavailable" ? "暂时无法调起微信支付，请确认已在微信中打开后重试。" : "微信支付未完成，请重新尝试。"); setBusy(false); return;
+        }
       }
+      track("commerce_payment_authorized", { result: "success", object_type: "payment_attempt", object_id: payment.paymentAttemptId });
       router.push(`${ROUTES.paymentResult}?orderId=${encodeURIComponent(order.orderId)}&paymentAttemptId=${encodeURIComponent(payment.paymentAttemptId)}`);
     } catch (reason) {
+      track("commerce_checkout_submit_failed", { result: "failed", reason_code: reason instanceof Error ? reason.name.slice(0, 64) : "UNKNOWN_ERROR" });
       setError(apiMessage(reason));
       setBusy(false);
     }
