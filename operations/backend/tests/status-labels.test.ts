@@ -1,2 +1,4 @@
-import assert from 'node:assert/strict';import test from 'node:test';
+import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import test from 'node:test';
 test('用户界面不得直接暴露内部状态枚举',()=>{const forbidden=['TERMINATED_BY_UPGRADE','PROPERTY_LIMIT','ACTIVE'];assert.equal(forbidden.some(x=>/^[\u4e00-\u9fa5]+$/.test(x)),false)});
+test('运营账号使用手机号唯一约束、强密码摘要和超级管理员授权',async()=>{const source=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(source,/phone varchar\(20\) not null unique/);assert.match(source,/scryptSync/);assert.match(source,/SUPER_ADMIN_REQUIRED/);assert.match(source,/该手机号已创建运营账号/)});
+test('工作台同时提供用户总数和有效订单营收',async()=>{const source=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(source,/total_users/);assert.match(source,/revenue_minor/);assert.match(source,/status in\('PAID','FULFILLING','FULFILLED'\)/)});
