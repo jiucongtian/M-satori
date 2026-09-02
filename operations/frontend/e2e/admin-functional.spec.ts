@@ -67,6 +67,19 @@ test("@smoke ADMIN-PRODUCT-001 三类商品可筛选、配置和预览", async (
   }
 });
 
+test("ADMIN-PRODUCT-VALIDATION-001 缺少必填配置时明确说明并定位", async ({ page }) => {
+  await page.getByRole("button", { name: "品 商品中心" }).click();
+  await page.getByRole("button", { name: "＋ 新建商品" }).click();
+  await page.getByRole("button", { name: "创建并继续配置" }).click();
+  const createAlert = page.locator(".risk-note[role=alert]");
+  await expect(createAlert).toContainText("商品编号至少填写 3 个字符");
+  await expect(createAlert).toContainText("用户端名称至少填写 2 个字");
+  await page.getByRole("button", { name: "取消" }).click();
+  await page.getByRole("button", { name: /查看并配置/ }).first().click();
+  await page.getByRole("button", { name: "提交审核" }).click();
+  await expect(page.locator(".product-validation[role=alert]")).toContainText("请填写不少于 3 个字的本次修改原因");
+});
+
 test("@smoke ADMIN-ORDER-001 订单详情展示真实支付与到账状态", async ({ page }) => {
   await page.getByRole("button", { name: /交易中心/ }).click();
   await page.getByRole("button", { name: /诊断/ }).first().click();
