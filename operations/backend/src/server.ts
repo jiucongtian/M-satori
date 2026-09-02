@@ -2,12 +2,14 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import Fastify from 'fastify';
 import { SignJWT, jwtVerify } from 'jose';
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { z } from 'zod';
+import { authenticateOperationsAccount, parseOperationsAccounts } from './accounts.js';
 
 const { Pool } = pg;
-const env=z.object({DATABASE_URL:z.string().min(1),OPERATIONS_JWT_SECRET:z.string().min(32),OPERATIONS_BOOTSTRAP_USER:z.string().min(3),OPERATIONS_BOOTSTRAP_PASSWORD_SHA256:z.string().length(64),SATORI_API_BASE:z.string().url(),SATORI_OPERATOR_TOKEN:z.string().min(20).optional(),PORT:z.coerce.number().default(3210),OPERATIONS_CORS_ORIGIN:z.string().default('https://operations.test.shenxinyou.com')}).parse(process.env);
+const env=z.object({DATABASE_URL:z.string().min(1),OPERATIONS_JWT_SECRET:z.string().min(32),OPERATIONS_ACCOUNTS_JSON:z.string().optional(),OPERATIONS_BOOTSTRAP_USER:z.string().min(3).optional(),OPERATIONS_BOOTSTRAP_PASSWORD_SHA256:z.string().length(64).optional(),SATORI_API_BASE:z.string().url(),SATORI_OPERATOR_TOKEN:z.string().min(20).optional(),PORT:z.coerce.number().default(3210),OPERATIONS_CORS_ORIGIN:z.string().default('https://operations.test.shenxinyou.com')}).parse(process.env);
+const operationsAccounts=parseOperationsAccounts(env);
 const pool=new Pool({connectionString:env.DATABASE_URL,max:10});
 const app=Fastify({logger:true,requestIdHeader:'x-request-id'});
 await app.register(helmet); await app.register(cors,{origin:env.OPERATIONS_CORS_ORIGIN.split(',')});
@@ -21,7 +23,7 @@ await pool.query(`create table if not exists operations_action_requests(
  execution_result jsonb,created_at timestamptz not null default now(),reviewed_at timestamptz,executed_at timestamptz
 )`);
 app.get('/health/ready',async()=>{await pool.query('select 1');return {status:'ready'}});
-app.post('/api/auth/login',async(req,reply)=>{const input=z.object({account:z.string(),password:z.string()}).parse(req.body);const actual=createHash('sha256').update(input.password).digest();const expected=Buffer.from(env.OPERATIONS_BOOTSTRAP_PASSWORD_SHA256,'hex');if(input.account!==env.OPERATIONS_BOOTSTRAP_USER||expected.length!==actual.length||!timingSafeEqual(expected,actual))return reply.code(401).send({code:'LOGIN_FAILED',message:'账号或密码不正确'});const token=await new SignJWT({name:input.account,roles:['ADMIN']}).setProtectedHeader({alg:'HS256'}).setSubject(input.account).setAudience('fresh-operations').setIssuedAt().setExpirationTime('8h').sign(secret);return {data:{token,operator:{name:input.account,roles:['超级管理员']}}}});
+app.post('/api/auth/login',async(req,reply)=>{const input=z.object({account:z.string(),password:z.string()}).parse(req.body);const authenticated=authenticateOperationsAccount(operationsAccounts,input.account,input.password);if(!authenticated)return reply.code(401).send({code:'LOGIN_FAILED',message:'账号或密码不正确'});const token=await new SignJWT({name:authenticated.account,roles:['ADMIN']}).setProtectedHeader({alg:'HS256'}).setSubject(authenticated.account).setAudience('fresh-operations').setIssuedAt().setExpirationTime('8h').sign(secret);return {data:{token,operator:{name:authenticated.account,roles:['超级管理员']}}}});
 app.get('/api/dashboard',async()=>{const [s]=await rows<any>(`select (select count(*) from users where created_at>=current_date) new_users,(select count(*) from money_orders where status='PENDING_PAYMENT') pending_orders,(select count(*) from reconciliation_cases where status='OPEN') open_cases,(select count(*) from reconciliation_cases where status='OPEN' and severity='CRITICAL') critical_cases`);return {data:s}});
 app.get('/api/users',async(req)=>{const q=String((req.query as any).q||'');return {data:await rows(`select u.id,u.status,u.created_at,i.phone_masked,coalesce(sum(g.available_quantity),0)::int seed_balance from users u left join identities i on i.user_id=u.id left join complimentary_seed_grants g on g.owner_user_id=u.id and g.status='ACTIVE' where ($1='' or i.phone_masked ilike '%'||$1||'%' or u.id::text=$1) group by u.id,i.phone_masked order by u.created_at desc limit 100`,[q])}});
 app.get('/api/users/:id',async(req)=>{const id=(req.params as any).id;const [user]=await rows(`select u.id,u.status,u.created_at,i.phone_masked from users u left join identities i on i.user_id=u.id where u.id=$1`,[id]);if(!user)return {data:null};const [orders,seeds,rights,memberships]=await Promise.all([rows('select id,order_number,status,amount_minor,created_at from money_orders where owner_user_id=$1 order by created_at desc',[id]),rows('select id,total_quantity,available_quantity,status,expires_at from complimentary_seed_grants where owner_user_id=$1 order by created_at desc',[id]),rows('select id,service_type,total_quantity,available_quantity,status,expires_at from entitlement_grants where owner_user_id=$1 order by created_at desc',[id]),rows('select id,status,starts_at,ends_at from membership_subscriptions where owner_user_id=$1 order by created_at desc',[id])]);return {data:{...user,orders,seeds,entitlements:rights,memberships}}});
