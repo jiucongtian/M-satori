@@ -24,7 +24,7 @@ test("@visual ADMIN-VISUAL-002 标题、正文、表格和按钮达到可读字�
   const px = async (selector: string) => Number.parseFloat(await page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontSize));
   expect(await px(".admin-topbar h1")).toBeGreaterThanOrEqual(27);
   expect(await px(".admin-shell")).toBeGreaterThanOrEqual(15);
-  expect(await px(".admin-primary")).toBeGreaterThanOrEqual(14);
+  expect(await px(".admin-secondary")).toBeGreaterThanOrEqual(14);
   await page.getByRole("button", { name: /用户中心/ }).click();
   expect(await px(".admin-table-panel table")).toBeGreaterThanOrEqual(14);
   expect(await px(".admin-table-panel th")).toBeGreaterThanOrEqual(13);

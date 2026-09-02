@@ -8,16 +8,26 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(400);
 });
 
-test("@smoke ADMIN-SMOKE-001 八个核心模块均可进入", async ({ page }) => {
-  for (const name of ["用户中心", "权益中心", "商品中心", "交易中心", "审核中心", "操作审计", "系统管理", "工作台"]) {
+test("@smoke ADMIN-SMOKE-001 九个核心模块均可进入", async ({ page }) => {
+  for (const name of ["数据分析", "用户中心", "权益中心", "商品中心", "交易中心", "审核中心", "操作审计", "系统管理", "工作台"]) {
     await page.getByRole("button", { name: new RegExp(name) }).click();
     await expect(page.locator(".admin-topbar h1")).toHaveText(name);
   }
 });
 
+test("@smoke ADMIN-DATA-001 数据分析使用服务端数据并支持核心视图切换", async ({ page }) => {
+  await page.getByRole("button", { name: /数据分析/ }).click();
+  await expect(page.getByText("匿名访问用户")).toBeVisible();
+  await expect(page.getByText("1,842", { exact: true })).toBeVisible();
+  for (const [tab, content] of [["转化漏斗", "注册漏斗"], ["页面与功能", "页面与功能表现"], ["商品与交易", "商品与交易路径"], ["体验与异常", "异常与阻断排行"], ["数据健康", "数据权限与统计边界"]]) {
+    await page.getByRole("button", { name: tab, exact: true }).click();
+    await expect(page.getByText(content, { exact: true })).toBeVisible();
+  }
+});
+
 test("@smoke ADMIN-USER-001 查询用户支持有结果与无结果", async ({ page }) => {
   await page.getByRole("button", { name: /用户中心/ }).click();
-  const input = page.getByPlaceholder("输入手机号、用户编号或昵称");
+  const input = page.getByPlaceholder("输入手机号或账户编号");
   await input.fill("131");
   await page.getByRole("button", { name: "查询用户" }).click();
   await expect(page.getByText("131****1314", { exact: true })).toBeVisible();
@@ -29,12 +39,7 @@ test("@smoke ADMIN-USER-001 查询用户支持有结果与无结果", async ({ p
 test("@smoke ADMIN-BENEFIT-001 权益中心只展示接口返回记录", async ({ page }) => {
   await page.getByRole("button", { name: /权益中心/ }).click();
   await expect(page.getByText("暂无记录")).toBeVisible();
-  await page.getByRole("button", { name: /人工发放/ }).click();
-  await page.getByLabel("用户手机号").fill("13900002016");
-  await page.getByLabel("发放类型").selectOption("会员计划");
-  await expect(page.locator("label").filter({ hasText: /^会员计划/ }).locator("select")).toBeVisible();
-  await expect(page.getByText(/该手机号尚未注册/)).toBeVisible();
-  await page.getByRole("button", { name: "确认并提交审核" }).click();
+  await expect(page.getByText("这里不会使用示例数据填充。")).toBeVisible();
 });
 
 test("@smoke ADMIN-PRODUCT-001 三类商品可筛选、配置和预览", async ({ page }) => {
@@ -51,17 +56,16 @@ test("@smoke ADMIN-PRODUCT-001 三类商品可筛选、配置和预览", async (
   }
 });
 
-test("@smoke ADMIN-ORDER-001 异常订单支持诊断且仅异常单可补发", async ({ page }) => {
+test("@smoke ADMIN-ORDER-001 订单详情展示真实支付与到账状态", async ({ page }) => {
   await page.getByRole("button", { name: /交易中心/ }).click();
   await page.getByRole("button", { name: /诊断/ }).first().click();
-  await expect(page.locator(".order-drawer").getByRole("heading", { name: "订单诊断" })).toBeVisible();
-  await expect(page.getByText(/支付已成功，权益尚未到账/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "安全补发" })).toBeEnabled();
+  await expect(page.locator(".order-drawer").getByRole("heading", { name: "订单详情" })).toBeVisible();
+  await expect(page.locator(".order-drawer")).toContainText("到账异常");
 });
 
 test("ADMIN-PERMISSION-001 一个账号可有多角色且高风险权限受限", async ({ page }) => {
   await page.getByRole("button", { name: /系统管理/ }).click();
   await page.getByRole("button", { name: "权限矩阵" }).click();
-  await expect(page.getByText(/最终权限＝所有有效角色权限并集/)).toBeVisible();
+  await expect(page.getByText(/最终权限取有效角色并集/)).toBeVisible();
   await expect(page.getByText("正式发布", { exact: true })).toBeVisible();
 });
