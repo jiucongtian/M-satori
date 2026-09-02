@@ -269,7 +269,7 @@ export function CheckoutScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
-  const [payerReady, setPayerReady] = useState(false);
+  const [payerPreparation, setPayerPreparation] = useState<"preparing" | "ready" | "blocked">("preparing");
   const [ready, setReady] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -296,15 +296,19 @@ export function CheckoutScreen() {
       if (saved?.requestKey) paymentRequestKey.current = saved.requestKey;
     } catch { window.sessionStorage.removeItem(key); }
     const query = new URLSearchParams(window.location.search);
-    if (query.get("wechatPaymentTicket")) { const timer = window.setTimeout(() => setPayerReady(true), 0); return () => window.clearTimeout(timer); }
+    if (query.get("wechatPaymentTicket")) { const timer = window.setTimeout(() => setPayerPreparation("ready"), 0); return () => window.clearTimeout(timer); }
     let active = true;
     void api.prepareWechatPaymentPayer(`${window.location.pathname}${window.location.search}`).then((preparation) => {
       if (!active) return;
-      if (!preparation.required) { setPayerReady(true); return; }
-      if (!/MicroMessenger/i.test(window.navigator.userAgent)) throw new Error("请在微信中打开此页面后支付");
+      if (!preparation.required) { setPayerPreparation("ready"); return; }
+      if (!/MicroMessenger/i.test(window.navigator.userAgent)) {
+        setError("请在微信中打开此页面后支付");
+        setPayerPreparation("blocked");
+        return;
+      }
       if (!preparation.authorizationUrl) throw new Error("微信支付授权地址不可用");
       window.location.replace(preparation.authorizationUrl);
-    }).catch((reason) => { if (active) { setError(apiMessage(reason)); setPayerReady(true); } });
+    }).catch((reason) => { if (active) { setError(apiMessage(reason)); setPayerPreparation("blocked"); } });
     return () => { active = false; };
   }, [params.offeringId, ready]);
   useEffect(() => {
@@ -324,7 +328,7 @@ export function CheckoutScreen() {
   }, [businessContext, params.offeringId, params.previousSubscriptionId, params.targetPlanVersionId]);
 
   async function submit() {
-    if (!quote || busy || !payerReady) return;
+    if (!quote || busy || payerPreparation !== "ready") return;
     setBusy(true);
     setError("");
     try {
@@ -378,7 +382,7 @@ export function CheckoutScreen() {
       {quote.promotion.eligible && quote.promotion.seedReservationRequired > 0 ? <div className="commerce-safe-note">已满足智慧种子活动资格，将按活动价格支付；智慧种子仅用于确认活动资格。</div> : null}
       {upgradeNotice ? <div className="upgrade-notice"><strong>升级确认</strong><p>{upgradeNotice}</p><p>新方案生效后原方案结束，原方案未使用次数不保留。</p></div> : null}
       {error ? <p className="commerce-error" role="alert">{error}</p> : null}
-      <button className="commerce-primary" type="button" disabled={busy || !payerReady} onClick={() => void submit()}>{!payerReady ? "正在准备微信支付…" : busy ? "正在提交…" : `微信支付 ${money(quote.price.amount)}`}</button>
+      <button className="commerce-primary" type="button" disabled={busy || payerPreparation !== "ready"} onClick={() => void submit()}>{payerPreparation === "blocked" ? "请在微信中打开后支付" : payerPreparation === "preparing" ? "正在准备微信支付…" : busy ? "正在提交…" : `微信支付 ${money(quote.price.amount)}`}</button>
       <p className="commerce-footnote">支付完成后，服务可能需要几秒到账，请勿重复支付。</p>
     </CommerceFrame>
   );

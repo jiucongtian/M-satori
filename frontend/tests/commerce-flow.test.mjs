@@ -130,6 +130,9 @@ test("支付预授权在点击前完成，取消收银台后停留订单页且�
   assert.doesNotMatch(createAttempt, /provider\s*:/);
   assert.match(checkout, /prepareWechatPaymentPayer/);
   assert.match(checkout, /MicroMessenger/);
+  assert.match(checkout, /setPayerPreparation\("blocked"\)/);
+  assert.match(checkout, /请在微信中打开后支付/);
+  assert.match(scope, /payerPreparation !== "ready"/);
   assert.match(scope, /payment\.provider === ["']WECHAT_PAY["']/);
   assert.match(scope, /invokeWechatPay\(payment\.clientParameters\)/);
   assert.match(scope, /result === "cancel"/);

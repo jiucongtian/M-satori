@@ -78,6 +78,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
                   domainCode === 'MONEY_ORDER_CLOSED' ||
                   domainCode === 'MONEY_ORDER_NOT_PAYABLE' ||
                   domainCode === 'PURCHASE_LIMIT_REACHED' ||
+                  domainCode === 'WECHAT_PAYER_REQUIRED' ||
                   domainCode === 'WECHAT_PAYER_TICKET_INVALID' ||
                   domainCode === 'PAYMENT_AFTER_ORDER_CLOSED'
                 ? HttpStatus.CONFLICT
