@@ -1,0 +1,10 @@
+{
+  "name": "@fresh/operations",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose up --build",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "test:e2e": "npm --prefix frontend run test:e2e"
+  }
+}

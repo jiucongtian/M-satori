@@ -1,0 +1,1 @@
+import type {NextConfig} from 'next';const config:NextConfig={output:'standalone',env:{NEXT_PUBLIC_OPERATIONS_API_BASE:process.env.NEXT_PUBLIC_OPERATIONS_API_BASE||'/operations-api'}};export default config;

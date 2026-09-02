@@ -1,0 +1,2 @@
+export const apiBase=process.env.NEXT_PUBLIC_OPERATIONS_API_BASE||'/operations-api';
+export async function operationsFetch<T>(path:string,init?:RequestInit):Promise<T>{const token=typeof window==='undefined'?'':localStorage.getItem('fresh_operations_token')||'';const response=await fetch(`${apiBase}${path}`,{...init,headers:{'content-type':'application/json',authorization:`Bearer ${token}`,...init?.headers}});if(!response.ok)throw new Error((await response.json().catch(()=>null))?.message||'请求失败');return response.json() as Promise<T>}
