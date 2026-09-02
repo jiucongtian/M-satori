@@ -11,6 +11,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { outputFolder: "playwright-report/admin", open: "never" }]],
   use: {
     baseURL,
+    channel: "chromium",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
