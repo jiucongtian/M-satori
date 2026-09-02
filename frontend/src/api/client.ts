@@ -1,6 +1,7 @@
 import type { components } from "./contracts/generated";
 import { PROTOTYPE_MODE } from "@/src/shared/prototype";
 import { prototypeAccount,prototypeDailyInsight,prototypeFirstLook,prototypeHome,prototypeProfiles,prototypeRevision,prototypeTransactions } from "@/src/shared/prototypeData";
+import { trackBusinessRequestFailed, trackBusinessRequestStarted, trackBusinessRequestSucceeded } from "@/src/analytics/businessEvents";
 
 type Schemas = components["schemas"];
 type Bootstrap = Schemas["BootstrapEnvelope"]["data"];
@@ -165,6 +166,8 @@ class SatoriApiClient {
   }
 
   private async request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+    const method = (init.method || "GET").toUpperCase();
+    if (retry) trackBusinessRequestStarted({ method, path });
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
     if (init.body) headers.set("Content-Type", "application/json");
@@ -188,6 +191,11 @@ class SatoriApiClient {
           detail: { requestId: failure.requestId },
         }));
       }
+      trackBusinessRequestFailed({ method, path }, {
+        status: response.status,
+        code: failure?.code,
+        requestId: failure?.requestId,
+      });
       throw new ApiError(
         failure?.message || `请求失败（HTTP ${response.status}）`,
         response.status,
@@ -195,6 +203,7 @@ class SatoriApiClient {
         failure?.requestId,
       );
     }
+    trackBusinessRequestSucceeded({ method, path });
     return payload as T;
   }
 
