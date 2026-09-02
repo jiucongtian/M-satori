@@ -22,3 +22,22 @@
 - 跨 Release 的全量回归。
 - 与本次改动无直接关系的手工回归。
 - 未经用户授权的生产部署或服务器数据删除。
+
+## GitHub 网络异常处理
+
+1. `git fetch`、`git pull` 或 `git push` 出现连接超时、HTTP/2 framing error、empty reply 时，先区分浏览器与终端链路，不反复盲目重试。
+2. 当前研发机的 Clash Verge（`verge-mihomo`）本地代理为 `http://127.0.0.1:7897`；先用下列命令验证代理端口和 GitHub 连通性：
+
+   ```bash
+   curl -I --connect-timeout 10 --proxy http://127.0.0.1:7897 https://github.com
+   ```
+
+3. Git 采用仅对 `github.com` 生效的代理配置，避免影响内网、测试服务器及其他终端请求：
+
+   ```bash
+   git config --global http.https://github.com.proxy http://127.0.0.1:7897
+   git config --global http.https://github.com.version HTTP/1.1
+   ```
+
+4. `gh` 或临时 `curl` 仍然直连失败时，只对当前命令增加 `HTTPS_PROXY=http://127.0.0.1:7897`，不默认把全部终端流量永久代理。
+5. 如果 Clash Verge 未启动或端口变化，应先恢复代理服务或更新端口；不要绕过“提交前拉取、远端差异确认、推送成功后部署”的发布门禁。
