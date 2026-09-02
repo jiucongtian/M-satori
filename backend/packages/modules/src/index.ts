@@ -1,4 +1,5 @@
 import type { Type } from '@nestjs/common';
+import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AstrologyModule } from './astrology/astrology.module.js';
 import { CardReadingModule } from './card-reading/index.js';
 import { CatalogModule } from './catalog/index.js';
@@ -24,6 +25,7 @@ import { SeedLedgerModule } from './seed-ledger/seed-ledger.module.js';
 export * from './card-reading/index.js';
 
 export {
+  AnalyticsModule,
   AstrologyModule,
   CardReadingModule,
   CatalogModule,
@@ -61,6 +63,7 @@ export const R11CommerceModules: Type<unknown>[] = [
 ];
 
 export const R1DomainModules: Type<unknown>[] = [
+  AnalyticsModule,
   IdentityModule,
   ProfileModule,
   AstrologyModule,

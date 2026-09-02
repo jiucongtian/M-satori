@@ -178,6 +178,42 @@ export const auditLogs = pgTable(
   (table) => [index('audit_resource_idx').on(table.resourceType, table.resourceId, table.createdAt)],
 );
 
+export const analyticsEvents = pgTable(
+  'analytics_events',
+  {
+    eventId: uuid('event_id').primaryKey(),
+    eventName: varchar('event_name', { length: 128 }).notNull(),
+    schemaVersion: integer('schema_version').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+    environment: varchar('environment', { length: 16 }).notNull(),
+    release: varchar('release', { length: 32 }).notNull(),
+    appVersion: varchar('app_version', { length: 64 }).notNull(),
+    commitSha: varchar('commit_sha', { length: 64 }),
+    anonymousId: varchar('anonymous_id', { length: 128 }).notNull(),
+    sessionId: varchar('session_id', { length: 128 }).notNull(),
+    userId: uuid('user_id').references(() => users.id),
+    pageCode: varchar('page_code', { length: 64 }),
+    route: varchar('route', { length: 240 }),
+    sourcePage: varchar('source_page', { length: 64 }),
+    objectType: varchar('object_type', { length: 64 }),
+    objectId: varchar('object_id', { length: 128 }),
+    result: varchar('result', { length: 16 }),
+    reasonCode: varchar('reason_code', { length: 96 }),
+    requestId: uuid('request_id'),
+    entry: varchar('entry', { length: 64 }),
+    properties: jsonb('properties').notNull().default({}),
+    consentVersion: varchar('consent_version', { length: 64 }),
+    device: jsonb('device').notNull().default({}),
+  },
+  (table) => [
+    index('analytics_event_name_time_idx').on(table.eventName, table.occurredAt),
+    index('analytics_user_time_idx').on(table.userId, table.occurredAt),
+    index('analytics_session_time_idx').on(table.sessionId, table.occurredAt),
+    index('analytics_received_time_idx').on(table.receivedAt),
+  ],
+);
+
 export const legalDocuments = pgTable(
   'legal_documents',
   {

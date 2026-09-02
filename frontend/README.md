@@ -117,6 +117,18 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - `npm test`: build the starter and verify its rendered loading skeleton
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
+## 用户行为埋点
+
+埋点默认关闭，按环境在构建时配置：
+
+- `NEXT_PUBLIC_ANALYTICS_ENABLED=true`：开启统一采集 SDK；
+- `NEXT_PUBLIC_APP_ENV=local|test|production`：区分数据环境；
+- `NEXT_PUBLIC_RELEASE=R1.1`：产品版本；
+- `NEXT_PUBLIC_APP_VERSION`：构建版本；
+- `NEXT_PUBLIC_COMMIT_SHA`：Git 提交号。
+
+业务页面只能调用 `src/analytics/client.ts` 的 `track`，不得自行发送埋点请求。埋点失败不会阻断用户操作；事件和属性必须先登记到项目级《用户行为埋点规范与事件字典》。
+
 ## Learn More
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)

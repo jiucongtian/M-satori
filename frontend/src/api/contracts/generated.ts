@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analytics/events/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ingestAnalyticsEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/sms-challenges": {
         parameters: {
             query?: never;
@@ -984,6 +1000,48 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AnalyticsEventBatch: {
+            events: components["schemas"]["AnalyticsEvent"][];
+        };
+        AnalyticsEvent: {
+            /** Format: uuid */
+            event_id: string;
+            event_name: string;
+            schema_version: number;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @enum {string} */
+            environment: "local" | "test" | "production";
+            release: string;
+            app_version: string;
+            commit_sha?: string;
+            anonymous_id: string;
+            session_id: string;
+            page_code?: string;
+            route?: string;
+            source_page?: string;
+            object_type?: string;
+            object_id?: string;
+            /** @enum {string} */
+            result?: "success" | "failed" | "cancelled" | "blocked" | "timeout";
+            reason_code?: string;
+            /** Format: uuid */
+            request_id?: string;
+            entry?: string;
+            properties: {
+                [key: string]: unknown;
+            };
+            consent_version?: string;
+            device: {
+                [key: string]: unknown;
+            };
+        };
+        AnalyticsIngestionEnvelope: {
+            data: {
+                accepted: boolean;
+                acceptedCount: number;
+            };
+        };
         ErrorEnvelope: {
             error: {
                 code: string;
@@ -2033,6 +2091,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LegalDocumentEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    ingestAnalyticsEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyticsEventBatch"];
+            };
+        };
+        responses: {
+            /** @description Batch accepted without affecting the user journey */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsIngestionEnvelope"];
                 };
             };
             default: components["responses"]["Error"];

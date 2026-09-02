@@ -25,6 +25,7 @@ tags:
   - name: Consumption
   - name: Membership
   - name: Refunds
+  - name: Analytics
 paths:
   /app/bootstrap:
     get:
@@ -43,6 +44,17 @@ paths:
         - {name: documentId, in: path, required: true, schema: {type: string}}
       responses:
         '200': {description: Published legal document, content: {application/json: {schema: {$ref: '#/components/schemas/LegalDocumentEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /analytics/events/batch:
+    post:
+      tags: [Analytics]
+      operationId: ingestAnalyticsEvents
+      security: []
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/AnalyticsEventBatch'}}}
+      responses:
+        '202': {description: Batch accepted without affecting the user journey, content: {application/json: {schema: {$ref: '#/components/schemas/AnalyticsIngestionEnvelope'}}}}
         default: {$ref: '#/components/responses/Error'}
   /auth/sms-challenges:
     post:
@@ -649,6 +661,53 @@ components:
       headers: {X-Request-Id: {schema: {type: string}}}
       content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
   schemas:
+    AnalyticsEventBatch:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: {$ref: '#/components/schemas/AnalyticsEvent'}
+    AnalyticsEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, event_name, schema_version, occurred_at, environment, release, app_version, anonymous_id, session_id, properties, device]
+      properties:
+        event_id: {type: string, format: uuid}
+        event_name: {type: string, pattern: '^[a-z][a-z0-9]*(?:_[a-z0-9]+){2,}$', maxLength: 128}
+        schema_version: {type: integer, minimum: 1, maximum: 100}
+        occurred_at: {type: string, format: date-time}
+        environment: {type: string, enum: [local, test, production]}
+        release: {type: string, maxLength: 32}
+        app_version: {type: string, maxLength: 64}
+        commit_sha: {type: string, maxLength: 64}
+        anonymous_id: {type: string, minLength: 8, maxLength: 128}
+        session_id: {type: string, minLength: 8, maxLength: 128}
+        page_code: {type: string, maxLength: 64}
+        route: {type: string, maxLength: 240}
+        source_page: {type: string, maxLength: 64}
+        object_type: {type: string, maxLength: 64}
+        object_id: {type: string, maxLength: 128}
+        result: {type: string, enum: [success, failed, cancelled, blocked, timeout]}
+        reason_code: {type: string, maxLength: 96}
+        request_id: {type: string, format: uuid}
+        entry: {type: string, maxLength: 64}
+        properties: {type: object, additionalProperties: true}
+        consent_version: {type: string, maxLength: 64}
+        device: {type: object, additionalProperties: true}
+    AnalyticsIngestionEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [accepted, acceptedCount]
+          properties:
+            accepted: {type: boolean}
+            acceptedCount: {type: integer, minimum: 0, maximum: 20}
     ErrorEnvelope:
       type: object
       required: [error]

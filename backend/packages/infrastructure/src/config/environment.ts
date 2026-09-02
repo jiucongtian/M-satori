@@ -24,6 +24,7 @@ const environmentShape = {
   R11_MEMBERSHIP_ENABLED: booleanFromString,
   R11_ORDINARY_REFUNDS_ENABLED: booleanFromString,
   R11_MEMBERSHIP_UPGRADES_ENABLED: booleanFromString,
+  ANALYTICS_INGESTION_ENABLED: booleanFromString,
   AUTH_HMAC_SECRET: z.string().min(32).default('development-auth-hmac-secret-0001'),
   ACCESS_TOKEN_SECRET: z.string().min(32).default('development-access-token-secret-01'),
   DATA_ENCRYPTION_KEY: z
