@@ -44,8 +44,9 @@ describe('CatalogApplicationService', () => {
     expect(await service.listMembershipPlans()).toEqual([membership]);
   });
 
-  it('rejects publishing any product outside the R1.1 whitelist', async () => {
-    const forbidden = { ...offering, offeringCode: 'life-light-report' };
+  it('allows a valid operations-managed product code and rejects malformed codes', async () => {
+    expect(() => assertR11Sellable('service-package')).not.toThrow();
+    const forbidden = { ...offering, offeringCode: '非法 商品' };
     const service = new CatalogApplicationService(repository([forbidden]));
     await expect(
       service.publish({

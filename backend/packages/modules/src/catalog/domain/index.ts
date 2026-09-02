@@ -26,8 +26,8 @@ export class OfferingNotFoundError extends Error {
   readonly code = 'OFFERING_NOT_FOUND';
 }
 
-export function assertR11Sellable(code: string): asserts code is R11SellableOfferingCode {
-  if (!(R11_SELLABLE_OFFERING_CODES as readonly string[]).includes(code)) {
+export function assertR11Sellable(code: string): void {
+  if (!/^[a-z0-9][a-z0-9-_]{2,63}$/.test(code)) {
     throw new OfferingNotSellableError(`${code} is outside the R1.1 sellable scope`);
   }
 }

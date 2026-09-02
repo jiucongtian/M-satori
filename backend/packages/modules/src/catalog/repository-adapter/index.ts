@@ -17,7 +17,14 @@ export class DrizzleCatalogRepository implements CatalogRepository, OfferingQuer
       .innerJoin(offeringVersions, eq(serviceOfferings.currentVersionId, offeringVersions.id))
       .where(and(eq(serviceOfferings.status, 'ACTIVE'), eq(offeringVersions.status, 'PUBLISHED')))
       .orderBy(asc(serviceOfferings.createdAt), asc(serviceOfferings.id));
-    return rows.map(toCatalogOffering);
+    return rows.flatMap((row) => {
+      try {
+        const offering = toCatalogOffering(row);
+        return isPubliclySellable(offering) ? [offering] : [];
+      } catch {
+        return [];
+      }
+    });
   }
 
   async findPublished(offeringId: string, version?: number): Promise<CatalogOffering | null> {
@@ -35,7 +42,13 @@ export class DrizzleCatalogRepository implements CatalogRepository, OfferingQuer
       .innerJoin(offeringVersions, eq(serviceOfferings.id, offeringVersions.offeringId))
       .where(condition)
       .limit(1);
-    return row ? toCatalogOffering(row) : null;
+    if (!row) return null;
+    try {
+      const offering = toCatalogOffering(row);
+      return isPubliclySellable(offering) ? offering : null;
+    } catch {
+      return null;
+    }
   }
 
   async publishVersion(command: PublishOfferingVersionCommand): Promise<OfferingQuoteSnapshot> {
@@ -139,4 +152,12 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function isPubliclySellable(offering: CatalogOffering) {
+  const benefits = offering.entitlementSpec.benefits;
+  return offering.amountMinor > 0 && Array.isArray(benefits) && benefits.length > 0 && benefits.every((value) => {
+    const benefit = asRecord(value);
+    return (benefit.serviceType === 'DAILY_INSIGHT' || benefit.serviceType === 'CARD_READING') && Number.isInteger(Number(benefit.quantity)) && Number(benefit.quantity) > 0;
+  });
 }
