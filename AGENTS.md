@@ -42,3 +42,10 @@ This project is indexed by GitNexus as **M-satori** (2735 symbols, 6304 relation
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## GitHub connectivity on this workstation
+
+- GitHub HTTPS Git traffic is configured to use Clash Verge at `http://127.0.0.1:7897` and HTTP/1.1; use ordinary `git fetch`, `git pull`, and `git push` first.
+- If GitHub times out while the website remains reachable, check that `verge-mihomo` is listening on port `7897` and follow `docs/governance/研发与发布SOP.md` instead of repeatedly retrying direct connections.
+- `gh` and standalone `curl` do not reliably inherit Git's proxy setting. When they need GitHub network access, scope `HTTPS_PROXY=http://127.0.0.1:7897` to that command only.
+- Do not bypass the required pre-commit fetch, remote comparison, or post-push verification because of a network failure.
