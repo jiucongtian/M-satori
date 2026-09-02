@@ -27,8 +27,32 @@ describe('AnalyticsService', () => {
     } as never);
 
     await expect(service.ingest({ events: [validEvent] })).resolves.toEqual({ accepted: true, acceptedCount: 1 });
-    expect(persistAnalyticsRows).toHaveBeenCalledWith([expect.objectContaining({ eventId: validEvent.event_id })]);
+    expect(persistAnalyticsRows).toHaveBeenCalledWith([
+      expect.objectContaining({ eventId: validEvent.event_id, userId: null }),
+    ]);
     expect(ignoreAnalyticsConflict).toHaveBeenCalledOnce();
+  });
+
+  it('binds a trusted authenticated user id to every event in the batch', async () => {
+    const persistAnalyticsRows = vi.fn(() => ({ onConflictDoNothing: vi.fn().mockResolvedValue(undefined) }));
+    const service = new AnalyticsService({
+      environment: { ANALYTICS_INGESTION_ENABLED: true },
+      database: { insert: vi.fn(() => ({ values: persistAnalyticsRows })) },
+    } as never);
+
+    await service.ingest({ events: [validEvent] }, '019a0000-0000-7000-8000-000000000099');
+    expect(persistAnalyticsRows).toHaveBeenCalledWith([
+      expect.objectContaining({ userId: '019a0000-0000-7000-8000-000000000099' }),
+    ]);
+  });
+
+  it('rejects a client-supplied user id', async () => {
+    const service = new AnalyticsService({
+      environment: { ANALYTICS_INGESTION_ENABLED: true },
+      database: { insert: vi.fn() },
+    } as never);
+    await expect(service.ingest({ events: [{ ...validEvent, user_id: 'forged-user' }] }))
+      .rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('is a no-op while ingestion is disabled', async () => {

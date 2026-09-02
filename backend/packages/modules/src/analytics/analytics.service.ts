@@ -37,7 +37,7 @@ const batchSchema = z.object({ events: z.array(eventSchema).min(1).max(20) }).st
 export class AnalyticsService {
   constructor(private readonly infrastructure: RuntimeInfrastructure) {}
 
-  async ingest(input: unknown): Promise<{ accepted: boolean; acceptedCount: number }> {
+  async ingest(input: unknown, authenticatedUserId?: string): Promise<{ accepted: boolean; acceptedCount: number }> {
     if (!this.infrastructure.environment.ANALYTICS_INGESTION_ENABLED) {
       return { accepted: false, acceptedCount: 0 };
     }
@@ -51,6 +51,7 @@ export class AnalyticsService {
 
     const rows = parsed.data.events.map((event) => ({
       eventId: event.event_id,
+      userId: authenticatedUserId ?? null,
       eventName: event.event_name,
       schemaVersion: event.schema_version,
       occurredAt: new Date(event.occurred_at),

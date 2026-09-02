@@ -35,6 +35,11 @@ const analyticsContext: AnalyticsProperties = {};
 const journeyKey = 'fresh:analytics:active-journey';
 let flushTimer: number | undefined;
 let sending = false;
+let analyticsAccessToken: string | null = null;
+
+export function setAnalyticsAccessToken(token: string | null): void {
+  analyticsAccessToken = token;
+}
 
 export function updateAnalyticsContext(patch: AnalyticsProperties): void {
   try {
@@ -97,9 +102,11 @@ export async function flush(): Promise<void> {
   flushTimer = undefined;
   const batch = queue.splice(0, 20);
   try {
+    const headers = new Headers({ 'content-type': 'application/json' });
+    if (analyticsAccessToken) headers.set('authorization', `Bearer ${analyticsAccessToken}`);
     const response = await fetch('/api/v1/analytics/events/batch', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       credentials: 'include',
       keepalive: true,
       body: JSON.stringify({ events: batch }),

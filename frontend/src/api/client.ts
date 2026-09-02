@@ -2,6 +2,7 @@ import type { components } from "./contracts/generated";
 import { PROTOTYPE_MODE } from "@/src/shared/prototype";
 import { prototypeAccount,prototypeDailyInsight,prototypeFirstLook,prototypeHome,prototypeProfiles,prototypeRevision,prototypeTransactions } from "@/src/shared/prototypeData";
 import { trackBusinessRequestFailed, trackBusinessRequestStarted, trackBusinessRequestSucceeded } from "@/src/analytics/businessEvents";
+import { setAnalyticsAccessToken } from "@/src/analytics/client";
 
 type Schemas = components["schemas"];
 type Bootstrap = Schemas["BootstrapEnvelope"]["data"];
@@ -163,6 +164,7 @@ class SatoriApiClient {
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
+    setAnalyticsAccessToken(token);
   }
 
   private async request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
@@ -215,7 +217,7 @@ class SatoriApiClient {
 
   async refresh() {
     if (PROTOTYPE_MODE) {
-      this.accessToken = "prototype-access-token";
+      this.setAccessToken("prototype-access-token");
       return true;
     }
     if (!this.refreshing) {
@@ -224,10 +226,10 @@ class SatoriApiClient {
         { method: "POST" },
         false,
       ).then(({ data }) => {
-        this.accessToken = data.accessToken;
+        this.setAccessToken(data.accessToken);
         return true;
       }).catch(() => {
-        this.accessToken = null;
+        this.setAccessToken(null);
         return false;
       }).finally(() => {
         this.refreshing = null;
@@ -238,12 +240,12 @@ class SatoriApiClient {
 
   async logout() {
     if (PROTOTYPE_MODE) {
-      this.accessToken = null;
+      this.setAccessToken(null);
       return;
     }
     await this.request<null>("/auth/sessions/current", { method: "DELETE" });
     // The bearer token lives only in memory; the revoked session cannot be reused.
-    this.accessToken = null;
+    this.setAccessToken(null);
   }
 
   bootstrap() {
@@ -265,7 +267,7 @@ class SatoriApiClient {
 
   createSession(challengeId: string, verificationCode: string, consentAcceptances: Schemas["ConsentAcceptance"][]) {
     if (PROTOTYPE_MODE) {
-      this.accessToken = "prototype-access-token";
+      this.setAccessToken("prototype-access-token");
       return prototypeResult({
         accessToken: this.accessToken,
         accessTokenExpiresAt: "2026-08-29T10:00:00.000Z",
@@ -279,7 +281,7 @@ class SatoriApiClient {
       method: "POST",
       body: JSON.stringify({ challengeId, verificationCode, consentAcceptances, device: getDevice() }),
     }).then(({ data }) => {
-      this.accessToken = data.accessToken;
+      this.setAccessToken(data.accessToken);
       return data;
     });
   }

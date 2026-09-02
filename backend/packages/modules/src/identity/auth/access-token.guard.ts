@@ -1,7 +1,7 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PUBLIC_ROUTE } from '@satori/contracts';
+import { OPTIONAL_AUTH_ROUTE, PUBLIC_ROUTE } from '@satori/contracts';
 import { RuntimeInfrastructure, sessions, users } from '@satori/infrastructure';
 import { and, eq, gt, inArray, isNull } from 'drizzle-orm';
 import type { FastifyRequest } from 'fastify';
@@ -17,14 +17,14 @@ export class AccessTokenGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const targets = [context.getHandler(), context.getClass()];
+    const isPublic = this.reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE, targets);
     if (isPublic) return true;
+    const isOptionalAuth = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH_ROUTE, targets);
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const authorization = request.headers.authorization;
     if (!authorization?.startsWith('Bearer ')) {
+      if (isOptionalAuth) return true;
       throw new UnauthorizedException({ code: 'ACCESS_TOKEN_MISSING', message: 'Access token is required' });
     }
     const claims = await this.tokens.verify(authorization.slice(7));
