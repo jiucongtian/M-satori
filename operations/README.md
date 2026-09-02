@@ -1,6 +1,6 @@
 # 初见·FRESH 运营平台
 
-独立域名 `operations.shenxinyou.com`，独立 `satori-operations` Docker Compose；API 与 R1.1 用户端共用 PostgreSQL 权威数据，不复制订单、权益、会员或智慧种子账本。
+测试环境使用独立域名 `operations.test.shenxinyou.com` 和独立 `satori-operations` Docker Compose；未来正式环境预留 `operations.shenxinyou.com`。API 与 R1.1 用户端共用 PostgreSQL 权威数据，不复制订单、权益、会员或智慧种子账本。
 
 ## 目录
 
@@ -16,6 +16,7 @@
 
 - `web`：独立 Next.js 容器，只暴露 `127.0.0.1:6900`。
 - `api`：独立 Fastify 容器，只暴露 `127.0.0.1:3210`。
-- `operations.shenxinyou.com`：Nginx 将 `/operations-api/` 转发到 API，其余请求转发到 Web。
+- `operations.test.shenxinyou.com`：测试环境 Nginx 将 `/operations-api/` 转发到 API，其余请求转发到 Web。
+- `operations.shenxinyou.com`：仅用于未来正式环境，不复用测试环境密钥、数据库或容器。
 - 数据库：复用 R1.1 PostgreSQL 权威库，不建立影子用户、订单或权益账本。
 - DNS、TLS 证书和生产密钥由部署环境提供，不能提交 Git。

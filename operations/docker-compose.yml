@@ -5,8 +5,26 @@ services:
     env_file: .env.production
     restart: unless-stopped
     ports: ["127.0.0.1:3210:3210"]
+    networks: [satori_backend]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3210/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
   web:
     build: {context: .., dockerfile: operations/frontend/Dockerfile}
     restart: unless-stopped
-    depends_on: [api]
+    depends_on:
+      api:
+        condition: service_healthy
     ports: ["127.0.0.1:6900:6900"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:6900/admin').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+networks:
+  satori_backend:
+    external: true
+    name: satori-test_backend
