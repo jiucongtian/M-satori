@@ -31,9 +31,10 @@ test("@smoke ADMIN-DATA-001 数据分析使用服务端数据并支持核心视�
   await expect(page.getByText("设备与屏幕质量", { exact: true })).toBeVisible();
   await expect(page.getByText("版本与构建质量", { exact: true })).toBeVisible();
   await expect(page.getByText("手机", { exact: true }).first()).toBeVisible();
-  const segmentRequest = page.waitForRequest(request => request.url().includes("/analytics/segments") && request.url().includes("environment=production"));
-  await page.getByLabel("运行环境").selectOption("production");
-  await segmentRequest;
+  await expect(page.getByLabel("运行环境")).toHaveCount(0);
+  await expect(page.getByLabel("版本")).toHaveCount(0);
+  await expect(page.getByText("测试环境 · R1.1 · 近 7 天", { exact: true })).toBeVisible();
+  await expect(page.getByText("82.5%", { exact: true })).toBeVisible();
 });
 
 test("@smoke ADMIN-USER-001 查询用户支持有结果与无结果", async ({ page }) => {
