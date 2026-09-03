@@ -71,6 +71,8 @@ test("@smoke ADMIN-PRODUCT-001 三类商品可筛选、配置和预览", async (
 test("ADMIN-PRODUCT-VALIDATION-001 缺少必填配置时明确说明并定位", async ({ page }) => {
   await page.getByRole("button", { name: "品 商品中心" }).click();
   await page.getByRole("button", { name: "＋ 新建商品" }).click();
+  await expect(page.locator('.account-modal select').first().locator('option[value="MEMBERSHIP"]')).toHaveCount(0);
+  await expect(page.locator('.account-modal')).toContainText("会员计划固定为微光、清和、自在三类");
   await page.getByRole("button", { name: "创建并继续配置" }).click();
   const createAlert = page.locator(".risk-note[role=alert]");
   await expect(createAlert).toContainText("商品编号至少填写 3 个字符");
