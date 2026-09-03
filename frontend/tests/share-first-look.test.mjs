@@ -18,6 +18,12 @@ test("海报文案只来自真实报告字段且不暴露问事原文",async()=>
   const readingCopies=source.slice(source.indexOf("export function readingPosterCopies"),source.indexOf("function href"));
   assert.doesNotMatch(readingCopies,/reading\.question/);
   assert.match(readingCopies,/reading\.cards/);
+  assert.match(source,/eightCharacterTitle/);
+  assert.match(source,/max=40/);
+  const titleBlock=source.match(/const titleSets=\{([\s\S]*?)\} as const/)?.[1]??"";
+  const titles=[...titleBlock.matchAll(/"([^\"]+)"/g)].map(item=>item[1]);
+  assert.equal(titles.length,12);
+  for(const title of titles)assert.equal([...title].length,8,`${title} 应为 8 个字`);
 });
 
 test("海报遵循固定角标、二维码和预览保存同源规则",async()=>{
@@ -26,7 +32,10 @@ test("海报遵循固定角标、二维码和预览保存同源规则",async()=>
     readFile(new URL("../src/features/share/share-first-look.css",import.meta.url),"utf8"),
   ]);
   assert.match(source,/\.poster-large \.fresh-poster/);
+  assert.match(source,/toBlob/);
   assert.match(source,/pixelRatio:1080\/node\.clientWidth/);
+  assert.match(source,/navigator\.canShare/);
+  assert.match(source,/长按图片/);
   assert.match(source,/mergeShortTail/);
   assert.match(styles,/\.poster-report-kind\{position:absolute/);
   assert.match(styles,/inset:5\.5% 6\.5% auto auto/);
