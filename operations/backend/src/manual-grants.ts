@@ -8,14 +8,21 @@ export const ensureManualGrantSchema = async (pool: pg.Pool) => {
       phone_hash varchar(128) not null,
       phone_masked varchar(20) not null,
       payload jsonb not null,
-      status varchar(24) not null default 'PENDING_CLAIM' check(status in('PENDING_CLAIM','CLAIMED','REVOKED')),
+      status varchar(24) not null default 'PENDING_CLAIM' check(status in('PENDING_CLAIM','CLAIMED','CLAIM_FAILED','REVOKED')),
       claimed_user_id uuid references users(id),
       claimed_at timestamptz,
+      claim_error text,
       created_at timestamptz not null default now()
     )
   `);
+  await pool.query(`alter table operations_pending_benefit_claims add column if not exists claim_error text`);
+  await pool.query(`alter table operations_pending_benefit_claims drop constraint if exists operations_pending_benefit_claims_status_check`);
+  await pool.query(`alter table operations_pending_benefit_claims drop constraint if exists operations_pending_benefit_claims_status_ck`);
+  await pool.query(`alter table operations_pending_benefit_claims add constraint operations_pending_benefit_claims_status_ck check(status in('PENDING_CLAIM','CLAIMED','CLAIM_FAILED','REVOKED'))`);
   await pool.query(`alter table membership_subscriptions alter column source_order_id drop not null`);
   await pool.query(`alter table membership_periods alter column source_order_id drop not null`);
+  await pool.query(`alter table membership_subscriptions add column if not exists grant_source varchar(24) not null default 'PURCHASE'`);
+  await pool.query(`alter table membership_periods add column if not exists grant_source varchar(24) not null default 'PURCHASE'`);
   await pool.query(`
     create or replace function operations_apply_manual_benefit(
       p_action_id uuid, p_owner_user_id uuid, p_payload jsonb
@@ -64,12 +71,12 @@ export const ensureManualGrantSchema = async (pool: pg.Pool) => {
           v_subscription := gen_random_uuid();
           v_period := gen_random_uuid();
           insert into membership_subscriptions(
-            id,owner_user_id,business_space,status,current_plan_version_id,source_order_id,starts_at,ends_at,request_id
-          ) values(v_subscription,p_owner_user_id,'SATORI','ACTIVE',v_version,null,now(),now()+make_interval(days=>v_plan_days),p_action_id);
+            id,owner_user_id,business_space,status,current_plan_version_id,source_order_id,grant_source,starts_at,ends_at,request_id
+          ) values(v_subscription,p_owner_user_id,'SATORI','ACTIVE',v_version,null,'MANUAL_GRANT',now(),now()+make_interval(days=>v_plan_days),p_action_id);
           insert into membership_periods(
-            id,subscription_id,owner_user_id,business_space,sequence,plan_version_id,source_order_id,status,
+            id,subscription_id,owner_user_id,business_space,sequence,plan_version_id,source_order_id,grant_source,status,
             starts_at,ends_at,activated_at,benefits_granted_at,request_id
-          ) values(v_period,v_subscription,p_owner_user_id,'SATORI',1,v_version,null,'ACTIVE',now(),now()+make_interval(days=>v_plan_days),now(),now(),p_action_id);
+          ) values(v_period,v_subscription,p_owner_user_id,'SATORI',1,v_version,null,'MANUAL_GRANT','ACTIVE',now(),now()+make_interval(days=>v_plan_days),now(),now(),p_action_id);
         end if;
         select coalesce(validity_days,30) into v_validity from offering_versions where id=v_version;
         v_expires_at := now()+make_interval(days=>coalesce(v_validity,30));
@@ -97,9 +104,18 @@ export const ensureManualGrantSchema = async (pool: pg.Pool) => {
       if new.provider <> 'PHONE' then return new; end if;
       for v_claim in select * from operations_pending_benefit_claims
         where phone_hash=new.provider_subject_hash and status='PENDING_CLAIM' for update loop
-        perform operations_apply_manual_benefit(v_claim.action_request_id,new.user_id,v_claim.payload);
-        update operations_pending_benefit_claims set status='CLAIMED',claimed_user_id=new.user_id,claimed_at=now()
-          where id=v_claim.id;
+        begin
+          perform operations_apply_manual_benefit(v_claim.action_request_id,new.user_id,v_claim.payload);
+          update operations_pending_benefit_claims set status='CLAIMED',claimed_user_id=new.user_id,claimed_at=now(),claim_error=null
+            where id=v_claim.id;
+          insert into operations_audit_logs(id,actor_nickname,action,resource_type,resource_id,metadata)
+          values(gen_random_uuid(),'系统','MANUAL_BENEFIT_CLAIMED','BENEFIT_GRANT',v_claim.action_request_id::text,jsonb_build_object('claimId',v_claim.id));
+        exception when others then
+          update operations_pending_benefit_claims set status='CLAIM_FAILED',claim_error=left(SQLERRM,500)
+            where id=v_claim.id;
+          insert into operations_audit_logs(id,actor_nickname,action,resource_type,resource_id,metadata)
+          values(gen_random_uuid(),'系统','MANUAL_BENEFIT_CLAIM_FAILED','BENEFIT_GRANT',v_claim.action_request_id::text,jsonb_build_object('claimId',v_claim.id,'reason',left(SQLERRM,500)));
+        end;
       end loop;
       return new;
     end $$
