@@ -7,6 +7,7 @@ import {
 } from '@satori/application';
 import { RuntimeInfrastructure } from '@satori/infrastructure';
 import { AquaClientFactory } from './aqua/aqua-client.factory.js';
+import { CardReadingWorkflowService } from './card-reading/card-reading-workflow.service.js';
 import { AquaDailyInsightGenerator } from './daily-insight/aqua-daily-insight.generator.js';
 import { AquaHomeEnergySummaryGenerator } from './daily-energy/aqua-home-energy-summary.generator.js';
 import { LocationController } from './locations/location.controller.js';
@@ -18,6 +19,14 @@ import { DeterministicProfileFirstLookGenerator } from './profile-first-look/det
   controllers: [LocationController],
   providers: [
     AquaClientFactory,
+    {
+      provide: CardReadingWorkflowService,
+      inject: [RuntimeInfrastructure, AquaClientFactory],
+      useFactory: (infrastructure: RuntimeInfrastructure, clients: AquaClientFactory) =>
+        new CardReadingWorkflowService(clients.create(), {
+          workflowId: infrastructure.policy.aqua.cardReading.workflowId,
+        }),
+    },
     { provide: LOCATION_PROVIDER, useClass: LocalLocationProvider },
     {
       provide: PROFILE_FIRST_LOOK_GENERATOR,
@@ -54,6 +63,7 @@ import { DeterministicProfileFirstLookGenerator } from './profile-first-look/det
     DAILY_INSIGHT_GENERATOR,
     HOME_ENERGY_SUMMARY_GENERATOR,
     PROFILE_FIRST_LOOK_GENERATOR,
+    CardReadingWorkflowService,
   ],
 })
 export class IntegrationsModule {}

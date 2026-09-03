@@ -44,6 +44,10 @@ export const R1_RUNTIME_POLICY = {
   },
 
   aqua: {
+    cardReading: {
+      /** 抽卡问事固定调用 Aqua 当前激活版本，不在调用侧传 workflowVersion。 */
+      workflowId: 'ai-card-reading',
+    },
     dailyInsight: {
       /** 完整每日指引固定调用的 Aqua Workflow；所有环境保持一致。 */
       workflowId: 'daily-insight',

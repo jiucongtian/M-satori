@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Query, Req } from '@nestjs/common';
 import {
   ArrayMaxSize,
   IsArray,
@@ -12,6 +12,8 @@ import {
   MinLength,
 } from 'class-validator';
 import type { AuthenticatedRequest } from '../identity/auth/authenticated-request.js';
+import { CardReadingWorkflowService } from '../integrations/card-reading/card-reading-workflow.service.js';
+import type { CardReadingResult } from '../integrations/card-reading/card-reading-workflow.types.js';
 import { CardReadingService } from './card-reading.service.js';
 
 class CreateCardDrawDto {
@@ -24,11 +26,28 @@ class CreateCardDrawDto {
 
 @Controller('card-readings')
 export class CardReadingController {
-  constructor(private readonly readings: CardReadingService) {}
+  constructor(
+    private readonly readings: CardReadingService,
+    private readonly workflow: CardReadingWorkflowService,
+  ) {}
 
   @Post('draws')
   async createDraw(@Req() request: AuthenticatedRequest, @Body() body: CreateCardDrawDto) {
     return { data: await this.readings.createDraw({ ownerUserId: request.auth.userId, ...body }) };
+  }
+
+  @Post('interpretations')
+  async createInterpretation(
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ): Promise<{ data: CardReadingResult }> {
+    if (!idempotencyKey || idempotencyKey.length < 16 || idempotencyKey.length > 128) {
+      throw new BadRequestException({
+        code: 'IDEMPOTENCY_KEY_REQUIRED',
+        message: 'A 16-128 character Idempotency-Key is required',
+      });
+    }
+    return { data: await this.workflow.run(body, idempotencyKey) };
   }
 
   @Get()
