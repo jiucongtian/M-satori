@@ -25,7 +25,7 @@ test("海报文案只来自真实报告字段且不暴露问事原文",async()=>
   const bodyBlock=source.match(/const bodySets=\{([\s\S]*?)\} as const/)?.[1]??"";
   const bodies=[...bodyBlock.matchAll(/"([^\"]+)"/g)].map(item=>item[1]);
   assert.equal(bodies.length,18);
-  for(const body of bodies){assert.ok([...body].length<=40,`${body} 应不超过 40 个字`);assert.match(body,/[。！？]$/)}
+  for(const body of bodies){assert.ok([...body].length>=28,`${body} 应至少有 28 个字`);assert.ok([...body].length<=40,`${body} 应不超过 40 个字`);assert.match(body,/[。！？]$/)}
 });
 
 test("海报遵循固定角标、二维码和预览保存同源规则",async()=>{
