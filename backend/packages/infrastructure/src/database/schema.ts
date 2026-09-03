@@ -1534,7 +1534,6 @@ export const membershipSubscriptions = pgTable(
       .notNull()
       .references(() => offeringVersions.id),
     sourceOrderId: uuid('source_order_id')
-      .notNull()
       .references(() => moneyOrders.id),
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
@@ -1575,7 +1574,6 @@ export const membershipPeriods = pgTable(
       .notNull()
       .references(() => offeringVersions.id),
     sourceOrderId: uuid('source_order_id')
-      .notNull()
       .references(() => moneyOrders.id),
     status: varchar('status', { length: 24 }).notNull().default('QUEUED'),
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
