@@ -27,4 +27,6 @@ test("问事接口类型包含完整 Aqua 报告", async () => {
   const source = await readFile(clientPath, "utf8");
   assert.match(source, /export type CardReadingReport/);
   assert.match(source, /report: CardReadingReport \| null/);
+  assert.match(source, /completeCardReading[\s\S]*?body: JSON\.stringify\(\{\}\)/);
+  assert.match(source, /retryCardReading[\s\S]*?body: JSON\.stringify\(\{\}\)/);
 });

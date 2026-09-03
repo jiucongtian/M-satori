@@ -517,10 +517,10 @@ class SatoriApiClient {
     return this.request<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}`).then((x) => x.data);
   }
   completeCardReading(readingId: string) {
-    return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/complete`, { method: "POST" }).then((x) => x.data);
+    return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/complete`, { method: "POST", body: JSON.stringify({}) }).then((x) => x.data);
   }
   retryCardReading(readingId: string) {
-    return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/retry`, { method: "POST" }).then((x) => x.data);
+    return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/retry`, { method: "POST", body: JSON.stringify({}) }).then((x) => x.data);
   }
 }
 
