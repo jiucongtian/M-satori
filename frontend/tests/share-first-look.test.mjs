@@ -18,12 +18,14 @@ test("海报文案只来自真实报告字段且不暴露问事原文",async()=>
   const readingCopies=source.slice(source.indexOf("export function readingPosterCopies"),source.indexOf("function href"));
   assert.doesNotMatch(readingCopies,/reading\.question/);
   assert.match(readingCopies,/reading\.cards/);
-  assert.match(source,/eightCharacterTitle/);
-  assert.match(source,/max=40/);
   const titleBlock=source.match(/const titleSets=\{([\s\S]*?)\} as const/)?.[1]??"";
   const titles=[...titleBlock.matchAll(/"([^\"]+)"/g)].map(item=>item[1]);
-  assert.equal(titles.length,12);
+  assert.equal(titles.length,18);
   for(const title of titles)assert.equal([...title].length,8,`${title} 应为 8 个字`);
+  const bodyBlock=source.match(/const bodySets=\{([\s\S]*?)\} as const/)?.[1]??"";
+  const bodies=[...bodyBlock.matchAll(/"([^\"]+)"/g)].map(item=>item[1]);
+  assert.equal(bodies.length,18);
+  for(const body of bodies){assert.ok([...body].length<=40,`${body} 应不超过 40 个字`);assert.match(body,/[。！？]$/)}
 });
 
 test("海报遵循固定角标、二维码和预览保存同源规则",async()=>{
@@ -33,7 +35,9 @@ test("海报遵循固定角标、二维码和预览保存同源规则",async()=>
   ]);
   assert.match(source,/\.poster-large \.fresh-poster/);
   assert.match(source,/toBlob/);
-  assert.match(source,/pixelRatio:1080\/node\.clientWidth/);
+  assert.match(source,/width:360,height:640,pixelRatio:3/);
+  assert.match(source,/ResizeObserver/);
+  assert.match(styles,/width:360px;height:640px/);
   assert.match(source,/navigator\.canShare/);
   assert.match(source,/长按图片/);
   assert.match(source,/mergeShortTail/);
