@@ -38,6 +38,9 @@ export const ROUTES = {
   readingPrepare: "/reading/prepare",
   myMembership: "/my/membership",
   myRefunds: "/my/refunds",
+  shareGenerating: "/share/generating",
+  shareSelect: "/share/select",
+  sharePreview: "/share/preview",
 } as const;
 
 export type RouteId = keyof typeof ROUTES;
@@ -89,6 +92,9 @@ export const PROTECTED_PATHS = new Set<AppPath>([
   ROUTES.myOrderDemo,
   ROUTES.refundNew,
   ROUTES.refundStatus,
+  ROUTES.shareGenerating,
+  ROUTES.shareSelect,
+  ROUTES.sharePreview,
 ]);
 
 const SAFE_NEXT_PATHS = new Set<AppPath>([...PROTECTED_PATHS]);
@@ -109,6 +115,9 @@ const COMMERCE_QUERY_KEYS: Partial<Record<AppPath, ReadonlySet<string>>> = {
   [ROUTES.serviceMembershipDetail]: new Set(["from"]),
   [ROUTES.myOrders]: new Set(["orderId", "kind", "from"]),
   [ROUTES.myRefunds]: new Set(["orderId"]),
+  [ROUTES.shareGenerating]: new Set(["type", "choice", "date", "readingId"]),
+  [ROUTES.shareSelect]: new Set(["type", "choice", "date", "readingId"]),
+  [ROUTES.sharePreview]: new Set(["type", "choice", "date", "readingId"]),
 };
 const RETURN_PATHS = new Set<AppPath>([
   ROUTES.home,

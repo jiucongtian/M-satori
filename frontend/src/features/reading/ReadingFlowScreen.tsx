@@ -88,7 +88,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     draw: <ReadingDraw cardCount={cardCount} onBack={()=>go("shuffle")} onNext={()=>go("reveal")}/>,
     reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>void completeReading()}/>,
     generating: <ReadingGenerate cardCount={cardCount} cards={reading?.cards} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onSuccess={()=>router.push(`${path.report}?readingId=${encodeURIComponent(reading?.readingId??"")}`)} onFailure={()=>go("failure")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")} onNetworkError={()=>go("failure")}/>,
-    report: <ReadingReport cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")}/>,
+    report: <ReadingReport cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")} onShare={reading?.readingId?()=>router.push(`/share/generating?type=reading&readingId=${encodeURIComponent(reading.readingId)}`):undefined}/>,
     feedback: <ReadingFeedback onBack={()=>go("report")} onHome={()=>go("home")} onShare={()=>go("report")}/>,
     failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>void retryReading()}/>,
   };

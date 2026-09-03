@@ -29,6 +29,7 @@
     "@fontsource/noto-sans-sc": "5.2.7",
     "@fontsource/noto-serif-sc": "5.2.7",
     "drizzle-orm": "0.45.2",
+    "html-to-image": "^1.11.13",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6"

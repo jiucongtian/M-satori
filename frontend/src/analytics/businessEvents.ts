@@ -12,6 +12,8 @@ const interactionRules: Array<{ test: (label: string, route: string) => boolean;
   { test: (label) => /(今日|问事|关系|成长|我的)$/.test(label), eventName: 'navigation_tab_clicked', actionCode: 'primary_navigation' },
   { test: (label) => /领取.*智慧种子|领取.*启程礼/.test(label), eventName: 'onboarding_gift_claim_clicked', actionCode: 'claim_onboarding_gift' },
   { test: (label) => /获取今日能量指引|查看今日能量指引|继续开启/.test(label), eventName: 'daily_guidance_cta_clicked', actionCode: 'open_daily_guidance' },
+  { test: (label) => /分享初见/.test(label), eventName: 'share_entry_clicked', actionCode: 'open_share_first_look' },
+  { test: (label) => /预览这张海报/.test(label), eventName: 'share_poster_selected', actionCode: 'preview_share_poster' },
   { test: (label, route) => route === '/readings' && /问事|听听牌/.test(label), eventName: 'reading_entry_clicked', actionCode: 'open_card_reading' },
   { test: (label) => /^[1-5]张|一张|两张|三张|四张|五张/.test(label), eventName: 'reading_card_count_selected', actionCode: 'select_card_count' },
   { test: (label) => /开始抽卡|确认.*抽卡|开始洗牌|确认问题/.test(label), eventName: 'reading_draw_cta_clicked', actionCode: 'start_reading' },

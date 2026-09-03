@@ -34,6 +34,9 @@ const ROUTE_DEBUG_LABELS: Record<string, string> = {
   "/checkout/result": "R1.1 · ORDER-03",
   "/payment/result": "R1.1 · ORDER-03",
   "/reading/prepare": "R1.1 · READ-03",
+  "/share/generating": "R1.1 · SHARE-02",
+  "/share/select": "R1.1 · SHARE-03",
+  "/share/preview": "R1.1 · SHARE-04",
 };
 
 export function RouteFrame({ title, label, children, mode = "profile-mode" }: { title: string; label: string; children: ReactNode; mode?: string }) {
