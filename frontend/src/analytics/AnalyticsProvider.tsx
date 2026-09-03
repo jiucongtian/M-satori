@@ -42,8 +42,9 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     const domainEvent = pageEvents.find(({ matches }) => matches(pathname));
+    const offeringId = pathname.startsWith('/shop/detail') ? new URLSearchParams(window.location.search).get('offeringId') : null;
     track('global_page_viewed', { page_code: domainEvent?.pageCode, properties: { load_result: 'success' } });
-    if (domainEvent) track(domainEvent.eventName, { page_code: domainEvent.pageCode, properties: { load_result: 'success' } });
+    if (domainEvent) track(domainEvent.eventName, { page_code: domainEvent.pageCode, object_type: offeringId ? 'offering' : undefined, object_id: offeringId ?? undefined, properties: { load_result: 'success' } });
   }, [pathname]);
 
   return children;

@@ -37,6 +37,17 @@ test("@smoke ADMIN-DATA-001 数据分析使用服务端数据并支持核心视�
   await expect(page.getByText("82.5%", { exact: true })).toBeVisible();
 });
 
+test("@smoke ADMIN-DATA-003 异常次数可进入共享诊断抽屉", async ({ page }) => {
+  await page.getByRole("button", { name: /数据分析/ }).click();
+  await page.getByRole("button", { name: "页面与功能", exact: true }).click();
+  await page.getByRole("button", { name: /3 次异常 · 查看定位/ }).click();
+  await expect(page.getByRole("dialog", { name: "异常诊断详情" })).toBeVisible();
+  await expect(page.getByText("客服回复建议", { exact: true })).toBeVisible();
+  await page.locator(".analytics-samples summary").first().click();
+  await expect(page.getByText("HarmonyOS", { exact: false })).toBeVisible();
+  await expect(page.getByText("不展示手机号、用户问题、报告正文或完整会话内容。", { exact: false })).toBeVisible();
+});
+
 test("@smoke ADMIN-USER-001 查询用户支持有结果与无结果", async ({ page }) => {
   await page.getByRole("button", { name: /用户中心/ }).click();
   const input = page.getByPlaceholder("输入手机号或账户编号");
@@ -56,6 +67,9 @@ test("@smoke ADMIN-BENEFIT-001 权益中心只展示接口返回记录", async (
 
 test("@smoke ADMIN-PRODUCT-001 三类商品可筛选、配置和预览", async ({ page }) => {
   await page.getByRole("button", { name: "品 商品中心" }).click();
+  await expect(page.getByRole("columnheader", { name: "运营状态" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "用户端展示" })).toBeVisible();
+  await expect(page.getByText("正在展示", { exact: true }).first()).toBeVisible();
   for (const category of ["单次产品", "服务包", "会员计划"]) {
     await page.getByRole("button", { name: new RegExp(`^${category}`) }).click();
     await expect(page.getByRole("heading", { name: new RegExp(`${category} · 商品与版本`) })).toBeVisible();
@@ -66,6 +80,13 @@ test("@smoke ADMIN-PRODUCT-001 三类商品可筛选、配置和预览", async (
     await page.getByRole("button", { name: "返回配置" }).click();
     await page.getByRole("button", { name: /返回商品列表/ }).click();
   }
+});
+
+test("ADMIN-SESSION-001 全局退出登录需要二次确认", async ({ page }) => {
+  await page.getByRole("button", { name: "退出登录" }).click();
+  await expect(page.getByRole("heading", { name: "确认退出登录？" })).toBeVisible();
+  await page.getByRole("button", { name: "继续留在这里" }).click();
+  await expect(page.getByRole("heading", { name: "工作台" })).toBeVisible();
 });
 
 test("ADMIN-PRODUCT-VALIDATION-001 缺少必填配置时明确说明并定位", async ({ page }) => {

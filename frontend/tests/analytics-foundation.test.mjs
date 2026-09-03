@@ -85,3 +85,10 @@ test('全局 Provider 自动记录页面浏览及客户端异常', async () => {
   assert.match(client, /global_client_error_occurred/);
   assert.match(client, /pagehide/);
 });
+
+test('商品详情访问携带可关联的商品编号', async () => {
+  const provider = await readFile(providerUrl, 'utf8');
+  assert.match(provider, /URLSearchParams\(window\.location\.search\)/);
+  assert.match(provider, /object_type: offeringId \? 'offering'/);
+  assert.match(provider, /object_id: offeringId/);
+});
