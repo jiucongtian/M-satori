@@ -11,7 +11,12 @@ import {
 import { AquaAIError, AquaAIHttpError, AquaAITimeoutError, type AquaAIClient } from '@aqua-ai/sdk';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { CardReadingInput, CardReadingMode, CardReadingResult } from './card-reading-workflow.types.js';
+import type {
+  CardReadingInput,
+  CardReadingMode,
+  CardReadingResult,
+  CardReadingWorkflowExecution,
+} from './card-reading-workflow.types.js';
 
 const WORKFLOW_TIMEOUT_MS = 300_000;
 
@@ -51,7 +56,17 @@ const cardReadingInputSchema = inputBaseSchema
     }
   });
 
-const cardReadingResultSchema = z.object({ mode: z.enum(['single', 'dual', 'multi']) }).loose();
+const cardReadingResultSchema = z.object({
+  audience: z.enum(['B', 'C']),
+  cards: z.array(z.number().int().min(1).max(60)).min(1).max(5),
+  missing_fields: z.array(z.string()),
+  mode: z.enum(['single', 'dual', 'multi']),
+  notice: z.string().min(1),
+  question_type: z.string().min(1),
+  report: z.string().min(1),
+  status: z.string().min(1),
+  title: z.string().min(1),
+});
 
 interface AquaWorkflowClient {
   workflows: Pick<AquaAIClient['workflows'], 'run'>;
@@ -74,6 +89,10 @@ export class CardReadingWorkflowService {
   ) {}
 
   async run(rawInput: unknown, traceId: string = randomUUID()): Promise<CardReadingResult> {
+    return (await this.execute(rawInput, traceId)).result;
+  }
+
+  async execute(rawInput: unknown, traceId: string = randomUUID()): Promise<CardReadingWorkflowExecution> {
     const input = parseCardReadingInput(rawInput);
     try {
       const response = await this.aqua.workflows.run<CardReadingInput, CardReadingResult>(
@@ -85,9 +104,19 @@ export class CardReadingWorkflowService {
         },
         { timeoutMs: WORKFLOW_TIMEOUT_MS },
       );
-      const result = cardReadingResultSchema.parse(response.result) as CardReadingResult;
-      assertExpectedMode(input, result.mode);
-      return result;
+      const result = cardReadingResultSchema.parse(response.result);
+      assertExpectedResult(input, result);
+      console.info('aqua_card_reading_succeeded', {
+        requestId: response.requestId,
+        workflowId: this.options.workflowId,
+        mode: result.mode,
+        cardCount: result.cards.length,
+      });
+      return {
+        result,
+        requestId: response.requestId,
+        manifest: response.manifest as unknown as Readonly<Record<string, unknown>>,
+      };
     } catch (error) {
       if (error instanceof z.ZodError || error instanceof InvalidCardReadingResponseError) {
         console.error('aqua_card_reading_failed', {
@@ -120,10 +149,15 @@ export function parseCardReadingInput(rawInput: unknown): CardReadingInput {
   });
 }
 
-function assertExpectedMode(input: CardReadingInput, actual: CardReadingMode): void {
+function assertExpectedResult(input: CardReadingInput, result: CardReadingResult): void {
   const count = 'cards' in input && input.cards ? input.cards.length : input.random_count;
   const expected: CardReadingMode = count === 1 ? 'single' : count === 2 ? 'dual' : 'multi';
-  if (actual !== expected) {
+  const cardsMatch =
+    'cards' in input && input.cards
+      ? result.cards.length === input.cards.length &&
+        result.cards.every((card, index) => card === input.cards[index])
+      : result.cards.length === count;
+  if (result.mode !== expected || result.audience !== input.audience || !cardsMatch) {
     throw new InvalidCardReadingResponseError();
   }
 }

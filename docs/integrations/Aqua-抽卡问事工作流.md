@@ -2,7 +2,8 @@
 
 **适用版本：** Satori R1.1  
 **工作流：** `ai-card-reading`（默认使用 Aqua 当前激活版本）  
-**接口：** `POST /api/v1/card-readings/interpretations`
+**主流程接口：** `POST /api/v1/card-readings/:readingId/complete`、`GET /api/v1/card-readings/:readingId`
+**契约联调接口：** `POST /api/v1/card-readings/interpretations`
 
 ## 1. 接入方式
 
@@ -23,6 +24,16 @@ aqua: {
 且 Satori 不在 Workflow Service 内自动重试。
 
 ## 2. API 契约
+
+正式抽卡流程先由服务端固定牌面，再调用 `complete`。该接口立即把记录置为 `GENERATING`
+并返回，Aqua 在后台继续执行；前端通过详情接口轮询，直到状态变为 `READY` 或 `FAILED`。
+这样不会让浏览器或反向代理连接等待数分钟。Aqua 成功后，完整结果、manifest、request ID
+和完成时间会写入同一条问事记录；失败时保留原问题与牌面，并允许 `/retry` 使用原记录重试。
+
+主流程固定使用 `audience: "C"`，卡牌编号从已冻结的卡牌代码转换，`readingId` 同时作为稳定的
+Aqua 幂等引用。重复查看或轮询不会再次发起 Workflow。
+
+下面的 `interpretations` 接口用于独立契约调用和联调：
 
 接口受现有 Bearer Token 登录守卫保护，并要求 `Idempotency-Key` 请求头长度为 16–128。
 同一业务重试必须复用相同的请求头；后端会把它映射为 Aqua 的
@@ -56,13 +67,17 @@ Content-Type: application/json
 }
 ```
 
-成功响应沿用全局 API envelope。`mode` 由 Aqua 返回，后端会校验它与牌数一致；其他已通过
-Aqua 输出 Schema 的报告字段原样保留：
+成功响应沿用全局 API envelope。`mode` 由 Aqua 返回，后端会校验受众、牌面和模式；通过
+Schema 校验的完整结果会原样保留：
 
 ```json
 {
   "data": {
-    "mode": "multi"
+    "audience": "C",
+    "cards": [48, 23, 7],
+    "mode": "multi",
+    "title": "本次问事标题",
+    "report": "完整报告内容"
   }
 }
 ```
@@ -116,6 +131,7 @@ AQUA_SERVICE_KEY=replace-with-server-secret
 | `backend/packages/modules/src/integrations/card-reading/card-reading-workflow.types.ts`   | 输入、受众、模式、上下文与结果 TypeScript 类型    |
 | `backend/packages/modules/src/integrations/card-reading/card-reading-workflow.service.ts` | 校验、Workflow 调用、结果校验、安全日志与错误映射 |
 | `backend/packages/modules/src/card-reading/card-reading.controller.ts`                    | 登录保护的 HTTP 接口与幂等键校验                  |
+| `backend/packages/modules/src/card-reading/card-reading.service.ts`                       | 主流程后台生成、状态流转、结果持久化与原记录重试  |
 | `backend/packages/infrastructure/src/config/runtime-policy.ts`                            | 固定工作流 ID                                     |
 
 ## 7. 自动化测试范围
@@ -123,4 +139,5 @@ AQUA_SERVICE_KEY=replace-with-server-secret
 单元测试覆盖：已有卡牌成功、随机抽牌成功、全部输入边界、重复牌号、模式不匹配、Aqua
 401/403/429、超时、SDK 服务异常、未知异常、禁止自动重试、安全日志以及 Client 单例复用。
 
-这些测试使用模拟 Aqua 响应，只证明代码契约，不代表测试环境已完成真实 Workflow 联调。
+测试环境还应以一条真实记录完成端到端验收，并在服务日志中核对
+`aqua_card_reading_succeeded` 的 `requestId`；日志不会输出完整问题或报告正文。

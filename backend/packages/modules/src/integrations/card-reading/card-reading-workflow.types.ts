@@ -30,6 +30,19 @@ export type CardReadingInput =
  * Schema 管理，Satori 在不丢字段的前提下透传。
  */
 export type CardReadingResult = {
+  readonly audience: CardReadingAudience;
+  readonly cards: readonly number[];
+  readonly missing_fields: readonly string[];
   readonly mode: CardReadingMode;
-  readonly [key: string]: unknown;
+  readonly notice: string;
+  readonly question_type: string;
+  readonly report: string;
+  readonly status: string;
+  readonly title: string;
 };
+
+export interface CardReadingWorkflowExecution {
+  readonly result: CardReadingResult;
+  readonly requestId: string;
+  readonly manifest: Readonly<Record<string, unknown>>;
+}

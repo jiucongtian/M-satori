@@ -8,6 +8,21 @@ import {
 
 const workflowId = 'ai-card-reading';
 
+function aquaResult(overrides: Record<string, unknown> = {}) {
+  return {
+    audience: 'C',
+    cards: [48, 23, 7],
+    missing_fields: [],
+    mode: 'multi',
+    notice: '内容用于自我观察与成长参考。',
+    question_type: 'relationship',
+    report: '第一段\n\n第二段\n\n第三段\n\n第四段\n\n第五段',
+    status: 'complete',
+    title: '在变化中看见自己的选择',
+    ...overrides,
+  };
+}
+
 function service(run: AquaAIClient['workflows']['run']) {
   return new CardReadingWorkflowService({ workflows: { run } }, { workflowId });
 }
@@ -20,9 +35,10 @@ describe('CardReadingWorkflowService', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('runs existing cards with one trace-based idempotency identity and no workflowVersion', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const run = vi.fn().mockResolvedValue({
       requestId: 'aqua-request-success',
-      result: { mode: 'multi', summary: '从三个角度理解当前问题' },
+      result: aquaResult(),
       manifest: {},
     });
     const result = await service(run).run(
@@ -35,7 +51,7 @@ describe('CardReadingWorkflowService', () => {
       'api-request-00000001',
     );
 
-    expect(result).toEqual({ mode: 'multi', summary: '从三个角度理解当前问题' });
+    expect(result).toEqual(aquaResult());
     expect(run).toHaveBeenCalledOnce();
     expect(run).toHaveBeenCalledWith(
       workflowId,
@@ -54,9 +70,10 @@ describe('CardReadingWorkflowService', () => {
   });
 
   it('supports a random card request and accepts the mode returned by Aqua', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const run = vi.fn().mockResolvedValue({
       requestId: 'aqua-request-random',
-      result: { mode: 'dual', cards: [12, 39] },
+      result: aquaResult({ audience: 'B', mode: 'dual', cards: [12, 39] }),
       manifest: {},
     });
 
@@ -150,7 +167,7 @@ describe('CardReadingWorkflowService', () => {
 
   it('rejects an invalid or count-mismatched Aqua mode as a 502', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    for (const result of [{ summary: 'missing mode' }, { mode: 'single' }]) {
+    for (const result of [{ summary: 'missing mode' }, aquaResult({ mode: 'single' })]) {
       const run = vi.fn().mockResolvedValue({ requestId: 'request-invalid', result, manifest: {} });
       await expect(
         service(run).run({ audience: 'C', question: '近期最值得关注什么？', random_count: 3 }),

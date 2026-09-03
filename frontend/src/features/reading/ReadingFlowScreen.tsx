@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ReadingConfig,
@@ -58,6 +58,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   const{me}=useSession();
   const[draft,setDraft]=useState<ReadingDraft|null>(null);
   const[reading,setReading]=useState<CardReading|null>(null);const[flowBusy,setFlowBusy]=useState(false);const[flowError,setFlowError]=useState("");
+  const generationStartedFor=useRef<string|null>(null);
   useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,1)),0);return()=>window.clearTimeout(timer)},[me?.userId]);
   useEffect(()=>{if(!me?.userId)return;const requested=searchParams.get("readingId");const saved=window.sessionStorage.getItem(`fresh:active-reading:${me.userId}`);const id=requested||saved;if(!id)return;void api.cardReading(id).then(setReading).catch(()=>{if(saved===id)window.sessionStorage.removeItem(`fresh:active-reading:${me.userId}`)})},[me?.userId,searchParams]);
   const requestedCount = Number(searchParams.get("cards")||2);
@@ -75,8 +76,16 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     else router.push(flowPath(target));
   };
   async function beginDraw(){if(!me?.userId||!draft||flowBusy)return;setFlowBusy(true);setFlowError("");try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:draft.positions});setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);go("draw")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
-  async function completeReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const completed=await api.completeCardReading(reading.readingId);setReading(completed);go("generating")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
+  useEffect(()=>{
+    if(step!=="generating"||!reading)return;
+    if(reading.status==="READY"){router.replace(`${path.report}?readingId=${encodeURIComponent(reading.readingId)}`);return}
+    if(reading.status==="FAILED"){router.replace(`${path.failure}?readingId=${encodeURIComponent(reading.readingId)}`);return}
+    let active=true;
+    if(reading.status==="DRAWN"&&generationStartedFor.current!==reading.readingId){generationStartedFor.current=reading.readingId;void api.completeCardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(()=>{if(active)router.replace(`${path.failure}?readingId=${encodeURIComponent(reading.readingId)}`)})}
+    const timer=reading.status==="GENERATING"?window.setInterval(()=>{void api.cardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(()=>undefined)},2500):undefined;
+    return()=>{active=false;if(timer)window.clearInterval(timer)};
+  },[reading,router,step]);
 
   const screens: Record<ReadingFlowStep, React.ReactNode> = {
     question: <ReadingQuestion onBack={()=>go("home")} onNext={()=>go("spread")}/>,
@@ -86,11 +95,11 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     payment: <ReadingPayment cardCount={cardCount} question={draft?.question} category={draft?.category} positions={cardCount>1?draft?.positions:undefined} onBack={()=>go("question")} onNext={()=>go("shuffle")}/>,
     shuffle: <ReadingShuffle onBack={()=>go("payment")} onNext={()=>void beginDraw()}/>,
     draw: <ReadingDraw cardCount={cardCount} onBack={()=>go("shuffle")} onNext={()=>go("reveal")}/>,
-    reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>void completeReading()}/>,
-    generating: <ReadingGenerate cardCount={cardCount} cards={reading?.cards} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onSuccess={()=>router.push(`${path.report}?readingId=${encodeURIComponent(reading?.readingId??"")}`)} onFailure={()=>go("failure")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")} onNetworkError={()=>go("failure")}/>,
-    report: <ReadingReport cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")} onShare={reading?.readingId?()=>router.push(`/share/generating?type=reading&readingId=${encodeURIComponent(reading.readingId)}`):undefined}/>,
+    reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>go("generating")}/>,
+    generating: <ReadingGenerate live status={reading?.status??"GENERATING"} cardCount={cardCount} cards={reading?.cards} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onSuccess={()=>router.push(`${path.report}?readingId=${encodeURIComponent(reading?.readingId??"")}`)} onFailure={()=>go("failure")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")} onNetworkError={()=>go("failure")}/>,
+    report: <ReadingReport live report={reading?.report} cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")} onShare={reading?.readingId&&reading.report?()=>router.push(`/share/generating?type=reading&readingId=${encodeURIComponent(reading.readingId)}`):undefined}/>,
     feedback: <ReadingFeedback onBack={()=>go("report")} onHome={()=>go("home")} onShare={()=>go("report")}/>,
-    failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>void retryReading()}/>,
+    failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>{generationStartedFor.current=null;void retryReading()}}/>,
   };
 
   if(flowError)return <RouteError title="本次问事暂时没有继续" message={flowError} backHref={ROUTES.readingHistory}/>;

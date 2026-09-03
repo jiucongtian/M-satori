@@ -34,7 +34,8 @@ type RefundQuote = Schemas["RefundQuote"];
 type Refund = Schemas["Refund"];
 type BusinessContext = Schemas["BusinessContext"];
 export type CardReadingCard = { position: number; positionLabel: string; cardCode: string; displayName: string };
-export type CardReading = { readingId: string; question: string; category: string; cardCount: number; status: "DRAWN" | "GENERATING" | "READY" | "FAILED"; cards: CardReadingCard[]; failure: { code?: string; message?: string; retryable?: boolean } | null; createdAt: string; updatedAt: string; completedAt: string | null };
+export type CardReadingReport = { audience: "B" | "C"; cards: number[]; missing_fields: string[]; mode: "single" | "dual" | "multi"; notice: string; question_type: string; report: string; status: string; title: string };
+export type CardReading = { readingId: string; question: string; category: string; cardCount: number; status: "DRAWN" | "GENERATING" | "READY" | "FAILED"; report: CardReadingReport | null; cards: CardReadingCard[]; failure: { code?: string; message?: string; retryable?: boolean } | null; createdAt: string; updatedAt: string; completedAt: string | null };
 
 export type {
   Bootstrap,

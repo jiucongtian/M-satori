@@ -1,7 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
 import { cardReadings, newId, RuntimeInfrastructure } from '@satori/infrastructure';
 import { and, desc, eq, lt, or } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
+import { CardReadingWorkflowService } from '../integrations/card-reading/card-reading-workflow.service.js';
+import type { CardReadingResult } from '../integrations/card-reading/card-reading-workflow.types.js';
 
 const STEMS = [
   ['甲', 'jia'],
@@ -52,7 +54,10 @@ type ReadingRow = typeof cardReadings.$inferSelect;
 
 @Injectable()
 export class CardReadingService {
-  constructor(private readonly infrastructure: RuntimeInfrastructure) {}
+  constructor(
+    private readonly infrastructure: RuntimeInfrastructure,
+    private readonly workflow: CardReadingWorkflowService,
+  ) {}
 
   async createDraw(command: {
     ownerUserId: string;
@@ -119,13 +124,8 @@ export class CardReadingService {
         message: 'Card reading cannot be completed',
       });
     }
-    const now = new Date();
-    const [updated] = await this.infrastructure.database
-      .update(cardReadings)
-      .set({ status: 'READY', failure: null, completedAt: now, updatedAt: now })
-      .where(and(eq(cardReadings.id, readingId), eq(cardReadings.ownerUserId, ownerUserId)))
-      .returning();
-    return this.dto(updated!);
+    if (reading.status === 'GENERATING') return this.dto(reading);
+    return this.startGeneration(reading);
   }
 
   async retry(ownerUserId: string, readingId: string) {
@@ -136,13 +136,71 @@ export class CardReadingService {
         message: 'Card reading is not retryable',
       });
     }
-    const now = new Date();
-    const [updated] = await this.infrastructure.database
+    return this.startGeneration(reading);
+  }
+
+  private async startGeneration(reading: ReadingRow) {
+    const startedAt = new Date();
+    const [started] = await this.infrastructure.database
       .update(cardReadings)
-      .set({ status: 'READY', failure: null, completedAt: now, updatedAt: now })
-      .where(and(eq(cardReadings.id, readingId), eq(cardReadings.ownerUserId, ownerUserId)))
+      .set({
+        status: 'GENERATING',
+        failure: null,
+        generationStartedAt: startedAt,
+        completedAt: null,
+        updatedAt: startedAt,
+      })
+      .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)))
       .returning();
-    return this.dto(updated!);
+    void this.generate(started!).catch((error: unknown) => {
+      const failure = readingFailure(error);
+      console.error('card_reading_background_generation_failed', {
+        readingId: reading.id,
+        code: failure.code,
+        retryable: failure.retryable,
+        ...('providerRequestId' in failure ? { providerRequestId: failure.providerRequestId } : {}),
+      });
+    });
+    return this.dto(started!);
+  }
+
+  private async generate(reading: ReadingRow) {
+    try {
+      const execution = await this.workflow.execute(
+        {
+          audience: 'C',
+          question: reading.question,
+          cards: cardNumbersFromCodes(reading.cardCodes as string[]),
+          context: {
+            category: reading.category,
+            position_labels: reading.positionLabels as string[],
+          },
+        },
+        reading.id,
+      );
+      const completedAt = new Date();
+      const [updated] = await this.infrastructure.database
+        .update(cardReadings)
+        .set({
+          status: 'READY',
+          content: execution.result,
+          generationManifest: execution.manifest,
+          providerRequestId: execution.requestId,
+          failure: null,
+          completedAt,
+          updatedAt: completedAt,
+        })
+        .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)))
+        .returning();
+      return this.dto(updated!);
+    } catch (error) {
+      const failedAt = new Date();
+      await this.infrastructure.database
+        .update(cardReadings)
+        .set({ status: 'FAILED', failure: readingFailure(error), updatedAt: failedAt })
+        .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)));
+      throw error;
+    }
   }
 
   private async requireOwned(ownerUserId: string, readingId: string) {
@@ -165,6 +223,7 @@ export class CardReadingService {
       category: row.category,
       cardCount: row.cardCount,
       status: row.status,
+      report: isCardReadingResult(row.content) ? row.content : null,
       cards: codes.map((code, index) => {
         const card = CARD_DECK.find((candidate) => candidate.code === code)!;
         return {
@@ -180,6 +239,50 @@ export class CardReadingService {
       completedAt: row.completedAt?.toISOString() ?? null,
     };
   }
+}
+
+export function cardNumbersFromCodes(codes: readonly string[]): number[] {
+  return codes.map((code) => {
+    const number = Number(/^([0-9]{2})-/.exec(code)?.[1]);
+    if (!Number.isInteger(number) || number < 1 || number > 60) {
+      throw new ConflictException({
+        code: 'CARD_READING_CARD_INVALID',
+        message: 'Frozen card code is invalid',
+      });
+    }
+    return number;
+  });
+}
+
+function isCardReadingResult(value: unknown): value is CardReadingResult {
+  if (typeof value !== 'object' || value === null) return false;
+  const result = value as Partial<CardReadingResult>;
+  return (
+    typeof result.title === 'string' &&
+    typeof result.report === 'string' &&
+    typeof result.mode === 'string' &&
+    Array.isArray(result.cards)
+  );
+}
+
+function readingFailure(error: unknown) {
+  if (error instanceof HttpException) {
+    const response = error.getResponse();
+    const body = typeof response === 'object' && response !== null ? response : {};
+    const details =
+      'details' in body && typeof body.details === 'object' && body.details !== null ? body.details : {};
+    return {
+      code: 'code' in body ? String(body.code) : 'CARD_READING_GENERATION_FAILED',
+      message: 'Card reading generation failed',
+      retryable: 'retryable' in details ? Boolean(details.retryable) : false,
+      ...('providerRequestId' in details ? { providerRequestId: String(details.providerRequestId) } : {}),
+    };
+  }
+  return {
+    code: 'CARD_READING_GENERATION_FAILED',
+    message: 'Card reading generation failed',
+    retryable: false,
+  };
 }
 
 function encodeCursor(createdAt: Date, id: string) {
