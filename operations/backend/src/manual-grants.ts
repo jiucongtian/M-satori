@@ -39,6 +39,9 @@ export const ensureManualGrantSchema = async (pool: pg.Pool) => {
       v_period uuid;
       v_active uuid;
       v_item jsonb;
+      v_grant_id uuid;
+      v_account_available integer;
+      v_account_reserved integer;
     begin
       if p_owner_user_id is null then
         insert into operations_pending_benefit_claims(id,action_request_id,phone_hash,phone_masked,payload)
@@ -56,7 +59,28 @@ export const ensureManualGrantSchema = async (pool: pg.Pool) => {
         ) values(
           gen_random_uuid(),p_owner_user_id,'SATORI','MANUAL',p_action_id::text,'{}'::jsonb,v_quantity,v_quantity,
           0,'ACTIVE',now(),v_expires_at,now(),'Asia/Shanghai','operations-manual-grant-v1',p_action_id
-        ) on conflict(owner_user_id,source_type,source_id) do nothing;
+        ) on conflict(owner_user_id,source_type,source_id) do nothing returning id into v_grant_id;
+        -- The user app reads this projection instead of summing grant rows.
+        -- Keep the operational grant, projection and immutable ledger atomic.
+        if v_grant_id is not null then
+          insert into complimentary_seed_account_projections(
+            owner_user_id,business_space,available_quantity,reserved_quantity,total_granted,total_consumed,version
+          ) values(p_owner_user_id,'SATORI',v_quantity,0,v_quantity,0,1)
+          on conflict(owner_user_id) do update set
+            available_quantity=complimentary_seed_account_projections.available_quantity+excluded.available_quantity,
+            total_granted=complimentary_seed_account_projections.total_granted+excluded.total_granted,
+            version=complimentary_seed_account_projections.version+1,
+            updated_at=now()
+          returning available_quantity,reserved_quantity into v_account_available,v_account_reserved;
+          insert into complimentary_seed_entries(
+            id,grant_id,owner_user_id,business_space,entry_type,quantity,available_after,reserved_after,business_key,
+            business_context_type,business_context_id,request_id,metadata,created_at
+          ) values(
+            gen_random_uuid(),v_grant_id,p_owner_user_id,'SATORI','GRANT',v_quantity,v_account_available,v_account_reserved,
+            concat('manual-grant:',p_action_id::text),'MANUAL_BENEFIT_GRANT',p_action_id::text,p_action_id,
+            jsonb_build_object('title','人工赠送智慧种子','source','运营平台'),clock_timestamp()
+          );
+        end if;
       elsif v_kind='OFFERING' then
         select o.offering_kind,coalesce(nullif(v.entitlement_spec->>'periodDays','')::integer,v.validity_days,30)
           into v_offering_kind,v_plan_days
