@@ -36,12 +36,15 @@ test("正式生成页不使用原型定时器并展示真实报告进度", async
 
 test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌位", async () => {
   const [source, styles] = await Promise.all([readFile(legacyPath, "utf8"), readFile(legacyStylePath, "utf8")]);
-  assert.match(styles, /generation-card-stage\{[^}]*height:clamp\(150px,25svh,205px\)[^}]*display:flex/);
-  assert.match(styles, /generation-card-stage\.count-5 figure\{width:54px\}/);
-  assert.match(styles, /report-card-gallery\{[^}]*height:clamp\(150px,28svh,220px\)[^}]*flex-wrap:nowrap/);
+  assert.match(styles, /generation-card-stage\{[^}]*height:clamp\(280px,42svh,340px\)[^}]*display:flex/);
+  assert.match(styles, /generation-card-stage\.count-4,\.card-layout\.generation-card-stage\.count-5\{flex-wrap:wrap\}/);
+  assert.match(styles, /generation-card-stage\.count-5 figure\{width:min\(92px,calc\(\(100% - 22px\)\/3\)\)\}/);
+  assert.match(styles, /report-card-gallery\{[^}]*height:clamp\(310px,48svh,390px\)[^}]*flex-wrap:nowrap/);
+  assert.match(styles, /report-card-gallery figcaption\{position:static;[^}]*background:transparent/);
   assert.match(source, /<figcaption><strong>\{card\.positionLabel\}<\/strong><small>\{card\.displayName\}/);
   assert.match(source, /reportStoryTitles/);
-  assert.doesNotMatch(source, /`继续看见 · \$\{index\+1\}`/);
+  assert.match(source, /report-sections continuous/);
+  assert.doesNotMatch(source, /slice\(0,9\)|继续阅读下一节|`继续看见 · \$\{index\+1\}`/);
 });
 
 test("问事接口类型包含完整 Aqua 报告", async () => {

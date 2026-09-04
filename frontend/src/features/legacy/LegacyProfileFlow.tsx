@@ -915,29 +915,33 @@ export function ReadingFailure({ onBack, onRetry }: { onBack: () => void; onRetr
 function reportSections(value:string){
   const clean=value.replace(/\r/g,"").trim();
   if(!clean)return[];
-  const chunks=clean.split(/\n(?=(?:#{1,3}\s*)?(?:第?[一二三四五六七八九十\d]+[章节部分、.．：:]|[一二三四五六七八九十]+、|\d+[.．、])\s*)/).filter(Boolean);
-  if(chunks.length>1)return chunks.slice(0,9).map((chunk,index)=>{const lines=chunk.split("\n").filter(Boolean);const first=lines[0].replace(/^#{1,3}\s*/,"").trim();const headingLike=first.length<=28;const content=(headingLike?lines.slice(1):lines).join("\n").trim()||first;return{title:reportSectionTitle(content,index),content}});
-  const paragraphs=clean.split(/\n{2,}/).map(item=>item.trim()).filter(Boolean);
-  return paragraphs.slice(0,9).map((content,index)=>({title:reportSectionTitle(content,index),content}));
+  const blocks=clean.split(/\n{2,}|\n(?=#{1,4}\s+)/).map(item=>item.trim()).filter(Boolean);
+  const sections:{content:string}[]=[];
+  for(const block of blocks){
+    const content=block.replace(/^(?:#{1,4}\s*|\*{1,2})?(?:第?[一二三四五六七八九十\d]+[章节部分、.．：:]\s*)?/u,"").replace(/\*{1,2}$/u,"").trim();
+    if(!content)continue;
+    const previous=sections.at(-1);
+    if(previous&&previous.content.replace(/\s/g,"").length<72)previous.content=`${previous.content}\n\n${content}`;
+    else sections.push({content});
+  }
+  if(!sections.length)sections.push({content:clean});
+  if(sections.length>1&&sections.at(-1)!.content.replace(/\s/g,"").length<72){const tail=sections.pop()!;sections.at(-1)!.content+=`\n\n${tail.content}`}
+  while(sections.length>9){const tail=sections.pop()!;sections[sections.length-1]!.content+=`\n\n${tail.content}`}
+  return sections.map((section,index)=>({title:reportSectionTitle(index),content:section.content}));
 }
 
 const reportStoryTitles=[
-  "先停下来，看见此刻的你",
-  "你在意的，藏着真实需要",
-  "牌面映出的内在力量",
-  "变化正在提醒你的方向",
-  "关系与边界，都值得被照顾",
-  "选择之前，先相信你的感受",
-  "把答案落进今天的一步",
-  "允许事情在行动中渐渐清晰",
-  "愿你带着笃定继续向前",
+  "先看见站在选择面前的你",
+  "真正牵动你的，不止答案",
+  "每张牌都在照见一部分自己",
+  "当不同方向同时出现",
+  "犹豫背后，是你珍视的东西",
+  "让内心与现实重新对齐",
+  "先走一步，答案会慢慢清晰",
+  "把选择交还给真实的感受",
+  "愿你笃定，也允许变化",
 ] as const;
-function reportSectionTitle(content:string,index:number){
-  const text=content.replace(/[#*_「」“”]/g,"");
-  if(index===1&&/焦虑|担心|害怕|不安/.test(text))return"那些担心，正在守护什么";
-  if(index>=3&&/关系|沟通|对方|彼此|边界/.test(text))return"在关系里，也别忘了自己";
-  if(index>=4&&/选择|决定|方向|机会/.test(text))return"选择之前，听见真实的自己";
-  if(index>=5&&/行动|尝试|一步|今天/.test(text))return"让答案从一小步开始生长";
+function reportSectionTitle(index:number){
   return reportStoryTitles[Math.min(index,reportStoryTitles.length-1)]!;
 }
 
@@ -951,9 +955,8 @@ function readingReportTitle(raw:string|undefined,question:string|undefined){
 
 function LiveReadingSections({value}:{value:string}){
   const sections=reportSections(value);
-  const[open,setOpen]=useState(0);
   if(!sections.length)return <article className="report-section open"><p>本次报告尚未成功保存，请从问事记录重新生成。</p></article>;
-  return <div className="report-sections">{sections.map((section,index)=><article className={`report-section ${open===index?"open":""}`} key={`${section.title}-${index}`}><button type="button" onClick={()=>setOpen(current=>current===index?-1:index)} aria-expanded={open===index}><span><small>{String(index+1).padStart(2,"0")}</small><strong>{section.title}</strong></span><b>{open===index?"−":"＋"}</b></button>{open===index&&<div className="report-section-content"><p>{section.content}</p>{index<sections.length-1&&<button type="button" onClick={()=>setOpen(index+1)}>继续阅读下一节 <span>→</span></button>}</div>}</article>)}</div>;
+  return <div className="report-sections continuous">{sections.map((section,index)=><article className="report-section open" key={`${section.title}-${index}`}><header><small>{String(index+1).padStart(2,"0")}</small><strong>{section.title}</strong></header><div className="report-section-content"><p>{section.content}</p></div></article>)}</div>;
 }
 
 export function ReadingReport({ live=false, report=null, question, cardCount=2, cards=[], onBack, onNext, onShare }: { live?:boolean; report?:CardReadingReport|null; question?:string; cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void; onShare?: () => void }) {
