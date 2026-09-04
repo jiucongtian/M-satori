@@ -174,6 +174,12 @@ export class CardReadingService {
           context: {
             category: reading.category,
             position_labels: reading.positionLabels as string[],
+            presentation_requirements: {
+              report_title: '使用疗愈、具体且面向用户的中文标题，不罗列卡牌编号，不使用技术词或用户问题原句',
+              section_count: '根据内容拆分为 5 至 9 个有逻辑关系的章节',
+              section_titles:
+                '每个标题必须高度概括对应章节，并共同形成从看见自己、理解感受、读懂牌面到落地行动和温柔收束的完整故事；禁止使用“继续看见”“第X节”等占位标题',
+            },
           },
         },
         reading.id,

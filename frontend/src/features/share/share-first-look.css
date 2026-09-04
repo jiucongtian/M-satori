@@ -7,3 +7,6 @@
 .share-preview{height:100%;padding:var(--space-5) var(--space-6) var(--space-10);overflow:auto;text-align:center}.poster-large{width:min(72%,340px);margin:var(--space-5) auto}.poster-large .poster-viewport{border-radius:var(--radius-xl)}.share-preview>p{color:var(--color-text-secondary);font-size:var(--type-caption)}
 .share-save-sheet{position:fixed;z-index:20;inset:0;display:flex;align-items:center;flex-direction:column;padding:18px;background:rgba(20,31,27,.92);overflow:auto}.share-save-sheet>button{align-self:flex-end;border:0;background:transparent;color:#fff;font-size:16px}.share-save-sheet>p{margin:4px 0 12px;color:#fff;font-size:14px}.share-save-sheet>img{display:block;width:min(88vw,430px);height:auto;border-radius:12px;box-shadow:0 16px 42px rgba(0,0,0,.32);-webkit-touch-callout:default;user-select:auto}
 @media(max-width:390px){.share-select,.share-preview{padding-inline:var(--space-5)}.share-select h1,.share-generating-new h1{font-size:30px}.poster-choices{margin-inline:calc(var(--space-5) * -1);padding-inline:var(--space-5)}.poster-large{width:76%}}@media(min-width:700px){.share-mode{max-width:520px;margin:auto}}
+
+/* SHARE-03/04 use the same outer safe-area padding and 44px header rhythm as R1.1. */
+.share-select{padding-top:0}.share-preview{padding-top:0}.share-header{height:44px}

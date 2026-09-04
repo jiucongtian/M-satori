@@ -916,10 +916,37 @@ function reportSections(value:string){
   const clean=value.replace(/\r/g,"").trim();
   if(!clean)return[];
   const chunks=clean.split(/\n(?=(?:#{1,3}\s*)?(?:第?[一二三四五六七八九十\d]+[章节部分、.．：:]|[一二三四五六七八九十]+、|\d+[.．、])\s*)/).filter(Boolean);
-  if(chunks.length>1)return chunks.slice(0,8).map((chunk,index)=>{const lines=chunk.split("\n").filter(Boolean);const first=lines[0].replace(/^#{1,3}\s*/,"").trim();const headingLike=first.length<=28;return{title:headingLike?first:`第 ${index+1} 节`,content:(headingLike?lines.slice(1):lines).join("\n").trim()||first}});
+  if(chunks.length>1)return chunks.slice(0,9).map((chunk,index)=>{const lines=chunk.split("\n").filter(Boolean);const first=lines[0].replace(/^#{1,3}\s*/,"").trim();const headingLike=first.length<=28;const content=(headingLike?lines.slice(1):lines).join("\n").trim()||first;return{title:reportSectionTitle(content,index),content}});
   const paragraphs=clean.split(/\n{2,}/).map(item=>item.trim()).filter(Boolean);
-  const titles=["先看见此刻","理解你的感受","听见牌的回应","可以尝试的方向","写给你的话"];
-  return paragraphs.map((content,index)=>({title:titles[index]??`继续看见 · ${index+1}`,content}));
+  return paragraphs.slice(0,9).map((content,index)=>({title:reportSectionTitle(content,index),content}));
+}
+
+const reportStoryTitles=[
+  "先停下来，看见此刻的你",
+  "你在意的，藏着真实需要",
+  "牌面映出的内在力量",
+  "变化正在提醒你的方向",
+  "关系与边界，都值得被照顾",
+  "选择之前，先相信你的感受",
+  "把答案落进今天的一步",
+  "允许事情在行动中渐渐清晰",
+  "愿你带着笃定继续向前",
+] as const;
+function reportSectionTitle(content:string,index:number){
+  const text=content.replace(/[#*_「」“”]/g,"");
+  if(index===1&&/焦虑|担心|害怕|不安/.test(text))return"那些担心，正在守护什么";
+  if(index>=3&&/关系|沟通|对方|彼此|边界/.test(text))return"在关系里，也别忘了自己";
+  if(index>=4&&/选择|决定|方向|机会/.test(text))return"选择之前，听见真实的自己";
+  if(index>=5&&/行动|尝试|一步|今天/.test(text))return"让答案从一小步开始生长";
+  return reportStoryTitles[Math.min(index,reportStoryTitles.length-1)]!;
+}
+
+function readingReportTitle(raw:string|undefined,question:string|undefined){
+  const source=`${raw??""} ${question??""}`.replace(/offer/gi,"选择");
+  if(/选择|决定|方向|机会/.test(source))return<>在不同选择之间<br/>看见真正适合自己的方向</>;
+  if(/关系|感情|对方|彼此/.test(source))return<>在这段关系里<br/>重新听见自己的感受</>;
+  if(/工作|事业|职场/.test(source))return<>在变化之中<br/>找回属于自己的位置</>;
+  return<>让牌陪你看见<br/>此刻真正重要的方向</>;
 }
 
 function LiveReadingSections({value}:{value:string}){
@@ -929,9 +956,9 @@ function LiveReadingSections({value}:{value:string}){
   return <div className="report-sections">{sections.map((section,index)=><article className={`report-section ${open===index?"open":""}`} key={`${section.title}-${index}`}><button type="button" onClick={()=>setOpen(current=>current===index?-1:index)} aria-expanded={open===index}><span><small>{String(index+1).padStart(2,"0")}</small><strong>{section.title}</strong></span><b>{open===index?"−":"＋"}</b></button>{open===index&&<div className="report-section-content"><p>{section.content}</p>{index<sections.length-1&&<button type="button" onClick={()=>setOpen(index+1)}>继续阅读下一节 <span>→</span></button>}</div>}</article>)}</div>;
 }
 
-export function ReadingReport({ live=false, report=null, cardCount=2, cards=[], onBack, onNext, onShare }: { live?:boolean; report?:CardReadingReport|null; cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void; onShare?: () => void }) {
+export function ReadingReport({ live=false, report=null, question, cardCount=2, cards=[], onBack, onNext, onShare }: { live?:boolean; report?:CardReadingReport|null; question?:string; cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void; onShare?: () => void }) {
   const prototypeSections=[["01 · 先说结论","你面对的并不是一个必须立刻做出决定的时刻。真正重要的，是辨认哪些变化值得回应，哪些只是外界的噪声。"],["02 · 此刻的你","你对工作中的价值与秩序非常敏锐，所以变化越多，越容易担心自己是否失去了原来的位置。"],["03 · 牌想对你说",`这 ${cardCount} 张牌共同呈现出从看见变化、理解内心到重新选择的过程。你不必守住过去的答案。`],["04 · 可以试试","今天先写下：我想保留什么、愿意放下什么、下一步只验证什么。不要一次解决所有问题。"],["05 · 写给你的话","方向不是在焦虑中想出来的，而是在一次次诚实选择里逐渐清晰。"]];
-  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{live?(report?.title??"报告内容暂不可用"):<><>变化不是在催你离开</><br/>而是在邀请你重新选择</>}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/></figure>)}</div>{live?<LiveReadingSections value={report?.report??""}/>:prototypeSections.map(([h,p])=><article key={h}><h2>{h}</h2><p>{p}</p></article>)}{live&&report?.notice&&<div className="task-rule">{report.notice}</div>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享初见 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
+  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{live?readingReportTitle(report?.title,question):<><>变化不是在催你离开</><br/>而是在邀请你重新选择</>}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/><figcaption><strong>{card.positionLabel}</strong><small>{card.displayName}</small></figcaption></figure>)}</div>{live?<LiveReadingSections value={report?.report??""}/>:prototypeSections.map(([h,p])=><article key={h}><h2>{h}</h2><p>{p}</p></article>)}{live&&report?.notice&&<div className="task-rule">{report.notice}</div>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享初见 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
 }
 
 

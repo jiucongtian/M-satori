@@ -4,6 +4,7 @@ import test from "node:test";
 
 const flowPath = new URL("../src/features/reading/ReadingFlowScreen.tsx", import.meta.url);
 const legacyPath = new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url);
+const legacyStylePath = new URL("../src/features/legacy/legacy.css", import.meta.url);
 const clientPath = new URL("../src/api/client.ts", import.meta.url);
 
 test("正式问事流程启动真实生成并轮询后端状态", async () => {
@@ -31,6 +32,16 @@ test("正式生成页不使用原型定时器并展示真实报告进度", async
   assert.match(source, /report\?\.report/);
   assert.match(source, /report\?\.title/);
   assert.match(source, /LiveReadingSections/);
+});
+
+test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌位", async () => {
+  const [source, styles] = await Promise.all([readFile(legacyPath, "utf8"), readFile(legacyStylePath, "utf8")]);
+  assert.match(styles, /generation-card-stage\{[^}]*height:clamp\(150px,25svh,205px\)[^}]*display:flex/);
+  assert.match(styles, /generation-card-stage\.count-5 figure\{width:54px\}/);
+  assert.match(styles, /report-card-gallery\{[^}]*height:clamp\(150px,28svh,220px\)[^}]*flex-wrap:nowrap/);
+  assert.match(source, /<figcaption><strong>\{card\.positionLabel\}<\/strong><small>\{card\.displayName\}/);
+  assert.match(source, /reportStoryTitles/);
+  assert.doesNotMatch(source, /`继续看见 · \$\{index\+1\}`/);
 });
 
 test("问事接口类型包含完整 Aqua 报告", async () => {

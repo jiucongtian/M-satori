@@ -50,6 +50,8 @@ test("海报遵循固定角标、二维码和预览保存同源规则",async()=>
   assert.match(styles,/inset:5\.5% 6\.5% auto auto/);
   assert.match(styles,/right:6\.5%;bottom:3\.2%/);
   assert.match(styles,/text-wrap:balance/);
+  assert.match(styles,/\.share-select\{padding-top:0\}/);
+  assert.match(styles,/\.share-header\{height:44px\}/);
   assert.doesNotMatch(source,/预览扫码后的页面|从今日反思与关键词中提炼|图片已提前准备/);
 });
 

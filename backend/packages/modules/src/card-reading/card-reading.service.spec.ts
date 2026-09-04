@@ -108,7 +108,15 @@ describe('Aqua card reading generation', () => {
         audience: 'C',
         question: row.question,
         cards: [1, 60],
-        context: { category: row.category, position_labels: row.positionLabels },
+        context: {
+          category: row.category,
+          position_labels: row.positionLabels,
+          presentation_requirements: expect.objectContaining({
+            report_title: expect.stringContaining('不罗列卡牌编号'),
+            section_count: expect.stringContaining('5 至 9'),
+            section_titles: expect.stringContaining('完整故事'),
+          }),
+        },
       },
       row.id,
       expect.stringMatching(/^[a-z0-9]+$/),
