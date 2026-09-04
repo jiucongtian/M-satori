@@ -60,24 +60,34 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   const[reading,setReading]=useState<CardReading|null>(null);const[flowBusy,setFlowBusy]=useState(false);const[flowError,setFlowError]=useState("");
   const generationStartedFor=useRef<string|null>(null);
   useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,1)),0);return()=>window.clearTimeout(timer)},[me?.userId]);
-  useEffect(()=>{if(!me?.userId)return;const requested=searchParams.get("readingId");const saved=window.sessionStorage.getItem(`fresh:active-reading:${me.userId}`);const id=requested||saved;if(!id)return;void api.cardReading(id).then(setReading).catch(()=>{if(saved===id)window.sessionStorage.removeItem(`fresh:active-reading:${me.userId}`)})},[me?.userId,searchParams]);
+  useEffect(()=>{
+    if(!me?.userId)return;
+    const requested=searchParams.get("readingId");
+    const saved=window.sessionStorage.getItem(`fresh:active-reading:${me.userId}`);
+    const canRestoreSaved=["draw","reveal","generating","report","feedback","failure"].includes(step);
+    const id=requested||(canRestoreSaved?saved:null);
+    let active=true;
+    if(!id){const timer=window.setTimeout(()=>{if(active)setReading(null)},0);return()=>{active=false;window.clearTimeout(timer)}}
+    void api.cardReading(id).then(value=>{if(active)setReading(value)}).catch(()=>{if(saved===id)window.sessionStorage.removeItem(`fresh:active-reading:${me.userId}`)});
+    return()=>{active=false};
+  },[me?.userId,searchParams,step]);
   const requestedCount = Number(searchParams.get("cards")||2);
   const cardCount = Math.min(5,Math.max(1,Number.isFinite(requestedCount)?requestedCount:2));
   const requestedReturn = searchParams.get("from");
   const returnPath = safeReturnPath(requestedReturn, ROUTES.readingHistory);
-  const flowPath = (target: ReadingFlowStep, readingId?: string) => {
+  const flowPath = (target: ReadingFlowStep, readingId?: string, overrideCount?: number) => {
     const readingQuery=readingId?`&readingId=${encodeURIComponent(readingId)}`:"";
-    const destination = `${path[target]}?cards=${reading?.cardCount??cardCount}${readingQuery}`;
+    const destination = `${path[target]}?cards=${overrideCount??cardCount}${readingQuery}`;
     return requestedReturn ? withReturnPath(destination, returnPath) : destination;
   };
-  const go = (target: ReadingFlowStep | "home" | "history" | "services", readingId?: string) => {
+  const go = (target: ReadingFlowStep | "home" | "history" | "services", readingId?: string, overrideCount?: number) => {
     if (target === "home") router.push(ROUTES.readings);
     else if (target === "history") router.push(ROUTES.readingHistory);
     else if (target === "services") router.push(ROUTES.shop);
-    else router.push(flowPath(target,readingId));
+    else router.push(flowPath(target,readingId,overrideCount));
   };
   async function beginDraw(){if(!me?.userId||!draft||flowBusy)return;setFlowBusy(true);setFlowError("");try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:draft.positions});setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);go("draw")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
-  async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating",retried.readingId)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
+  async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating",retried.readingId,retried.cardCount)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   useEffect(()=>{
     if(step!=="generating"||!reading)return;
     if(reading.status==="READY"){router.replace(`${path.report}?readingId=${encodeURIComponent(reading.readingId)}`);return}

@@ -15,11 +15,12 @@ test("正式问事流程启动真实生成并轮询后端状态", async () => {
   assert.match(source, /reading\.status==="FAILED"/);
 });
 
-test("失败记录重试时始终携带原 readingId", async () => {
+test("新问事不受旧活动记录牌数影响，失败重试显式携带原记录信息", async () => {
   const source = await readFile(flowPath, "utf8");
+  assert.match(source, /canRestoreSaved=\["draw","reveal","generating","report","feedback","failure"\]\.includes\(step\)/);
   assert.match(source, /readingQuery=readingId\?`&readingId=\$\{encodeURIComponent\(readingId\)\}`/);
-  assert.match(source, /go\("generating",retried\.readingId\)/);
-  assert.match(source, /cards=\$\{reading\?\.cardCount\?\?cardCount\}/);
+  assert.match(source, /cards=\$\{overrideCount\?\?cardCount\}/);
+  assert.match(source, /go\("generating",retried\.readingId,retried\.cardCount\)/);
 });
 
 test("正式生成页不使用原型定时器并展示 Aqua 真实报告", async () => {
