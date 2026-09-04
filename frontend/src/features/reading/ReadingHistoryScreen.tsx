@@ -73,9 +73,17 @@ export default function ReadingHistoryScreen() {
       setItems((current) =>
         current.map((item) => (item.readingId === readingId ? updated : item)),
       );
+      openReading(updated);
     } catch (reason) {
       setError(apiMessage(reason));
     }
+  }
+
+  function openReading(item: CardReading) {
+    const readingId = encodeURIComponent(item.readingId);
+    if (item.status === "READY") router.push(`/readings/report?readingId=${readingId}`);
+    else if (item.status === "DRAWN") router.push(`/readings/reveal?cards=${item.cardCount}&readingId=${readingId}&from=${encodeURIComponent(ROUTES.readingHistory)}`);
+    else if (item.status === "GENERATING") router.push(`/readings/generating?cards=${item.cardCount}&readingId=${readingId}&from=${encodeURIComponent(ROUTES.readingHistory)}`);
   }
 
   const visible =
@@ -115,12 +123,7 @@ export default function ReadingHistoryScreen() {
               <button
                 type="button"
                 key={item.readingId}
-                onClick={() =>
-                  item.status === "READY" &&
-                  router.push(
-                    `/readings/report?readingId=${encodeURIComponent(item.readingId)}`,
-                  )
-                }
+                onClick={() => openReading(item)}
               >
                 <small>
                   {formatDate(item.createdAt)} · {item.category} ·{" "}

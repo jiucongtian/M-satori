@@ -60,10 +60,10 @@ test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async 
   assert.match(login, /<header className="brand-row login-header"><Brand \/><\/header>/);
   assert.doesNotMatch(login, /back-button|返回欢迎页|login-brand|Brand compact/);
 });
-test("页面编号仅在显式开启的研发与调试构建中显示", async () => {
+test("R1.1 研发与测试默认显示页面编号，正式构建显式关闭", async () => {
   const page = await readPageSources();
   const component = await readFile(new URL("../src/shared/ui.tsx", import.meta.url), "utf8");
-  assert.match(component, /process\.env\.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true"/);
+  assert.match(component, /process\.env\.NEXT_PUBLIC_SHOW_PAGE_LABELS !== "false"/);
   assert.match(component, /showPageDebugLabels \? <span className="screen-id"/);
   assert.equal((component.match(/className="screen-id"/g) || []).length, 1);
   assert.ok((page.match(/<PageDebugLabel>/g) || []).length >= 2);
@@ -72,6 +72,7 @@ test("页面编号仅在显式开启的研发与调试构建中显示", async ()
   assert.doesNotMatch(packageJson.scripts["build:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
   assert.match(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
   assert.match(packageJson.scripts["build:debug:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.match(packageJson.scripts["build:production:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=false/);
 });
 test("正式工程包含完整原型基础样式", async () => {
   const formalCss = await readCssSources();

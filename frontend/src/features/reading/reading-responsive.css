@@ -7,6 +7,7 @@
 .reading-action-page>.primary{position:sticky;bottom:0;z-index:5;flex:none;margin-top:12px;box-shadow:0 -12px 24px rgba(246,242,232,.96)}
 .reading-action-page .card-layout,.reading-action-page .card-layout>*{min-width:0}
 .reading-home.root-tab-page{height:100%;min-height:0;padding-bottom:0;overflow:hidden}
+.reading-home-scroll{overflow-anchor:none;scroll-padding-top:max(8px,env(safe-area-inset-top,0px))}
 .prompt-list.prompt-scenarios button{min-height:45px}
 .prompt-scenarios button>span{display:grid;gap:3px}
 .prompt-scenarios button>span>small{color:#9b754b;font:6px var(--font-ui);letter-spacing:.5px}

@@ -16,7 +16,7 @@ export type MyServiceSummary = {
   daily: { available: number; total: number; expiresAt: string | null };
   reading: { available: number; total: number; expiresAt: string | null };
 };
-const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS === "true";
+const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS !== "false";
 function PageDebugLabel({ children }: { children: string }) { return showPageDebugLabels ? <span className="screen-id" aria-hidden="true">{children}</span> : null; }
 function apiMessage(error: unknown) { if (error instanceof ApiError) return `${error.message}${error.requestId ? `（请求 ${error.requestId}）` : ""}`; return "网络连接失败，请稍后重试"; }
 
@@ -905,7 +905,7 @@ export function ReadingGenerate({ live=false, status="GENERATING", cardCount=2, 
   useEffect(()=>{if(live)return;const timer=window.setTimeout(()=>setComplete(true),1200);return()=>window.clearTimeout(timer)},[live]);
   useEffect(()=>{if(live||!complete)return;const timer=window.setTimeout(onSuccess,450);return()=>window.clearTimeout(timer)},[complete,live,onSuccess]);
   const ready=live?status==="READY":complete;
-  return <section className="reading-page reading-generating reading-action-page"><ReadingHeader onBack={onBack}/><div className={`card-layout generation-card-stage count-${cardCount}`}>{cards.map((card,i)=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`第 ${i+1} 张${card.displayName}生命智慧卡牌`}/></figure>)}</div><p className="eyebrow">READING YOUR CARDS</p><h1>{ready?"报告已经生成完成":`正在读懂这 ${cardCount} 张牌`}</h1><div className="generation-list"><span className="done">✓ 固定问题与 {cardCount} 张卡牌</span><span className="done">✓ 同步后端抽牌结果</span><span className={ready?"done":"active"}>{ready?"✓":"·"} Aqua 正在整理问事报告</span><span className={ready?"done":""}>{ready?"✓":"·"} 保存完整报告</span></div><p>{ready?"即将自动打开报告详情":"真实解读通常需要几分钟，可以先离开，完成后会保存在问事记录中"}</p><button className="outline-button" onClick={onLeave}>先离开，稍后查看</button>{!live&&<><button className="prototype-failure" onClick={onFailure}>查看生成失败状态</button><button className="prototype-failure" onClick={onNetworkError}>查看网络中断状态</button></>}</section>;
+  return <section className="reading-page reading-generating reading-action-page"><ReadingHeader onBack={onBack}/><div className={`card-layout generation-card-stage count-${cardCount}`}>{cards.map((card,i)=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`第 ${i+1} 张${card.displayName}生命智慧卡牌`}/></figure>)}</div><p className="eyebrow">报告生成中</p><h1>{ready?"报告已经生成完成":"正在整理这次问事"}</h1><div className="generation-list"><span className="done">✓ 固定问题与 {cardCount} 张卡牌</span><span className="done">✓ 同步后端抽牌结果</span><span className="done">✓ 正在读懂这 {cardCount} 张牌</span><span className={ready?"done":"active"}>{ready?"✓":"·"} Aqua 正在整理问事报告</span><span className={ready?"done":""}>{ready?"✓":"·"} 保存完整报告</span></div><p>{ready?"即将自动打开报告详情":"真实解读通常需要几分钟，可以先离开，完成后会保存在问事记录中"}</p><button className="outline-button" onClick={onLeave}>先离开，稍后查看</button>{!live&&<><button className="prototype-failure" onClick={onFailure}>查看生成失败状态</button><button className="prototype-failure" onClick={onNetworkError}>查看网络中断状态</button></>}</section>;
 }
 
 export function ReadingFailure({ onBack, onRetry }: { onBack: () => void; onRetry: () => void }) {

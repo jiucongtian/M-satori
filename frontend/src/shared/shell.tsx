@@ -45,6 +45,9 @@ export function RouteFrame({ title, label, children, mode = "profile-mode" }: { 
   useEffect(() => {
     document.title = `${title} · 初见 FRESH`;
     headingRef.current?.focus({ preventScroll: true });
+    headingRef.current?.querySelectorAll<HTMLElement>(".today-home-scroll,.reading-home-scroll,.coming-soon-scroll,.my-home-scroll").forEach((node) => {
+      node.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    });
   }, [pathname, title]);
   return <main className="stage">
     <section ref={headingRef} tabIndex={-1} className={`phone ${mode}`} aria-label={label}>

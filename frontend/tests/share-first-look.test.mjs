@@ -35,7 +35,9 @@ test("海报遵循固定角标、二维码和预览保存同源规则",async()=>
   ]);
   assert.match(source,/\.poster-large \.fresh-poster/);
   assert.match(source,/toBlob/);
-  assert.match(source,/width:360,height:640,pixelRatio:3/);
+  assert.match(source,/for\(const pixelRatio of \[2,1\.5\]\)/);
+  assert.match(source,/width:360,height:640,pixelRatio/);
+  assert.match(source,/海报暂时没有保存成功/);
   assert.match(source,/ResizeObserver/);
   assert.match(styles,/width:360px;height:640px/);
   assert.match(source,/navigator\.canShare/);

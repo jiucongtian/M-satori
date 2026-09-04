@@ -10,6 +10,7 @@
     "dev:e2e": "NEXT_PUBLIC_SHOW_PAGE_LABELS=true NEXT_PUBLIC_PROTOTYPE_MODE=true next dev --webpack -p 3011",
     "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "build:static": "SATORI_STATIC_EXPORT=true next build --webpack",
+    "build:production:static": "NEXT_PUBLIC_SHOW_PAGE_LABELS=false SATORI_STATIC_EXPORT=true next build --webpack",
     "build:test:static": "NEXT_PUBLIC_SHOW_PAGE_LABELS=true SATORI_STATIC_EXPORT=true next build --webpack",
     "build:debug:static": "NEXT_PUBLIC_SHOW_PAGE_LABELS=true SATORI_STATIC_EXPORT=true next build --webpack",
     "analyze:static": "node scripts/check-route-budgets.mjs --report",
