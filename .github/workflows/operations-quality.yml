@@ -1,0 +1,48 @@
+name: Operations platform quality
+
+on:
+  pull_request:
+    paths:
+      - "operations/**"
+      - ".github/workflows/operations-quality.yml"
+  push:
+    branches: [release/r1.1]
+    paths:
+      - "operations/**"
+      - ".github/workflows/operations-quality.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: operations/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: operations/backend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: operations/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: operations/frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
