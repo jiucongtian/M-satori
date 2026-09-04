@@ -7,7 +7,8 @@
 .reading-action-page>.primary{position:sticky;bottom:0;z-index:5;flex:none;margin-top:12px;box-shadow:0 -12px 24px rgba(246,242,232,.96)}
 .reading-action-page .card-layout,.reading-action-page .card-layout>*{min-width:0}
 .reading-home.root-tab-page{height:100%;min-height:0;padding-bottom:0;overflow:hidden}
-.reading-home-scroll{overflow-anchor:none;scroll-padding-top:max(8px,env(safe-area-inset-top,0px))}
+.reading-home-scroll{overflow-anchor:none;scroll-padding-top:max(8px,env(safe-area-inset-top,0px));padding-top:max(8px,env(safe-area-inset-top,0px))!important}
+.position-summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.position-summary span{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid rgba(69,107,91,.1);border-radius:999px;color:#51685c;background:rgba(255,255,255,.58);font-size:13px}.position-summary b{display:grid;width:20px;height:20px;place-items:center;border-radius:50%;color:#fff;background:var(--sage);font-size:10px;font-weight:500}
 .prompt-list.prompt-scenarios button{min-height:45px}
 .prompt-scenarios button>span{display:grid;gap:3px}
 .prompt-scenarios button>span>small{color:#9b754b;font:6px var(--font-ui);letter-spacing:.5px}

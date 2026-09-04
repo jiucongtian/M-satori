@@ -56,6 +56,20 @@ export default function ReadingHistoryScreen() {
     return () => window.clearTimeout(timer);
   }, [load]);
   useEffect(() => {
+    const refresh = () => void load();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [load]);
+  useEffect(() => {
     if (
       !items.some(
         (item) => item.status === "GENERATING" || item.status === "DRAWN",

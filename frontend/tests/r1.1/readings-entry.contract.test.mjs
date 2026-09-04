@@ -73,7 +73,7 @@ test("R11-READ-008：生成失败与网络中断都具有安全恢复路径", as
 
 test("R11-READ-009：报告完成后可回到问事首页，记录保留后续查看入口", async () => {
   const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  assert.match(flow, /完成后会在问事记录中保存/);
+  assert.match(flow, /完成后会保存在问事记录中/);
   assert.match(flow, /稍后从问事记录查看/);
 });
 
@@ -83,6 +83,8 @@ test("R11-READ-010：问事记录提供历史页与完成任务恢复提示", as
   assert.match(home, /ROUTES\.readingHistory/);
   assert.match(history, /待处理的任务也会在这里恢复/);
   assert.match(history, /生成中/);
+  assert.match(history, /pageshow/);
+  assert.match(history, /visibilitychange/);
 });
 
 test("R11-READ-011：问事分享默认隐藏原始问题，并提供生成失败恢复", async () => {

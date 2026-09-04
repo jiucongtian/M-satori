@@ -201,21 +201,24 @@ test("READ-02 在同页完成问题、牌数与牌位并直接进入 READ-09", a
   ]);
   assert.match(page, /<ReadingNewScreen/);
   assert.match(screen, /这次想用几张牌来看/);
-  assert.match(screen, /每张牌分别代表什么/);
+  assert.match(screen, /这次的牌位/);
+  assert.match(screen, /return\["自己","某人或某事"\]/);
+  assert.match(screen, /`选择\$\{\["一","二","三","四"\]\[index\]\}`/);
+  assert.doesNotMatch(screen, /PositionMode|自己定义|按时间展开/);
   assert.match(screen, /writeFlowDraft\("reading"/);
   assert.match(screen, /router\.push\(`\/readings\/payment\?cards=\$\{cardCount\}`\)/);
   assert.match(flow, /payment: <ReadingPayment.*onBack=\{\(\)=>go\("question"\)\}/);
 });
 
-test("READ-01 示例覆盖不同牌数，单张模式不要求定义牌位", async () => {
+test("READ-01 示例覆盖不同牌数，全部牌数使用系统固定牌位", async () => {
   const [home, screen] = await Promise.all([
     readFile(new URL("../src/features/reading/ReadingHomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingNewScreen.tsx", import.meta.url), "utf8"),
   ]);
   for(const label of ["一张牌","两张牌","多张牌"])assert.match(home,new RegExp(label));
-  assert.match(screen, /\{cardCount>1&&<section className="compose-section position-section">/);
+  assert.match(screen, /<section className="compose-section position-section">/);
   assert.match(screen, /\{cardCount>1&&<p><span>牌位<\/span>/);
-  assert.match(screen, /确认问题\{cardCount>1\?"与牌位":""\}/);
+  assert.match(screen, /确认问题与牌位/);
 });
 
 test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => {

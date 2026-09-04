@@ -905,16 +905,33 @@ export function ReadingGenerate({ live=false, status="GENERATING", cardCount=2, 
   useEffect(()=>{if(live)return;const timer=window.setTimeout(()=>setComplete(true),1200);return()=>window.clearTimeout(timer)},[live]);
   useEffect(()=>{if(live||!complete)return;const timer=window.setTimeout(onSuccess,450);return()=>window.clearTimeout(timer)},[complete,live,onSuccess]);
   const ready=live?status==="READY":complete;
-  return <section className="reading-page reading-generating reading-action-page"><ReadingHeader onBack={onBack}/><div className={`card-layout generation-card-stage count-${cardCount}`}>{cards.map((card,i)=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`第 ${i+1} 张${card.displayName}生命智慧卡牌`}/></figure>)}</div><p className="eyebrow">报告生成中</p><h1>{ready?"报告已经生成完成":"正在整理这次问事"}</h1><div className="generation-list"><span className="done">✓ 固定问题与 {cardCount} 张卡牌</span><span className="done">✓ 同步后端抽牌结果</span><span className="done">✓ 正在读懂这 {cardCount} 张牌</span><span className={ready?"done":"active"}>{ready?"✓":"·"} Aqua 正在整理问事报告</span><span className={ready?"done":""}>{ready?"✓":"·"} 保存完整报告</span></div><p>{ready?"即将自动打开报告详情":"真实解读通常需要几分钟，可以先离开，完成后会保存在问事记录中"}</p><button className="outline-button" onClick={onLeave}>先离开，稍后查看</button>{!live&&<><button className="prototype-failure" onClick={onFailure}>查看生成失败状态</button><button className="prototype-failure" onClick={onNetworkError}>查看网络中断状态</button></>}</section>;
+  return <section className="reading-page reading-generating reading-action-page"><ReadingHeader onBack={onBack}/><div className={`card-layout generation-card-stage count-${cardCount}`}>{cards.map((card,i)=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`第 ${i+1} 张${card.displayName}生命智慧卡牌`}/></figure>)}</div><div className="generation-list"><span className="done">✓ 已确认问题与 {cardCount} 张卡牌</span><span className="done">✓ 已同步抽牌结果</span><span className="done">✓ 正在读懂这 {cardCount} 张牌</span><span className={ready?"done":"active"}>{ready?"✓":"·"} 正在整理问事报告</span></div><p>{ready?"即将自动打开报告详情":"真实解读通常需要几分钟，可以先离开，完成后会保存在问事记录中"}</p><button className="outline-button" onClick={onLeave}>先离开，稍后查看</button>{!live&&<><button className="prototype-failure" onClick={onFailure}>查看生成失败状态</button><button className="prototype-failure" onClick={onNetworkError}>查看网络中断状态</button></>}</section>;
 }
 
 export function ReadingFailure({ onBack, onRetry }: { onBack: () => void; onRetry: () => void }) {
   return <ReadingStep onBack={onBack} eyebrow="PAUSED, NOT LOST" title={<>报告暂时没有长成</>} lead="问题、卡牌和抽取结果都已安全保存，不需要重新抽牌。"><div className="failure-seed"><span>●</span><i/></div><div className="failure-card"><p><strong>本次使用记录已安全保存</strong></p><span><b>01</b>当前结算状态以服务端记录为准</span><span><b>02</b>重新生成不会重复核销</span><span><b>03</b>超过处理时间会按规则自动恢复</span></div><button className="primary" onClick={onRetry}>使用原卡牌重新生成 <span>↻</span></button><button className="text-action">稍后在问事历史继续</button></ReadingStep>;
 }
 
+function reportSections(value:string){
+  const clean=value.replace(/\r/g,"").trim();
+  if(!clean)return[];
+  const chunks=clean.split(/\n(?=(?:#{1,3}\s*)?(?:第?[一二三四五六七八九十\d]+[章节部分、.．：:]|[一二三四五六七八九十]+、|\d+[.．、])\s*)/).filter(Boolean);
+  if(chunks.length>1)return chunks.slice(0,8).map((chunk,index)=>{const lines=chunk.split("\n").filter(Boolean);const first=lines[0].replace(/^#{1,3}\s*/,"").trim();const headingLike=first.length<=28;return{title:headingLike?first:`第 ${index+1} 节`,content:(headingLike?lines.slice(1):lines).join("\n").trim()||first}});
+  const paragraphs=clean.split(/\n{2,}/).map(item=>item.trim()).filter(Boolean);
+  const titles=["先看见此刻","理解你的感受","听见牌的回应","可以尝试的方向","写给你的话"];
+  return paragraphs.map((content,index)=>({title:titles[index]??`继续看见 · ${index+1}`,content}));
+}
+
+function LiveReadingSections({value}:{value:string}){
+  const sections=reportSections(value);
+  const[open,setOpen]=useState(0);
+  if(!sections.length)return <article className="report-section open"><p>本次报告尚未成功保存，请从问事记录重新生成。</p></article>;
+  return <div className="report-sections">{sections.map((section,index)=><article className={`report-section ${open===index?"open":""}`} key={`${section.title}-${index}`}><button type="button" onClick={()=>setOpen(current=>current===index?-1:index)} aria-expanded={open===index}><span><small>{String(index+1).padStart(2,"0")}</small><strong>{section.title}</strong></span><b>{open===index?"−":"＋"}</b></button>{open===index&&<div className="report-section-content"><p>{section.content}</p>{index<sections.length-1&&<button type="button" onClick={()=>setOpen(index+1)}>继续阅读下一节 <span>→</span></button>}</div>}</article>)}</div>;
+}
+
 export function ReadingReport({ live=false, report=null, cardCount=2, cards=[], onBack, onNext, onShare }: { live?:boolean; report?:CardReadingReport|null; cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void; onShare?: () => void }) {
   const prototypeSections=[["01 · 先说结论","你面对的并不是一个必须立刻做出决定的时刻。真正重要的，是辨认哪些变化值得回应，哪些只是外界的噪声。"],["02 · 此刻的你","你对工作中的价值与秩序非常敏锐，所以变化越多，越容易担心自己是否失去了原来的位置。"],["03 · 牌想对你说",`这 ${cardCount} 张牌共同呈现出从看见变化、理解内心到重新选择的过程。你不必守住过去的答案。`],["04 · 可以试试","今天先写下：我想保留什么、愿意放下什么、下一步只验证什么。不要一次解决所有问题。"],["05 · 写给你的话","方向不是在焦虑中想出来的，而是在一次次诚实选择里逐渐清晰。"]];
-  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{live?(report?.title??"报告内容暂不可用"):<><>变化不是在催你离开</><br/>而是在邀请你重新选择</>}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/></figure>)}</div>{live?<article><p style={{whiteSpace:"pre-wrap"}}>{report?.report??"本次报告尚未成功保存，请从问事记录重新生成。"}</p></article>:prototypeSections.map(([h,p])=><article key={h}><h2>{h}</h2><p>{p}</p></article>)}{live&&report?.notice&&<div className="task-rule">{report.notice}</div>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享初见 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
+  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{live?(report?.title??"报告内容暂不可用"):<><>变化不是在催你离开</><br/>而是在邀请你重新选择</>}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/></figure>)}</div>{live?<LiveReadingSections value={report?.report??""}/>:prototypeSections.map(([h,p])=><article key={h}><h2>{h}</h2><p>{p}</p></article>)}{live&&report?.notice&&<div className="task-rule">{report.notice}</div>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享初见 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
 }
 
 

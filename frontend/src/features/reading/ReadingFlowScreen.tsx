@@ -59,7 +59,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   const[draft,setDraft]=useState<ReadingDraft|null>(null);
   const[reading,setReading]=useState<CardReading|null>(null);const[flowBusy,setFlowBusy]=useState(false);const[flowError,setFlowError]=useState("");
   const generationStartedFor=useRef<string|null>(null);
-  useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,1)),0);return()=>window.clearTimeout(timer)},[me?.userId]);
+  useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,2)),0);return()=>window.clearTimeout(timer)},[me?.userId]);
   useEffect(()=>{
     if(!me?.userId)return;
     const requested=searchParams.get("readingId");

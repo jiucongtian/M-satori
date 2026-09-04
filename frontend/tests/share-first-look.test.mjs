@@ -34,7 +34,10 @@ test("海报遵循固定角标、二维码和预览保存同源规则",async()=>
     readFile(new URL("../src/features/share/share-first-look.css",import.meta.url),"utf8"),
   ]);
   assert.match(source,/\.poster-large \.fresh-poster/);
-  assert.match(source,/toBlob/);
+  assert.match(source,/toJpeg/);
+  assert.match(source,/quality:\.92/);
+  assert.match(source,/uploadSharePoster/);
+  assert.match(source,/share-posters/);
   assert.match(source,/for\(const pixelRatio of \[2,1\.5\]\)/);
   assert.match(source,/width:360,height:640,pixelRatio/);
   assert.match(source,/海报暂时没有保存成功/);

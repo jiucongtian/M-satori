@@ -522,6 +522,10 @@ class SatoriApiClient {
   retryCardReading(readingId: string) {
     return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/retry`, { method: "POST", body: JSON.stringify({}) }).then((x) => x.data);
   }
+  uploadSharePoster(image: string) {
+    if (PROTOTYPE_MODE) return prototypeResult({ posterId: "prototype-poster", expiresAt: prototypeNow });
+    return this.command<{ data: { posterId: string; expiresAt: string } }>("/share-posters", { method: "POST", body: JSON.stringify({ image }) }).then((x) => x.data);
+  }
 }
 
 export const api = new SatoriApiClient();

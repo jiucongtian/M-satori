@@ -23,12 +23,14 @@ test("新问事不受旧活动记录牌数影响，失败重试显式携带原�
   assert.match(source, /go\("generating",retried\.readingId,retried\.cardCount\)/);
 });
 
-test("正式生成页不使用原型定时器并展示 Aqua 真实报告", async () => {
+test("正式生成页不使用原型定时器并展示真实报告进度", async () => {
   const source = await readFile(legacyPath, "utf8");
   assert.match(source, /if\(live\)return;/);
-  assert.match(source, /Aqua 正在整理问事报告/);
+  assert.match(source, /正在整理问事报告/);
+  assert.doesNotMatch(source, /Aqua 正在整理问事报告|保存完整报告/);
   assert.match(source, /report\?\.report/);
   assert.match(source, /report\?\.title/);
+  assert.match(source, /LiveReadingSections/);
 });
 
 test("问事接口类型包含完整 Aqua 报告", async () => {
