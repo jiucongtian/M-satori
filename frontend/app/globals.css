@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "../src/shared/responsive-shell.css";
 
+/* Bundled under SIL Open Font License 1.1; safe for commercial web embedding. */
+@font-face{font-family:"Fresh Noto Sans SC";src:url("/fonts/noto-sans-sc/noto-sans-sc-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"Fresh Noto Sans SC";src:url("/fonts/noto-sans-sc/noto-sans-sc-500.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap}
+@font-face{font-family:"Fresh Noto Sans SC";src:url("/fonts/noto-sans-sc/noto-sans-sc-600.woff2") format("woff2");font-style:normal;font-weight:600;font-display:swap}
+@font-face{font-family:"Fresh Noto Serif SC";src:url("/fonts/noto-serif-sc/noto-serif-sc-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"Fresh Noto Serif SC";src:url("/fonts/noto-serif-sc/noto-serif-sc-500.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap}
+@font-face{font-family:"Fresh Noto Serif SC";src:url("/fonts/noto-serif-sc/noto-serif-sc-600.woff2") format("woff2");font-style:normal;font-weight:600;font-display:swap}
+
 :root {
   /* 初见·FRESH project-level foundation tokens */
   --fresh-green-900: #283b34;
@@ -59,8 +67,8 @@
   --gold: #d7a35a;
   /* R1.0 typography trial: feeling uses serif, interaction uses sans-serif. */
   /* Prefer platform CJK fonts so first paint does not download multi-megabyte font files. */
-  --font-brand: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
-  --font-ui: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-brand: "Fresh Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-ui: "Fresh Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
   --type-display: 32px;
   --type-hero: 28px;
   --type-page-title: 24px;

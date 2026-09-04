@@ -5,6 +5,7 @@ import test from "node:test";
 const flowPath = new URL("../src/features/reading/ReadingFlowScreen.tsx", import.meta.url);
 const legacyPath = new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url);
 const legacyStylePath = new URL("../src/features/legacy/legacy.css", import.meta.url);
+const globalStylePath = new URL("../app/globals.css", import.meta.url);
 const clientPath = new URL("../src/api/client.ts", import.meta.url);
 
 test("正式问事流程启动真实生成并轮询后端状态", async () => {
@@ -35,7 +36,7 @@ test("正式生成页不使用原型定时器并展示真实报告进度", async
 });
 
 test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌位", async () => {
-  const [source, styles] = await Promise.all([readFile(legacyPath, "utf8"), readFile(legacyStylePath, "utf8")]);
+  const [source, styles, globalStyles] = await Promise.all([readFile(legacyPath, "utf8"), readFile(legacyStylePath, "utf8"), readFile(globalStylePath, "utf8")]);
   assert.match(styles, /generation-card-stage\{[^}]*height:clamp\(280px,42svh,340px\)[^}]*display:flex/);
   assert.match(styles, /generation-card-stage\.count-4,\.card-layout\.generation-card-stage\.count-5\{flex-wrap:wrap\}/);
   assert.match(styles, /generation-card-stage\.count-5 figure\{width:min\(92px,calc\(\(100% - 22px\)\/3\)\)\}/);
@@ -44,6 +45,9 @@ test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌
   assert.match(source, /<figcaption><strong>\{card\.positionLabel\}<\/strong><small>\{card\.displayName\}/);
   assert.match(source, /reportStoryTitles/);
   assert.match(source, /report-sections continuous/);
+  assert.match(styles, /report-section-content p\{[^}]*font-size:14px;line-height:1\.82/);
+  assert.match(globalStyles, /font-family:"Fresh Noto Serif SC"/);
+  assert.match(globalStyles, /font-family:"Fresh Noto Sans SC"/);
   assert.doesNotMatch(source, /slice\(0,9\)|继续阅读下一节|`继续看见 · \$\{index\+1\}`/);
 });
 
