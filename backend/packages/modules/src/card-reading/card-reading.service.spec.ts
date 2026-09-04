@@ -111,6 +111,7 @@ describe('Aqua card reading generation', () => {
         context: { category: row.category, position_labels: row.positionLabels },
       },
       row.id,
+      expect.stringMatching(/^[a-z0-9]+$/),
     );
     await vi.waitFor(() =>
       expect(patches.at(-1)).toEqual(

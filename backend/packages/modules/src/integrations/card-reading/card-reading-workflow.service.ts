@@ -92,14 +92,19 @@ export class CardReadingWorkflowService {
     return (await this.execute(rawInput, traceId)).result;
   }
 
-  async execute(rawInput: unknown, traceId: string = randomUUID()): Promise<CardReadingWorkflowExecution> {
+  async execute(
+    rawInput: unknown,
+    traceId: string = randomUUID(),
+    attemptId?: string,
+  ): Promise<CardReadingWorkflowExecution> {
     const input = parseCardReadingInput(rawInput);
+    const runReference = `card-reading:${traceId}`;
     try {
       const response = await this.aqua.workflows.run<CardReadingInput, CardReadingResult>(
         this.options.workflowId,
         {
-          idempotencyKey: `card-reading:${traceId}`,
-          runReference: `card-reading:${traceId}`,
+          idempotencyKey: attemptId ? `${runReference}:${attemptId}` : runReference,
+          runReference,
           input,
         },
         { timeoutMs: WORKFLOW_TIMEOUT_MS },

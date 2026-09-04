@@ -82,6 +82,30 @@ describe('CardReadingWorkflowService', () => {
     ).resolves.toMatchObject({ mode: 'dual', cards: [12, 39] });
   });
 
+  it('keeps the run reference stable while isolating generation attempts', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const run = vi.fn().mockResolvedValue({
+      requestId: 'aqua-request-attempt',
+      result: aquaResult({ mode: 'dual', cards: [12, 39] }),
+      manifest: {},
+    });
+
+    await service(run).execute(
+      { audience: 'C', question: '这段关系适合继续吗？', cards: [12, 39] },
+      'reading-00000001',
+      'attempt-2',
+    );
+
+    expect(run).toHaveBeenCalledWith(
+      workflowId,
+      expect.objectContaining({
+        idempotencyKey: 'card-reading:reading-00000001:attempt-2',
+        runReference: 'card-reading:reading-00000001',
+      }),
+      { timeoutMs: CARD_READING_WORKFLOW_TIMEOUT_MS },
+    );
+  });
+
   it.each([
     [{ audience: 'C', question: '', random_count: 1 }, 'question'],
     [{ audience: 'C', question: 'x'.repeat(2_001), random_count: 1 }, 'question'],

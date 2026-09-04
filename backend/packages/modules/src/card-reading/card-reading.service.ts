@@ -152,7 +152,7 @@ export class CardReadingService {
       })
       .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)))
       .returning();
-    void this.generate(started!).catch((error: unknown) => {
+    void this.generate(started!, startedAt.getTime().toString(36)).catch((error: unknown) => {
       const failure = readingFailure(error);
       console.error('card_reading_background_generation_failed', {
         readingId: reading.id,
@@ -164,7 +164,7 @@ export class CardReadingService {
     return this.dto(started!);
   }
 
-  private async generate(reading: ReadingRow) {
+  private async generate(reading: ReadingRow, attemptId: string) {
     try {
       const execution = await this.workflow.execute(
         {
@@ -177,6 +177,7 @@ export class CardReadingService {
           },
         },
         reading.id,
+        attemptId,
       );
       const completedAt = new Date();
       const [updated] = await this.infrastructure.database
