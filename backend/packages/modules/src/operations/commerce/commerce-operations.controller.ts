@@ -19,6 +19,12 @@ class ReasonDto {
 class ResolveDto {
   @IsString() @MinLength(3) note!: string;
 }
+class ManualSeedGrantDto {
+  @IsString() @MinLength(32) phoneHash!: string;
+  @IsUUID() actionId!: string;
+  @IsInt() @Min(1) quantity!: number;
+  @IsString() @MinLength(3) reason!: string;
+}
 
 @UseGuards(OperatorRoleGuard)
 @Controller('operations/commerce')
@@ -64,6 +70,11 @@ export class CommerceOperationsController {
       requestId: request.id,
     });
     return { data: { adjusted: true } };
+  }
+
+  @Post('seeds/manual-grants')
+  async grantManualSeeds(@Req() request: AuthenticatedRequest, @Body() body: ManualSeedGrantDto) {
+    return { data: await this.operations.grantManualSeeds({ ...body, operatorUserId: request.auth.userId, requestId: request.id }) };
   }
 
   @Post('entitlement-sources/:sourceId/forfeit')

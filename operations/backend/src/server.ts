@@ -142,7 +142,15 @@ app.post('/api/action-requests/:id/approve',async(req,reply)=>{
    const result={offeringId,versionId,status:draft.offeringStatus};await client.query(`update operations_action_requests set status='EXECUTED',reviewed_by=$2,review_note=$3,reviewed_at=now(),execution_result=$4,executed_at=now() where id=$1`,[id,operator.sub,input.note,result]);await client.query('commit');await writeAudit(operator,'PRODUCT_VERSION_PUBLISHED','SERVICE_OFFERING',offeringId,{requestId:id,versionId,status:draft.offeringStatus});return {data:{...action,status:'EXECUTED',execution_result:result}}
   }
   if(action.action_type==='MANUAL_BENEFIT_GRANT'){
-   const result=await executeManualGrant(client,id,p);await client.query(`update operations_action_requests set status='EXECUTED',reviewed_by=$2,review_note=$3,reviewed_at=now(),execution_result=$4,executed_at=now() where id=$1`,[id,operator.sub,input.note,result]);await client.query('commit');await writeAudit(operator,'MANUAL_BENEFIT_GRANTED','BENEFIT_GRANT',id,{phoneMasked:p.phoneMasked,kind:p.kind,result});return {data:{...action,status:'EXECUTED',execution_result:result}}
+   const result=await executeManualGrant(client,id,p);
+   let delivery:any=null;
+   if(p.kind==='SEED'&&result.status==='GRANTED'){
+    if(!env.SATORI_OPERATOR_TOKEN)throw new Error('OPERATOR_CREDENTIAL_NOT_CONFIGURED');
+    const response=await fetch(`${env.SATORI_API_BASE}/api/v1/operations/commerce/seeds/manual-grants`,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${env.SATORI_OPERATOR_TOKEN}`,'x-request-id':action.idempotency_key},body:JSON.stringify({phoneHash:p.phoneHash,actionId:id,quantity:p.seedQuantity,reason:action.reason})});
+    delivery=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(`USER_BENEFIT_DELIVERY_FAILED:${response.status}`);
+   }
+   const executionResult={...result,delivery};await client.query(`update operations_action_requests set status='EXECUTED',reviewed_by=$2,review_note=$3,reviewed_at=now(),execution_result=$4,executed_at=now() where id=$1`,[id,operator.sub,input.note,executionResult]);await client.query('commit');await writeAudit(operator,'MANUAL_BENEFIT_GRANTED','BENEFIT_GRANT',id,{phoneMasked:p.phoneMasked,kind:p.kind,executionResult});return {data:{...action,status:'EXECUTED',execution_result:executionResult}}
   }
   if(!env.SATORI_OPERATOR_TOKEN){await client.query('rollback');return reply.code(503).send({code:'OPERATOR_CREDENTIAL_NOT_CONFIGURED',message:'运营执行凭据尚未配置，申请将保留为待审核状态'})}
   await client.query(`update operations_action_requests set status='APPROVED',reviewed_by=$2,review_note=$3,reviewed_at=now() where id=$1`,[id,operator.sub,input.note]);let path='';

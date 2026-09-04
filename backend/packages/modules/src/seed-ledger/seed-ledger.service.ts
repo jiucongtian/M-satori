@@ -22,7 +22,7 @@ import {
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 
 type EntryType = 'GRANT' | 'RESERVE' | 'CONSUME' | 'RELEASE' | 'REFUND' | 'ADJUSTMENT';
-type BusinessType = 'REGISTRATION_REWARD' | 'DAILY_INSIGHT';
+type BusinessType = 'REGISTRATION_REWARD' | 'DAILY_INSIGHT' | 'MANUAL_BENEFIT_GRANT';
 export type SeedLedgerTransaction = Parameters<
   Parameters<RuntimeInfrastructure['database']['transaction']>[0]
 >[0];
@@ -264,6 +264,10 @@ export class SeedLedgerService {
 
   refund(command: Omit<ApplyCommand, 'type'>) {
     return this.apply({ ...command, type: 'REFUND' });
+  }
+
+  grantManual(command: Omit<ApplyCommand, 'type' | 'businessType'>) {
+    return this.apply({ ...command, type: 'GRANT', businessType: 'MANUAL_BENEFIT_GRANT' });
   }
 
   adjustment(command: Omit<ApplyCommand, 'type'>) {

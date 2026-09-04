@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { RuntimeInfrastructure } from '@satori/infrastructure';
+import { identities } from '@satori/infrastructure';
+import { and, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { QueryResultRow } from 'pg';
 import { ComplimentarySeedApplicationService } from '../../complimentary-seed/application/index.js';
 import { ConsumptionApplicationService } from '../../consumption/application/index.js';
 import { EntitlementApplicationService } from '../../entitlement/application/index.js';
+import { SeedLedgerService } from '../../seed-ledger/seed-ledger.service.js';
 
 @Injectable()
 export class CommerceOperationsService {
@@ -13,6 +16,7 @@ export class CommerceOperationsService {
     private readonly entitlements: EntitlementApplicationService,
     private readonly seeds: ComplimentarySeedApplicationService,
     private readonly consumption: ConsumptionApplicationService,
+    private readonly seedLedger: SeedLedgerService,
   ) {}
 
   async orderView(orderId: string) {
@@ -120,6 +124,35 @@ export class CommerceOperationsService {
         command.requestId,
       ],
     );
+  }
+
+  async grantManualSeeds(command: {
+    phoneHash: string;
+    actionId: string;
+    quantity: number;
+    reason: string;
+    operatorUserId: string;
+    requestId: string;
+  }) {
+    const [identity] = await this.infrastructure.database
+      .select({ userId: identities.userId })
+      .from(identities)
+      .where(and(eq(identities.provider, 'PHONE'), eq(identities.providerSubjectHash, command.phoneHash)))
+      .limit(1);
+    if (!identity) throw new Error('MANUAL_GRANT_USER_NOT_FOUND');
+    const applied = await this.seedLedger.grantManual({
+      userId: identity.userId,
+      amount: command.quantity,
+      businessKey: `operations-manual-grant:${command.actionId}`,
+      resourceId: null,
+      title: '运营平台人工赠送智慧种子',
+    });
+    await this.audit(command.operatorUserId, 'MANUAL_SEED_GRANTED', 'WISDOM_SEED', command.actionId, command.requestId, {
+      quantity: command.quantity,
+      reason: command.reason,
+      transactionId: applied.transaction.transactionId,
+    });
+    return { delivered: true, available: applied.account.available, transactionId: applied.transaction.transactionId };
   }
 
   async forfeitEntitlements(
