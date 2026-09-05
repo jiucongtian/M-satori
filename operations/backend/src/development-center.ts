@@ -4,7 +4,7 @@ type Commit={sha:string;commit:{author:{date:string};message:string};html_url:st
 type FileChange={filename:string;additions:number;deletions:number};
 const repository=process.env.OPERATIONS_GITHUB_REPOSITORY||'jiucongtian/M-satori',token=process.env.OPERATIONS_GITHUB_TOKEN,cache=new Map<string,{expires:number;value:any}>();
 const headers:Record<string,string>={accept:'application/vnd.github+json','user-agent':'satori-operations-development-center','x-github-api-version':'2022-11-28',...(token?{authorization:`Bearer ${token}`}:{})};
-const github=async<T>(path:string)=>{const response=await fetch(`https://api.github.com/repos/${repository}${path}`,{headers,signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error(`GitHub ${response.status}`);return response.json() as Promise<T>};
+const github=async<T>(path:string)=>{const timeout=path.startsWith('/compare/')?25000:8000;const response=await fetch(`https://api.github.com/repos/${repository}${path}`,{headers,signal:AbortSignal.timeout(timeout)});if(!response.ok)throw new Error(`GitHub ${response.status}`);return response.json() as Promise<T>};
 const componentOf=(path:string)=>path.startsWith('operations/frontend/')?'运营前端':path.startsWith('operations/backend/')?'运营后端':path.startsWith('frontend/')?'初见前端':path.startsWith('backend/')?'初见后端':null;
 
 async function fetchDevelopmentCenterData(release:ReleaseName){
