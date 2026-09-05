@@ -507,8 +507,8 @@ class SatoriApiClient {
     return this.request<Schemas["RefundListEnvelope"]>("/refunds").then((x) => x.data);
   }
 
-  createCardReadingDraw(input: { question: string; category: string; cardCount: number; positionLabels: string[] }) {
-    return this.command<{ data: CardReading }>("/card-readings/draws", { method: "POST", body: JSON.stringify({ ...input, drawMethod: "SYSTEM_RANDOM" }) }).then((x) => x.data);
+  createCardReadingDraw(input: { question: string; category: string; cardCount: number; positionLabels: string[] }, requestKey: string) {
+    return this.command<{ data: CardReading }>("/card-readings/draws", { method: "POST", headers: { "Idempotency-Key": requestKey }, body: JSON.stringify({ ...input, drawMethod: "SYSTEM_RANDOM" }) }).then((x) => x.data);
   }
   cardReadings(cursor?: string) {
     return this.request<{ data: { items: CardReading[]; nextCursor: string | null } }>(`/card-readings?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`).then((x) => x.data);

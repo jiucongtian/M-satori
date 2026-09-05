@@ -9,7 +9,6 @@ import {
   ReadingFailure,
   ReadingFeedback,
   ReadingGenerate,
-  ReadingPayment,
   ReadingQuestion,
   ReadingReport,
   ReadingReveal,
@@ -23,6 +22,7 @@ import { useSession } from "@/src/shared/session";
 import { readFlowDraft } from "@/src/shared/storage";
 import { apiMessage,PageDebugLabel } from "@/src/shared/ui";
 import { api,type CardReading } from "@/src/api/client";
+import { ReadingPaymentScreen } from "./ReadingPaymentScreen";
 
 type ReadingDraft = { question:string; category:string; cardCount:number; positions:string[] };
 
@@ -59,6 +59,18 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   const[draft,setDraft]=useState<ReadingDraft|null>(null);
   const[reading,setReading]=useState<CardReading|null>(null);const[flowBusy,setFlowBusy]=useState(false);const[flowError,setFlowError]=useState("");
   const generationStartedFor=useRef<string|null>(null);
+  const [drawRequestKey, setDrawRequestKey] = useState("");
+  useEffect(() => {
+    if (!me?.userId || !draft) return;
+    const storageKey = `fresh:reading-request:${me.userId}`;
+    const fingerprint = JSON.stringify(draft);
+    let saved: { fingerprint: string; key: string } | null = null;
+    try { saved = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null"); } catch { /* Replace invalid local draft metadata. */ }
+    const key = saved?.fingerprint === fingerprint ? saved.key : crypto.randomUUID();
+    window.sessionStorage.setItem(storageKey, JSON.stringify({ fingerprint, key }));
+    const timer = window.setTimeout(() => setDrawRequestKey(key), 0);
+    return () => window.clearTimeout(timer);
+  }, [draft, me?.userId]);
   useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,2)),0);return()=>window.clearTimeout(timer)},[me?.userId]);
   useEffect(()=>{
     if(!me?.userId)return;
@@ -86,7 +98,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     else if (target === "services") router.push(ROUTES.shop);
     else router.push(flowPath(target,readingId,overrideCount));
   };
-  async function beginDraw(){if(!me?.userId||!draft||flowBusy)return;setFlowBusy(true);setFlowError("");try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:draft.positions});setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);go("draw")}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
+  async function beginDraw(){if(!me?.userId||!draft||!drawRequestKey||flowBusy)return;setFlowBusy(true);setFlowError("");try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:draft.positions},drawRequestKey);setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);go("draw",created.readingId)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating",retried.readingId,retried.cardCount)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   useEffect(()=>{
     if(step!=="generating"||!reading)return;
@@ -103,7 +115,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     confirm: <ReadingConfirm onBack={()=>go("question")} onNext={()=>go("spread")} onSafety={()=>go("question")}/>,
     spread: <ReadingSpread onBack={()=>go("question")} onNext={(count)=>router.push(`${path.payment}?cards=${count}`)}/>,
     config: <ReadingConfig onBack={()=>go("spread")} onNext={()=>go("payment")}/>,
-    payment: <ReadingPayment cardCount={cardCount} question={draft?.question} category={draft?.category} positions={cardCount>1?draft?.positions:undefined} onBack={()=>go("question")} onNext={()=>go("shuffle")}/>,
+    payment: drawRequestKey ? <ReadingPaymentScreen cardCount={cardCount} question={draft?.question} requestKey={drawRequestKey} onBack={()=>go("question")} onNext={()=>go("shuffle")}/> : null,
     shuffle: <ReadingShuffle onBack={()=>go("payment")} onNext={()=>void beginDraw()}/>,
     draw: <ReadingDraw cardCount={cardCount} onBack={()=>go("shuffle")} onNext={()=>go("reveal")}/>,
     reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>go("generating")}/>,

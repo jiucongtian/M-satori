@@ -148,6 +148,13 @@
       "when": 1788450103111,
       "tag": "0020_big_carmella_unuscione",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788598986106,
+      "tag": "0021_bumpy_multiple_man",
+      "breakpoints": true
     }
   ]
 }

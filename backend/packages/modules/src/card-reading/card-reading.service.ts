@@ -1,7 +1,9 @@
-import { ConflictException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
-import { cardReadings, newId, RuntimeInfrastructure } from '@satori/infrastructure';
-import { and, desc, eq, lt, or } from 'drizzle-orm';
-import { randomInt } from 'node:crypto';
+import { ConflictException, HttpException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { CONSUMPTION_PORT, hashPayload, type ConsumptionPort } from '@satori/application';
+import { cardReadings, RuntimeInfrastructure } from '@satori/infrastructure';
+import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
+import { createHash, randomInt } from 'node:crypto';
+import { buildReadingRequirement } from './application/index.js';
 import { CardReadingWorkflowService } from '../integrations/card-reading/card-reading-workflow.service.js';
 import type { CardReadingResult } from '../integrations/card-reading/card-reading-workflow.types.js';
 
@@ -57,32 +59,67 @@ export class CardReadingService {
   constructor(
     private readonly infrastructure: RuntimeInfrastructure,
     private readonly workflow: CardReadingWorkflowService,
+    @Inject(CONSUMPTION_PORT) private readonly consumption: ConsumptionPort,
   ) {}
 
-  async createDraw(command: {
-    ownerUserId: string;
-    question: string;
-    category: string;
-    cardCount: number;
-    positionLabels: string[];
-  }) {
-    const now = new Date();
-    const [created] = await this.infrastructure.database
-      .insert(cardReadings)
-      .values({
-        id: newId(),
+  async createDraw(
+    command: {
+      ownerUserId: string;
+      question: string;
+      category: string;
+      cardCount: number;
+      positionLabels: string[];
+    },
+    idempotencyKey: string,
+  ) {
+    const digest = createHash('sha256')
+      .update(`${command.ownerUserId}:reading:${idempotencyKey}`)
+      .digest('hex');
+    const readingId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+    const requestHash = hashPayload(command);
+    return this.infrastructure.database.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${readingId}, 11))`);
+      const [existing] = await tx.select().from(cardReadings).where(eq(cardReadings.id, readingId)).limit(1);
+      if (existing) {
+        if (existing.requestHash !== requestHash)
+          throw new ConflictException({
+            code: 'IDEMPOTENCY_KEY_REUSED',
+            message: 'Reading inputs changed for this request',
+          });
+        return this.dto(existing);
+      }
+      const policy = this.infrastructure.policy.cardReading.seedCost;
+      const requirement = buildReadingRequirement({
         ownerUserId: command.ownerUserId,
-        question: command.question,
-        category: command.category,
+        readingIntentId: readingId,
         cardCount: command.cardCount,
-        positionLabels: command.positionLabels,
-        cardCodes: drawUniqueCardCodes(command.cardCount),
-        status: 'DRAWN',
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return this.dto(created!);
+        seedCostPolicy: policy,
+      });
+      const reserved = await this.consumption.reserve(requirement, `${readingId}:1:RESERVE`);
+      await this.consumption.start(reserved.intentId, `${reserved.intentId}:START`);
+      const now = new Date();
+      const [created] = await tx
+        .insert(cardReadings)
+        .values({
+          id: readingId,
+          requestHash,
+          consumptionIntentId: reserved.intentId,
+          consumptionAttempt: 1,
+          seedQuantity: requirement.attributes!.seedQuantity as number,
+          seedCostRuleVersion: policy.version,
+          ownerUserId: command.ownerUserId,
+          question: command.question,
+          category: command.category,
+          cardCount: command.cardCount,
+          positionLabels: command.positionLabels,
+          cardCodes: drawUniqueCardCodes(command.cardCount),
+          status: 'DRAWN',
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      return this.dto(created!);
+    });
   }
 
   async list(ownerUserId: string, limit: number, cursor?: string) {
@@ -140,11 +177,38 @@ export class CardReadingService {
   }
 
   private async startGeneration(reading: ReadingRow) {
+    if (reading.status === 'FAILED' || !reading.consumptionIntentId) {
+      const attempt =
+        reading.status === 'FAILED' ? reading.consumptionAttempt + 1 : reading.consumptionAttempt;
+      const policy = this.infrastructure.policy.cardReading.seedCost;
+      const cost = reading.seedQuantity;
+      const reserved = await this.consumption.reserve(
+        buildReadingRequirement(
+          {
+            ownerUserId: reading.ownerUserId,
+            readingIntentId: reading.id,
+            cardCount: reading.cardCount,
+            seedCostPolicy: cost
+              ? {
+                  version: reading.seedCostRuleVersion ?? policy.version,
+                  costByCardCount: { 1: cost, 2: cost, 3: cost, 4: cost, 5: cost },
+                }
+              : policy,
+          },
+          attempt,
+        ),
+        `${reading.id}:${attempt}:RESERVE`,
+      );
+      await this.consumption.start(reserved.intentId, `${reserved.intentId}:START`);
+      reading = { ...reading, consumptionIntentId: reserved.intentId, consumptionAttempt: attempt };
+    }
     const startedAt = new Date();
     const [started] = await this.infrastructure.database
       .update(cardReadings)
       .set({
         status: 'GENERATING',
+        consumptionIntentId: reading.consumptionIntentId,
+        consumptionAttempt: reading.consumptionAttempt,
         failure: null,
         generationStartedAt: startedAt,
         completedAt: null,
@@ -186,6 +250,7 @@ export class CardReadingService {
         attemptId,
       );
       const completedAt = new Date();
+      await this.consumption.commit(reading.consumptionIntentId!, `${reading.consumptionIntentId}:COMMIT`);
       const [updated] = await this.infrastructure.database
         .update(cardReadings)
         .set({
@@ -206,6 +271,7 @@ export class CardReadingService {
         .update(cardReadings)
         .set({ status: 'FAILED', failure: readingFailure(error), updatedAt: failedAt })
         .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)));
+      await this.consumption.release(reading.consumptionIntentId!, `${reading.consumptionIntentId}:RELEASE`);
       throw error;
     }
   }

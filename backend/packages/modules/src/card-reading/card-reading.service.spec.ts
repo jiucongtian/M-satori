@@ -1,4 +1,6 @@
 import type { RuntimeInfrastructure } from '@satori/infrastructure';
+import type { ConsumptionPort } from '@satori/application';
+import { R1_CARD_READING_SEED_COST_RULE } from '@satori/domain';
 import { describe, expect, it, vi } from 'vitest';
 import type { CardReadingWorkflowService } from '../integrations/card-reading/card-reading-workflow.service.js';
 import {
@@ -9,6 +11,72 @@ import {
 } from './card-reading.service.js';
 
 describe('server card draw', () => {
+  function drawFixture(denied = false) {
+    let stored: Record<string, unknown> | undefined;
+    const tx = {
+      execute: vi.fn(),
+      select: () => ({
+        from: () => ({ where: () => ({ limit: () => Promise.resolve(stored ? [stored] : []) }) }),
+      }),
+      insert: vi.fn(() => ({
+        values: (value: Record<string, unknown>) => ({
+          returning: () => {
+            stored = value;
+            return Promise.resolve([value]);
+          },
+        }),
+      })),
+    };
+    const consumption = {
+      reserve: denied
+        ? vi.fn().mockRejectedValue(new Error('PURCHASE_REQUIRED'))
+        : vi.fn().mockResolvedValue({ intentId: 'intent-1' }),
+      start: vi.fn().mockResolvedValue({}),
+    };
+    const infrastructure = {
+      database: { transaction: (callback: (db: typeof tx) => unknown) => callback(tx) },
+      policy: { cardReading: { seedCost: R1_CARD_READING_SEED_COST_RULE } },
+    };
+    const service = new CardReadingService(
+      infrastructure as unknown as RuntimeInfrastructure,
+      {} as CardReadingWorkflowService,
+      consumption as unknown as ConsumptionPort,
+    );
+    return { service, consumption, tx };
+  }
+  const command = {
+    ownerUserId: 'user-1',
+    question: '如何面对工作变化？',
+    category: '事业',
+    cardCount: 2,
+    positionLabels: ['自己', '他人'],
+  };
+
+  it('rejects a draw without benefits before creating cards', async () => {
+    const { service, tx, consumption } = drawFixture(true);
+    await expect(service.createDraw(command, 'draw-request-key-1')).rejects.toThrow('PURCHASE_REQUIRED');
+    expect(tx.insert).not.toHaveBeenCalled();
+    expect(consumption.start).not.toHaveBeenCalled();
+  });
+
+  it('replays the same draw without reserving twice and rejects changed inputs', async () => {
+    const { service, consumption } = drawFixture();
+    const first = await service.createDraw(command, 'draw-request-key-1');
+    const replay = await service.createDraw(command, 'draw-request-key-1');
+    expect(replay).toEqual(first);
+    expect(consumption.reserve).toHaveBeenCalledOnce();
+    expect(consumption.reserve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quantity: 1,
+        attributes: expect.objectContaining({
+          cardCount: 2,
+          seedQuantity: R1_CARD_READING_SEED_COST_RULE.costByCardCount[2],
+        }) as unknown,
+      }),
+      expect.any(String),
+    );
+    await expect(service.createDraw({ ...command, cardCount: 3 }, 'draw-request-key-1')).rejects.toThrow();
+  });
   it('never repeats a card inside one spread', () => {
     for (let index = 0; index < 10_000; index += 1) {
       const cards = drawUniqueCardCodes(5);
@@ -44,6 +112,8 @@ describe('Aqua card reading generation', () => {
     positionLabels: ['我', '对方'],
     cardCodes: ['01-jiazi', '60-guihai'],
     status: 'DRAWN',
+    consumptionIntentId: 'consumption-1',
+    consumptionAttempt: 1,
     content: null,
     generationManifest: null,
     providerRequestId: null,
@@ -84,11 +154,13 @@ describe('Aqua card reading generation', () => {
         }),
       })),
     };
+    const consumption = { commit: vi.fn().mockResolvedValue({}), release: vi.fn().mockResolvedValue({}) };
     const service = new CardReadingService(
       { database } as unknown as RuntimeInfrastructure,
       { execute } as unknown as CardReadingWorkflowService,
+      consumption as unknown as ConsumptionPort,
     );
-    return { service, patches };
+    return { service, patches, consumption };
   }
 
   it('uses frozen cards, persists the real Aqua report and returns it', async () => {
@@ -97,7 +169,7 @@ describe('Aqua card reading generation', () => {
       requestId: 'aqua-request-1',
       manifest: { workflowVersion: 'ai-card-reading/1.0.0' },
     });
-    const { service, patches } = fixture(execute);
+    const { service, patches, consumption } = fixture(execute);
 
     const response = await service.complete(row.ownerUserId, row.id);
 
@@ -131,11 +203,13 @@ describe('Aqua card reading generation', () => {
         }),
       ),
     );
+    expect(consumption.commit).toHaveBeenCalledWith('consumption-1', 'consumption-1:COMMIT');
+    expect(consumption.release).not.toHaveBeenCalled();
   });
 
   it('persists FAILED when Aqua generation fails', async () => {
     const execute = vi.fn().mockRejectedValue(new Error('upstream failed'));
-    const { service, patches } = fixture(execute);
+    const { service, patches, consumption } = fixture(execute);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     await expect(service.complete(row.ownerUserId, row.id)).resolves.toMatchObject({ status: 'GENERATING' });
@@ -145,6 +219,8 @@ describe('Aqua card reading generation', () => {
         failure: { code: 'CARD_READING_GENERATION_FAILED', retryable: false },
       }),
     );
+    expect(consumption.release).toHaveBeenCalledWith('consumption-1', 'consumption-1:RELEASE');
+    expect(consumption.commit).not.toHaveBeenCalled();
   });
 
   it('maps frozen card codes to Aqua card numbers and rejects invalid codes', () => {

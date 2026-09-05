@@ -32,8 +32,14 @@ export class CardReadingController {
   ) {}
 
   @Post('draws')
-  async createDraw(@Req() request: AuthenticatedRequest, @Body() body: CreateCardDrawDto) {
-    return { data: await this.readings.createDraw({ ownerUserId: request.auth.userId, ...body }) };
+  async createDraw(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: CreateCardDrawDto,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    if (!key || key.length < 16 || key.length > 128)
+      throw new BadRequestException({ code: 'IDEMPOTENCY_KEY_REQUIRED' });
+    return { data: await this.readings.createDraw({ ownerUserId: request.auth.userId, ...body }, key) };
   }
 
   @Post('interpretations')
