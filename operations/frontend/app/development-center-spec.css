@@ -12,6 +12,5 @@
 .admin-shell:has(.dev-center) .admin-account .admin-link{grid-column:2;justify-self:end;margin-top:5px}
 .dev-center .dev-tabs button{border:0;border-radius:0;background:transparent}
 .dev-center .dev-tabs button.is-active{background:transparent;box-shadow:inset 0 -2px #3f745f}
-.admin-shell:has(.dev-center) .admin-account>div:last-child{display:grid;grid-template-columns:1fr;gap:4px}
-.admin-shell:has(.dev-center) .admin-account .admin-link{display:block;grid-column:auto;justify-self:end}
+.admin-shell:has(.dev-center) .admin-account .admin-link{display:block;grid-column:2;grid-row:3;justify-self:end}
 .dev-section-head{display:flex}
