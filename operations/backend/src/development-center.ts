@@ -1,4 +1,5 @@
 type ReleaseName='R1.1'|'R1.0';
+import type pg from 'pg';
 type Commit={sha:string;commit:{author:{date:string};message:string};html_url:string};
 type FileChange={filename:string;additions:number;deletions:number};
 const repository=process.env.OPERATIONS_GITHUB_REPOSITORY||'jiucongtian/M-satori',token=process.env.OPERATIONS_GITHUB_TOKEN,cache=new Map<string,{expires:number;value:any}>();
@@ -6,7 +7,7 @@ const headers:Record<string,string>={accept:'application/vnd.github+json','user-
 const github=async<T>(path:string)=>{const response=await fetch(`https://api.github.com/repos/${repository}${path}`,{headers,signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error(`GitHub ${response.status}`);return response.json() as Promise<T>};
 const componentOf=(path:string)=>path.startsWith('operations/frontend/')?'运营前端':path.startsWith('operations/backend/')?'运营后端':path.startsWith('frontend/')?'初见前端':path.startsWith('backend/')?'初见后端':null;
 
-export async function getDevelopmentCenterData(release:ReleaseName){
+async function fetchDevelopmentCenterData(release:ReleaseName){
  const cached=cache.get(release);if(cached&&cached.expires>Date.now())return cached.value;
  const branch=`release/${release.toLowerCase()}`,base=release==='R1.1'?'release/r1.0':'main',failures:string[]=[];let commits:Commit[]=[],files:FileChange[]=[],issues:any[]=[],runs:any[]=[],tree:any[]=[];
  await Promise.all([
@@ -29,4 +30,35 @@ export async function getDevelopmentCenterData(release:ReleaseName){
  issues:{total:issues.length,p0:issueRows.filter(x=>x.priority==='P0').length,p1:issueRows.filter(x=>x.priority==='P1').length,pendingVerification:issueRows.filter(x=>x.state!=='已关闭'&&x.title.includes('验证')).length,reopened:null,escaped:null,groups:issueRows,message:issues.length?'Issue 已按 Release、模块、类型和优先级聚合。':'当前 Release 未找到匹配 Issue。'},
  health:[{source:'测试环境部署回执',status:'部分可用',freshness:'当前请求',detail:'环境可确认，四端独立 SHA 待部署回执完善'},{source:'GitHub Commit 与差异',status:failures.some(x=>['Commit','代码差异'].includes(x))?'异常':'可用',freshness:'准实时',detail:`已读取 ${commits.length} 次提交、${files.length} 个变更文件`},{source:'GitHub Actions',status:failures.includes('Actions')?'异常':runs.length?'可用':'暂无记录',freshness:'准实时',detail:`已读取 ${runs.length} 次工作流运行`},{source:'GitHub Issue',status:failures.includes('Issue')?'异常':'可用',freshness:'准实时',detail:`已关联 ${issues.length} 个 Issue`},{source:'AI 发布摘要',status:failures.length?'受限':'可用',freshness:'当前请求',detail:'仅基于已读取事实生成，不补造缺失结论'}]};
  cache.set(release,{expires:Date.now()+60000,value:data});return data;
+}
+
+export async function ensureDevelopmentCenterSchema(pool:pg.Pool){
+ await pool.query(`create table if not exists operations_development_snapshots(
+  release varchar(16) primary key,
+  payload jsonb not null,
+  captured_at timestamptz not null default now(),
+  captured_by varchar(128) not null default 'SCHEDULED'
+ )`);
+}
+
+export async function refreshDevelopmentCenterData(pool:pg.Pool,release:ReleaseName,capturedBy='SCHEDULED'){
+ cache.delete(release);
+ const payload=await fetchDevelopmentCenterData(release);
+ await pool.query(`insert into operations_development_snapshots(release,payload,captured_at,captured_by)
+  values($1,$2,now(),$3) on conflict(release) do update set payload=excluded.payload,captured_at=excluded.captured_at,captured_by=excluded.captured_by`,[release,payload,capturedBy]);
+ return {...payload,snapshot:{capturedAt:new Date().toISOString(),capturedBy,nextRefreshAt:nextRefreshAt()}};
+}
+
+export async function getDevelopmentCenterData(pool:pg.Pool,release:ReleaseName){
+ const result=await pool.query<{payload:any;captured_at:Date;captured_by:string}>(`select payload,captured_at,captured_by from operations_development_snapshots where release=$1`,[release]);
+ if(!result.rows[0])return refreshDevelopmentCenterData(pool,release,'INITIAL');
+ const row=result.rows[0];
+ return {...row.payload,snapshot:{capturedAt:row.captured_at.toISOString(),capturedBy:row.captured_by,nextRefreshAt:nextRefreshAt()}};
+}
+
+const nextRefreshAt=()=>{const now=new Date(),next=new Date(now);next.setHours(23,0,0,0);if(next<=now)next.setDate(next.getDate()+1);return next.toISOString()};
+export function scheduleDevelopmentCenterSnapshots(pool:pg.Pool){
+ const run=()=>Promise.all((['R1.1','R1.0'] as ReleaseName[]).map(release=>refreshDevelopmentCenterData(pool,release))).catch(()=>undefined);
+ const delay=Math.max(1000,new Date(nextRefreshAt()).getTime()-Date.now());
+ const timer=setTimeout(()=>{void run();setInterval(()=>void run(),24*60*60*1000).unref()},delay);timer.unref();
 }
