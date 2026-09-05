@@ -76,7 +76,7 @@ export async function getDevelopmentCenterData(pool:pg.Pool,release:ReleaseName)
  return {...row.payload,snapshot:{capturedAt:row.captured_at.toISOString(),capturedBy:row.captured_by,nextRefreshAt:nextRefreshAt()}};
 }
 
-const nextRefreshAt=()=>{const now=new Date(),next=new Date(now);next.setHours(23,0,0,0);if(next<=now)next.setDate(next.getDate()+1);return next.toISOString()};
+const nextRefreshAt=()=>{const now=new Date(),next=new Date(now);next.setUTCHours(15,0,0,0);if(next<=now)next.setUTCDate(next.getUTCDate()+1);return next.toISOString()};
 export function scheduleDevelopmentCenterSnapshots(pool:pg.Pool){
  const run=()=>Promise.all((['R1.1','R1.0'] as ReleaseName[]).map(release=>refreshDevelopmentCenterData(pool,release))).catch(()=>undefined);
  const delay=Math.max(1000,new Date(nextRefreshAt()).getTime()-Date.now());
