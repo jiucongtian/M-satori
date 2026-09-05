@@ -9,7 +9,6 @@ const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f-]{27,}\b/gi;
 const recentInteractions = new WeakMap<Element, number>();
 
 const interactionRules: Array<{ test: (label: string, route: string) => boolean; eventName: string; actionCode: string }> = [
-  { test: (label) => /(今日|问事|关系|成长|我的)$/.test(label), eventName: 'navigation_tab_clicked', actionCode: 'primary_navigation' },
   { test: (label) => /领取.*智慧种子|领取.*启程礼/.test(label), eventName: 'onboarding_gift_claim_clicked', actionCode: 'claim_onboarding_gift' },
   { test: (label) => /获取今日能量指引|查看今日能量指引|继续开启/.test(label), eventName: 'daily_guidance_cta_clicked', actionCode: 'open_daily_guidance' },
   { test: (label) => /分享初见/.test(label), eventName: 'share_entry_clicked', actionCode: 'open_share_first_look' },

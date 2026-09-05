@@ -17,7 +17,7 @@
     "check:budgets": "node scripts/check-route-budgets.mjs",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/*.test.mjs",
-    "test:responsive": "playwright test e2e/responsive-compatibility.spec.ts",
+    "test:responsive": "playwright test e2e/responsive-compatibility.spec.ts --workers=1",
     "test:analytics": "NEXT_PUBLIC_ANALYTICS_ENABLED=true NEXT_PUBLIC_APP_ENV=test playwright test e2e/analytics-tracking.spec.ts --project=iphone",
     "test:release-regression": "npm run lint && npm test && npm run build:static && npm run test:responsive && npm run test:analytics",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",

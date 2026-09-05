@@ -133,7 +133,8 @@ test("一级页面切换不重复恢复 Session 或闪回加载态", async () =>
   ]);
   assert.match(session, /routeDiagnostic\(window\.location\.pathname, "recovery", "restored"\)/);
   assert.doesNotMatch(session, /\}, \[pathname\]\);/);
-  assert.match(nav, /active !== label && onNavigate\(label\)/);
+  assert.match(nav, /if \(active === label\) return;/);
+  assert.match(nav, /onNavigate\(label\)/);
   assert.match(query, /export function readQueryCache/);
   assert.match(session, /queryOnce\("home:overview", \(\) => api\.home\(\)\)/);
   assert.match(home, /readQueryCache<HomeOverview>\("home:overview"\)/);

@@ -5,6 +5,7 @@ import test from 'node:test';
 const clientUrl = new URL('../src/analytics/client.ts', import.meta.url);
 const providerUrl = new URL('../src/analytics/AnalyticsProvider.tsx', import.meta.url);
 const businessEventsUrl = new URL('../src/analytics/businessEvents.ts', import.meta.url);
+const bottomNavUrl = new URL('../src/shared/AppBottomNav.tsx', import.meta.url);
 const apiClientUrl = new URL('../src/api/client.ts', import.meta.url);
 
 test('埋点 SDK 具备开关、批量、失败降级和敏感字段过滤', async () => {
@@ -42,8 +43,11 @@ test('关键点击、漏斗中断、对象关联和用户状态快照均已覆�
   const client = await readFile(clientUrl, 'utf8');
   const provider = await readFile(providerUrl, 'utf8');
   const businessEvents = await readFile(businessEventsUrl, 'utf8');
+  const bottomNav = await readFile(bottomNavUrl, 'utf8');
+  assert.match(bottomNav, /navigation_tab_clicked/);
+  assert.doesNotMatch(businessEvents, /navigation_tab_clicked/);
   for (const marker of [
-    'navigation_tab_clicked', 'onboarding_gift_claim_clicked', 'daily_guidance_cta_clicked',
+    'onboarding_gift_claim_clicked', 'daily_guidance_cta_clicked',
     'reading_entry_clicked', 'reading_card_count_selected', 'reading_draw_cta_clicked',
     'reading_retry_clicked', 'commerce_offering_clicked', 'commerce_purchase_clicked',
     'commerce_payment_clicked', 'support_contact_clicked', 'legal_document_clicked',

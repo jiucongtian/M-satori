@@ -37,7 +37,7 @@ test("正式生成页不使用原型定时器并展示真实报告进度", async
 
 test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌位", async () => {
   const [source, styles, globalStyles] = await Promise.all([readFile(legacyPath, "utf8"), readFile(legacyStylePath, "utf8"), readFile(globalStylePath, "utf8")]);
-  assert.match(styles, /generation-card-stage,\.reading-report-scroll>\.report-card-gallery\{[^}]*height:clamp\(340px,50svh,390px\)[^}]*display:grid[^}]*grid-template-columns:repeat\(6/);
+  assert.match(styles, /generation-card-stage,\.reading-report-scroll>\.report-card-gallery\{[^}]*height:clamp\(380px,55svh,430px\)[^}]*display:grid[^}]*grid-template-columns:repeat\(6/);
   assert.match(styles, /generation-card-stage\.count-4 figure:nth-child\(3\)[^{]*\{grid-column:1\/4!important;grid-row:2\}/);
   assert.match(styles, /generation-card-stage\.count-5 figure:nth-child\(4\)[^{]*\{grid-column:2\/4!important;grid-row:2\}/);
   assert.match(styles, /report-card-gallery figcaption\{position:static;[^}]*background:transparent/);

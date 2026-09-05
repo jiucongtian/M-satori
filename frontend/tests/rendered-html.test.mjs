@@ -102,7 +102,8 @@ test("R1.0 首屏使用平台中文字体并保留字体授权证据", async () 
 
   assert.equal(packageJson.dependencies["@fontsource/noto-sans-sc"], "5.2.7");
   assert.equal(packageJson.dependencies["@fontsource/noto-serif-sc"], "5.2.7");
-  assert.doesNotMatch(css, /@font-face|\/fonts\/noto-/);
+  assert.match(css, /@font-face\{font-family:"Fresh Noto Sans SC"/);
+  assert.match(css, /@font-face\{font-family:"Fresh Noto Serif SC"/);
   for (const family of ["noto-sans-sc", "noto-serif-sc"]) {
     for (const weight of [400, 500, 600]) {
       const path = `/fonts/${family}/${family}-${weight}.woff2`;
@@ -113,10 +114,10 @@ test("R1.0 首屏使用平台中文字体并保留字体授权证据", async () 
   for (const license of [sansLicense, serifLicense]) assert.match(license, /SIL OPEN FONT LICENSE Version 1\.1/);
 });
 
-test("R1.0 字体令牌优先使用系统中文字体，避免首屏字体下载", async () => {
+test("R1.0 字体令牌优先使用项目内可商用字体并保留系统字体回退", async () => {
   const css = await readCssSources();
-  assert.match(css, /--font-brand: "Songti SC", "STSong", "Noto Serif CJK SC", serif/);
-  assert.match(css, /--font-ui: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif/);
+  assert.match(css, /--font-brand: "Fresh Noto Serif SC", "Songti SC", "STSong", serif/);
+  assert.match(css, /--font-ui: "Fresh Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif/);
 });
 
 test("R1.0 主导航展示五项且三个未来模块只进入预告页", async () => {

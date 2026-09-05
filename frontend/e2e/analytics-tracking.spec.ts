@@ -11,7 +11,6 @@ test('核心页面访问和底部导航点击会上报且不包含敏感字段',
   await page.goto('/home');
   const nav = page.locator('.app-bottom-nav');
   await nav.getByRole('button', { name: '关系' }).click();
-  await nav.getByRole('button', { name: '成长' }).click();
   await expect.poll(
     () => batches.flatMap((batch) => batch.events ?? []).some((event) => event.event_name === 'navigation_tab_clicked'),
     { timeout: 12_000 },
@@ -34,5 +33,7 @@ test('埋点接口失败不会阻断用户切换页面', async ({ page }, testIn
   await page.route('**/api/v1/analytics/events/batch', (route) => route.fulfill({ status: 503, body: '{}' }));
   await page.goto('/home');
   await page.locator('.app-bottom-nav').getByRole('button', { name: '关系' }).click();
+  await expect(page).toHaveURL(/\/home$/);
   await expect(page.locator('.coming-soon-page')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /看见两个人之间/ })).toBeVisible();
 });

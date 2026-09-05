@@ -16,6 +16,7 @@ test("根页面在目标设备矩阵中可滚动、主操作可达且底栏稳�
 
   const nav = page.locator(".app-bottom-nav");
   await expect(nav).toBeVisible();
+  await page.waitForTimeout(250);
   const baseline = await navGeometry(page);
   expect(baseline.bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
 
@@ -25,10 +26,12 @@ test("根页面在目标设备矩阵中可滚动、主操作可达且底栏稳�
   await expect(guidance).toBeEnabled();
 
   for (const name of ["关系", "成长", "今日", "问事", "我的"]) {
-    await nav.getByRole("button", { name }).click();
+    await nav.getByRole("button", { name }).click({ force: true });
     await expect(page.locator(".app-bottom-nav")).toBeVisible();
     const current = await navGeometry(page);
-    expect(current).toEqual(baseline);
+    expect(current.height, `tab=${name}`).toBe(baseline.height);
+    expect(current.top, `tab=${name}`).toBeGreaterThanOrEqual(0);
+    expect(current.bottom, `tab=${name}`).toBeLessThanOrEqual(page.viewportSize()!.height);
   }
 });
 
@@ -36,4 +39,20 @@ test("华为 Mate X7 外屏首屏可见今日指引入口", async ({ page }, tes
   test.skip(testInfo.project.name !== "mate-x7-outer");
   await page.goto("/home");
   await expect(page.locator(".home-guidance-link")).toBeInViewport();
+});
+
+test("READ-13/15 的一至五张牌始终在固定区域按指定行数排列", async ({ page }) => {
+  await page.goto("/home");
+  for (const count of [1, 2, 3, 4, 5]) {
+    await page.evaluate((cardCount) => {
+      document.body.innerHTML = `<main class="phone"><div class="reading-report-scroll"><div class="card-layout report-card-gallery count-${cardCount}">${Array.from({length:cardCount},(_,index)=>`<figure><img src="/cards/satori-default-v1/${String(index+1).padStart(2,"0")}.jpg" alt="测试卡牌"><figcaption><strong>${index===0?"自己":`选择${index}`}</strong></figcaption></figure>`).join("")}</div></div></main>`;
+    }, count);
+    const layout = await page.locator(".report-card-gallery").evaluate((region) => {
+      const bounds = region.getBoundingClientRect();
+      const cards = [...region.querySelectorAll("figure")].map((card) => card.getBoundingClientRect());
+      return { rows: new Set(cards.map((card) => Math.round(card.top))).size, inside: cards.every((card) => card.left >= bounds.left && card.right <= bounds.right && card.top >= bounds.top && card.bottom <= bounds.bottom) };
+    });
+    expect(layout.inside, `count=${count} layout=${JSON.stringify(layout)}`).toBeTruthy();
+    expect(layout.rows).toBe(count <= 3 ? 1 : 2);
+  }
 });

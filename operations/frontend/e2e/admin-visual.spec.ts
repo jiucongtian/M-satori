@@ -31,6 +31,7 @@ test("@visual ADMIN-VISUAL-002 标题、正文、表格和按钮达到可读字�
 });
 
 test("@visual ADMIN-VISUAL-003 主操作满足最小点击高度", async ({ page }) => {
+  await page.getByRole("button", { name: /用户中心/ }).click();
   const boxes = await page.locator(".admin-primary:visible, .admin-secondary:visible").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
   expect(boxes.length).toBeGreaterThan(0);
   expect(Math.min(...boxes)).toBeGreaterThanOrEqual(40);

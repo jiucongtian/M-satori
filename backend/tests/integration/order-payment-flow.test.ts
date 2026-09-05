@@ -100,7 +100,7 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
       entitlements,
       new SystemClock(),
     );
-    operations = new CommerceOperationsService(runtime, entitlements, {} as never, {} as never);
+    operations = new CommerceOperationsService(runtime, entitlements, {} as never, {} as never, {} as never);
   });
 
   afterAll(async () => {
