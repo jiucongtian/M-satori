@@ -44,9 +44,9 @@ test("订单页兼容历史快照且单条异常数据不会导致整页崩溃",
   assert.doesNotMatch(screens, /productName\(order\.offeringSnapshot\.name\)/);
 });
 
-test("会员、权益和使用记录不向用户暴露英文枚举", async () => {
+test("会员和权益不向用户暴露英文枚举", async () => {
   const screens = await readFile(screensUrl, "utf8");
-  for (const value of ["TERMINATED_BY_UPGRADE", "ACTIVE", "PROMOTION", "COMPENSATION", "MIGRATION", "GRANT", "CARD_READING_INTENT"]) {
+  for (const value of ["TERMINATED_BY_UPGRADE", "ACTIVE", "PROMOTION", "COMPENSATION", "MIGRATION", "CARD_READING_INTENT"]) {
     assert.match(screens, new RegExp(`${value}:[^\\n]*[\\u4e00-\\u9fff]`));
   }
   assert.match(screens, /return labels\[value\] \?\? "状态更新中"/);
@@ -160,13 +160,14 @@ test("商城详情保留来源页面，返回操作不再统一跳到我的", as
   assert.match(routes, /\[ROUTES\.myOrders\]: new Set\(\["orderId", "kind", "from"\]\)/);
 });
 
-test("服务次数记录使用用户能理解的完整句子", async () => {
+test("服务消费记录只展示扣费成功事件及完整消费信息", async () => {
   const screens = await readFile(screensUrl, "utf8");
-  assert.match(screens, /服务次数变化记录/);
-  assert.match(screens, /新增可用次数/);
-  assert.match(screens, /次数已经退回/);
-  assert.match(screens, /因权益变更已结束/);
-  assert.doesNotMatch(screens, /其他服务/);
+  assert.match(screens, /服务消费记录/);
+  assert.match(screens, /只显示已成功扣除次数的服务/);
+  assert.match(screens, /record\.type === "COMMIT"/);
+  assert.match(screens, /扣除\{deductedFrom\}/);
+  assert.match(screens, /dateTime\(record\.createdAt\)/);
+  assert.doesNotMatch(screens, /本次服务暂时占用|服务次数预留|次数已经退回/);
 });
 
 test("订单入口按会员与服务归位，我的首页不再展示重复订单按钮", async () => {

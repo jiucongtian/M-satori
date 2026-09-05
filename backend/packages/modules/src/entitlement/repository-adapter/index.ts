@@ -16,6 +16,7 @@ import {
   assertReservable,
   EntitlementLedgerError,
   type EntitlementEntryType,
+  type EntitlementUsageView,
 } from '../domain/index.js';
 import { reconcileEntitlements } from './reconciliation.js';
 import {
@@ -556,12 +557,17 @@ export class PostgresEntitlementRepository implements EntitlementRepository {
     grantId: string | null,
     cursor: EntitlementCursorPosition | null,
     limit: number,
+    entryType?: EntitlementUsageView['entryType'],
   ) {
     const conditions = ['owner_user_id=$1'];
     const values: unknown[] = [ownerUserId];
     if (grantId) {
       values.push(grantId);
       conditions.push(`grant_id=$${values.length}`);
+    }
+    if (entryType) {
+      values.push(entryType);
+      conditions.push(`entry_type=$${values.length}`);
     }
     if (cursor) {
       values.push(cursor.createdAt);

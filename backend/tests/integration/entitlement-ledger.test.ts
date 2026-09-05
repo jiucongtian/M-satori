@@ -94,6 +94,10 @@ describe.skipIf(!runDatabaseTests)('service entitlement ledger', () => {
       reservedQuantity: 0,
       status: 'EXHAUSTED',
     });
+    const publicUsage = await service.listUsage(userId, { limit: 20 });
+    expect(publicUsage.data.filter((record) => record.entitlementId === grantId)).toEqual([
+      expect.objectContaining({ type: 'COMMIT', quantity: 1, createdAt: expect.any(Date) }),
+    ]);
   });
 
   it('does not restore a released reservation after its grant expires', async () => {

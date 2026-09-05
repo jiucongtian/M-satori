@@ -94,6 +94,7 @@ export interface EntitlementRepository {
     grantId: string | null,
     cursor: EntitlementCursorPosition | null,
     limit: number,
+    entryType?: EntitlementUsageView['entryType'],
   ): Promise<EntitlementPage<EntitlementUsageView>>;
   expireDue(now: Date, requestId: string): Promise<number>;
   reconcile(now: Date, requestId: string): Promise<EntitlementReconciliationReport>;
@@ -193,6 +194,7 @@ export class EntitlementApplicationService implements BenefitSourcePort, Entitle
       input.grantId ?? null,
       this.decodeCursor(input.cursor),
       limit,
+      'COMMIT',
     );
     return { data: page.rows.map(toUsageResponse), meta: this.pageMeta(page) };
   }

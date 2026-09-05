@@ -1861,7 +1861,7 @@ export interface components {
             recordId: string;
             entitlementId: string;
             /** @enum {string} */
-            type: "GRANT" | "RESERVE" | "COMMIT" | "RELEASE" | "REVERSE" | "EXPIRE" | "FREEZE" | "UNFREEZE" | "FORFEIT" | "ADJUSTMENT";
+            type: "COMMIT";
             quantity: number;
             businessContext: components["schemas"]["BusinessContext"];
             originalRecordId?: string | null;

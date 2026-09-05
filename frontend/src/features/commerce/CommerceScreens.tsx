@@ -71,6 +71,15 @@ function date(value: string | null | undefined) {
   return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeZone: "Asia/Shanghai" }).format(new Date(value));
 }
 
+function dateTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: false,
+    timeZone: "Asia/Shanghai",
+  }).format(new Date(value));
+}
+
 function serviceLabel(value: string) {
   return value === "CARD_READING" ? "抽卡问事" : "今日能量";
 }
@@ -471,7 +480,7 @@ export function BenefitsScreen() {
       <p className="commerce-lead">每份权益都有自己的使用次数和有效期，可以分别查看。</p>
       {Object.entries(grouped).map(([source, items]) => <section className="benefit-group" key={source}><header><h2>{SOURCE_NAMES[source] ?? source}</h2><span>{items.reduce((sum, item) => sum + item.available, 0)} 次可用</span></header>{items.map((grant) => <GrantCard key={grant.entitlementId} grant={grant} />)}</section>)}
       {grants.length === 0 ? <div className="commerce-empty">还没有可展示的服务权益</div> : null}
-      <section className="commerce-section"><header><h2>服务次数变化记录</h2><small>每次增加、使用、退回或到期都会记录</small></header><UsageList records={records} /></section>
+      <section className="commerce-section"><header><h2>服务消费记录</h2><small>只显示已成功扣除次数的服务</small></header><UsageList records={records} grants={grants} /></section>
     </CommerceFrame>
   );
 }
@@ -480,38 +489,22 @@ function GrantCard({ grant }: { grant: EntitlementGrant }) {
   return <article className="grant-card"><i>{serviceLabel(grant.serviceType).slice(0, 1)}</i><span><strong>{serviceLabel(grant.serviceType)}</strong><small>{date(grant.validFrom)} — {date(grant.expiresAt)}</small><p>{statusLabel(grant.status)}{grant.reserved > 0 ? ` · ${grant.reserved} 次正在使用中` : ""}</p></span><b>{grant.available}<small> / {grant.total}</small></b></article>;
 }
 
-function usageDescription(record: UsageRecord) {
-  const descriptions: Record<UsageRecord["type"], string> = {
-    GRANT: "新增可用次数",
-    RESERVE: "本次服务暂时占用",
-    COMMIT: "本次服务已经完成",
-    RELEASE: "服务未完成，次数已经退回",
-    REVERSE: "原使用记录已撤回，次数已经退回",
-    EXPIRE: "超过有效期，未使用次数已经结束",
-    FREEZE: "这部分次数暂时不能使用",
-    UNFREEZE: "这部分次数已经恢复使用",
-    FORFEIT: "权益发生变更，未使用次数已经结束",
-    ADJUSTMENT: "官方调整可用次数",
-  };
-  return descriptions[record.type];
-}
-
-function usageQuantity(record: UsageRecord) {
-  const adds = ["GRANT", "RELEASE", "REVERSE", "UNFREEZE"];
-  const removes = ["RESERVE", "COMMIT", "EXPIRE", "FREEZE", "FORFEIT"];
-  const prefix = adds.includes(record.type) ? "+" : removes.includes(record.type) ? "−" : record.quantity >= 0 ? "+" : "−";
-  return `${prefix}${Math.abs(record.quantity)} 次`;
-}
-
 function usageIcon(record: UsageRecord) {
   if (record.businessContext.type === "CARD_READING_INTENT") return "问";
   if (record.businessContext.type === "DAILY_INSIGHT") return "日";
   return "变";
 }
 
-function UsageList({ records }: { records: UsageRecord[] }) {
-  if (!records.length) return <div className="commerce-empty">暂无使用记录</div>;
-  return <><div className="usage-list plain-language">{records.slice(0, 20).map((record) => <p key={record.recordId}><i>{usageIcon(record)}</i><span><b>{usageDescription(record)}</b><small>{date(record.createdAt)} · {CONTEXT_NAMES[record.businessContext.type] ?? "服务次数调整"}</small></span><strong>{usageQuantity(record)}</strong></p>)}</div><div className="commerce-safe-note">“退回”表示之前暂时占用的次数重新可以使用；“结束”表示该批次不能继续使用，常见于到期或会员方案变更。</div></>;
+function UsageList({ records, grants }: { records: UsageRecord[]; grants: EntitlementGrant[] }) {
+  const committed = records.filter((record) => record.type === "COMMIT");
+  const grantsById = new Map(grants.map((grant) => [grant.entitlementId, grant]));
+  if (!committed.length) return <div className="commerce-empty">暂无消费记录</div>;
+  return <div className="usage-list plain-language">{committed.slice(0, 20).map((record) => {
+    const grant = grantsById.get(record.entitlementId);
+    const consumed = CONTEXT_NAMES[record.businessContext.type] ?? (grant ? serviceLabel(grant.serviceType) : "服务");
+    const deductedFrom = grant ? (SOURCE_NAMES[grant.sourceType] ?? "服务权益") : "服务权益";
+    return <p key={record.recordId}><i>{usageIcon(record)}</i><span><b>{consumed}</b><small>扣除{deductedFrom} {Math.abs(record.quantity)} 次 · {dateTime(record.createdAt)}</small></span><strong>−{Math.abs(record.quantity)} 次</strong></p>;
+  })}</div>;
 }
 
 export function OrdersScreen() {
