@@ -22,6 +22,10 @@ export class ConsentGuard implements CanActivate {
       return true;
     }
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    // A verified operations-service credential is accepted only on the restricted
+    // operations commerce routes by AccessTokenGuard. It is a machine identity,
+    // not an end user, so it cannot and must not accept user legal documents.
+    if ((request as AuthenticatedRequest & { operationsService?: boolean }).operationsService) return true;
     const required = await this.infrastructure.database
       .select()
       .from(legalDocuments)
