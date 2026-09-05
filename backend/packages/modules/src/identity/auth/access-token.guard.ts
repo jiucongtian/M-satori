@@ -27,11 +27,16 @@ export class AccessTokenGuard implements CanActivate {
     const serviceToken = isOperationsEndpoint
       ? request.headers['x-satori-operations-token'] ?? request.headers.authorization?.replace(/^Bearer\s+/, '')
       : undefined;
-    const expectedServiceToken = this.infrastructure.environment?.OPERATIONS_SERVICE_TOKEN;
-    if (typeof serviceToken === 'string' && expectedServiceToken) {
+    const expectedServiceTokens = [
+      this.infrastructure.environment?.OPERATIONS_SERVICE_TOKEN,
+      this.infrastructure.environment?.OPERATIONS_SERVICE_TOKEN_PREVIOUS,
+    ].filter((value): value is string => Boolean(value));
+    if (typeof serviceToken === 'string' && expectedServiceTokens.length) {
       const actual = Buffer.from(serviceToken);
-      const expected = Buffer.from(expectedServiceToken);
-      if (actual.length === expected.length && timingSafeEqual(actual, expected)) {
+      if (expectedServiceTokens.some((token) => {
+        const expected = Buffer.from(token);
+        return actual.length === expected.length && timingSafeEqual(actual, expected);
+      })) {
         (request as AuthenticatedRequest).auth = {
           userId: this.infrastructure.environment.OPERATIONS_SERVICE_USER_ID,
           sessionId: 'operations-service',
