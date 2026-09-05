@@ -95,12 +95,11 @@ test("已有会员只能在会员中心续费或升级，商品详情不会产�
   assert.match(screens, /续费周期在当前周期结束后依次开始/);
 });
 
-test("固定核销页只展示系统选择结果且没有来源切换命令", async () => {
+test("旧准备入口恢复正式问事，禁止创建无报告的孤立消费", async () => {
   const screens = await readFile(screensUrl, "utf8");
   const scope = screens.match(/export function ReadingPrepareScreen[\s\S]*$/)?.[0] ?? "";
-  assert.match(scope, /系统自动选择/);
-  assert.match(scope, /无需手动选择/);
-  assert.doesNotMatch(scope, /selectSource|selectedSourceId|切换来源/);
+  assert.match(scope, /router\.replace\(ROUTES\.readingNew\)/);
+  assert.doesNotMatch(scope, /api\.createConsumptionIntent|api\.startConsumptionIntent/);
 });
 
 test("支付前仅在会话内保存 opaque businessContext 并恢复安全业务路径", async () => {
@@ -132,7 +131,7 @@ test("支付预授权在点击前完成，取消收银台后停留订单页且�
   assert.match(checkout, /MicroMessenger/);
   assert.match(checkout, /setPayerPreparation\("blocked"\)/);
   assert.match(checkout, /请在微信中打开后支付/);
-  assert.match(scope, /payerPreparation !== "ready"/);
+  assert.match(scope, /!canSubmitCheckout\(quote, busy, payerPreparation\)/);
   assert.match(scope, /payment\.provider === ["']WECHAT_PAY["']/);
   assert.match(scope, /invokeWechatPay\(payment\.clientParameters\)/);
   assert.match(scope, /result === "cancel"/);

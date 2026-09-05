@@ -3,7 +3,7 @@ import { CardReadingController } from './card-reading.controller.js';
 import { CardReadingService } from './card-reading.service.js';
 
 /**
- * R1.1 先发布问事消费与抽卡端口基线；持久化问事实现接入时在此完成装配。
+ * API 与 Worker 共享同一持久化问事服务；任务处理器由服务初始化时注册。
  */
 @Module({
   controllers: [CardReadingController],

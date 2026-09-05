@@ -23,7 +23,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev:e2e",
+    // Existing browser suites are visual/prototype checks, not business E2E.
+    command: "npm run dev:e2e:prototype",
     url: "http://localhost:3011/home",
     env: {
       NEXT_PUBLIC_ANALYTICS_ENABLED: process.env.NEXT_PUBLIC_ANALYTICS_ENABLED ?? "false",

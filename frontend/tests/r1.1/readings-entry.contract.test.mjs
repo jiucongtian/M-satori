@@ -3,109 +3,77 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PROTECTED_PATHS, ROUTES } from "../../src/shared/routes.ts";
 
-test("R11-READ-001：问事入口、发起页和历史页是受保护的真实路由", () => {
-  for (const path of [ROUTES.readings, ROUTES.readingNew, ROUTES.readingHistory]) {
-    assert.equal(PROTECTED_PATHS.has(path), true, `${path} 必须受登录保护`);
-  }
-  assert.equal(ROUTES.readings, "/readings");
-  assert.equal(ROUTES.readingNew, "/readings/new");
-  assert.equal(ROUTES.readingHistory, "/readings/history");
-});
+// Source-wiring checks only. Real settlement/recovery tests live in backend/tests/integration.
+const source = path => readFile(new URL(`../../src/${path}`, import.meta.url), "utf8");
 
-test("R11-READ-002：问事首页的两个入口都进入问题填写页", async () => {
-  const page = await readFile(new URL("../../src/features/reading/ReadingHomeScreen.tsx", import.meta.url), "utf8");
-  const newRoute = "router.push(ROUTES.readingNew)";
-  assert.equal((page.match(new RegExp(newRoute.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []).length >= 2, true);
+test("R11-READ-001：正式问事入口、发起页和历史页需要登录", () => {
+  for (const path of [ROUTES.readings, ROUTES.readingNew, ROUTES.readingHistory]) assert.equal(PROTECTED_PATHS.has(path), true);
+});
+test("R11-READ-002：新问事与历史入口接入正式路由", async () => {
+  const page = await source("features/reading/ReadingHomeScreen.tsx");
+  assert.match(page, /router\.push\(ROUTES\.readingNew\)/);
   assert.match(page, /router\.push\(ROUTES\.readingHistory\)/);
 });
-
-test("R11-READ-002：问题与牌位输入遵守边界，并提示下一步权益确认", async () => {
-  const page = await readFile(new URL("../../src/features/reading/ReadingNewScreen.tsx", import.meta.url), "utf8");
+test("R11-READ-003：正式输入页提供输入边界及专业求助提示", async () => {
+  const page = await source("features/reading/ReadingNewScreen.tsx");
   assert.match(page, /maxLength=\{120\}/);
-  assert.match(page, /const ready=question\.trim\(\)\.length>=6/);
   assert.match(page, /disabled=\{!ready\}/);
-  assert.match(page, /下一步确认本次使用的问事权益/);
+  assert.match(page, /不能代替医疗诊断、投资决策或法律意见/);
+  assert.match(page, /如何照顾自己、理解感受并准备下一步/);
 });
-
-test("R11-READ-003：风险问题提供安全替代表达与专业求助提醒", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  assert.match(flow, /这个问题需要换一种[\s\S]*更安全的问法/);
-  assert.match(flow, /不能代替医疗诊断、投资决策、法律意见/);
-  assert.match(flow, /使用建议问法继续/);
+test("R11-READ-004：正式问事独立于原型并保留牌数与牌位", async () => {
+  const page = await source("features/reading/ReadingNewScreen.tsx");
+  const flow = await source("features/reading/ReadingFlowScreen.tsx");
+  assert.match(page, /\[3,4,5\]/);
+  assert.match(page, /positionTemplate/);
+  assert.doesNotMatch(flow, /features\/legacy|ReadingPrototypeScreens/);
 });
-
-test("R11-READ-004：牌数、牌位与随机抽牌规则在前端明确呈现", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  assert.match(flow, /选择一张、两张或多张/);
-  assert.match(flow, /两张牌的位置确认后/);
-  assert.match(flow, /系统公平随机抽取/);
+test("R11-READ-005：权益显示来自真实接口，抽牌发送稳定请求键", async () => {
+  const payment = await source("features/reading/ReadingPaymentScreen.tsx");
+  const flow = await source("features/reading/ReadingFlowScreen.tsx");
+  assert.match(payment, /api\.resolveEntitlement/);
+  assert.match(payment, /source\.cost/);
+  assert.doesNotMatch(payment, /8 次|7 次/);
+  assert.match(flow, /api\.createCardReadingDraw\([^]*?drawRequestKey\)/);
 });
-
-test("R11-READ-005：权益消耗、失败不重复提交与后端幂等契约均有边界", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  const contract = JSON.parse(await readFile(new URL("../../../backend/openapi/r1.1-p0-contract.json", import.meta.url), "utf8"));
-  assert.match(flow, /只有形成有效问事报告才会核销/);
-  assert.match(flow, /生成失败不会消耗权益，也不会重复提交/);
-  assert.equal(contract.paths["/v1/readings/{readingId}/generate"].post["x-idempotency-required"], true);
+test("R11-READ-006：权益不足给出可返回的服务包入口", async () => {
+  const payment = await source("features/reading/ReadingPaymentScreen.tsx");
+  assert.match(payment, /当前可用权益不足/);
+  assert.match(payment, /\/shop\?returnTo=/);
 });
-
-test("R11-READ-006：权益不足时给出服务包入口，且返回路径可恢复", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  const routeFlow = await readFile(new URL("../../src/features/reading/ReadingFlowScreen.tsx", import.meta.url), "utf8");
-  assert.match(flow, /ReadingInsufficient/);
-  assert.match(flow, /onRecharge/);
-  assert.match(routeFlow, /ROUTES\.shop/);
+test("R11-READ-007：失败重试只发送原记录，不重新抽牌", async () => {
+  const flow = await source("features/reading/ReadingFlowScreen.tsx");
+  assert.match(flow, /api\.retryCardReading\(reading\.readingId\)/);
+  assert.match(flow, /retried\.readingId,retried\.cardCount/);
 });
-
-test("R11-READ-007：确认的卡牌被固定，失败重试沿用原卡牌", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  assert.match(flow, /这 .* 张牌将冻结并用于生成报告/);
-  assert.match(flow, /本次输入即将冻结/);
-  assert.match(flow, /使用原卡牌重新生成/);
+test("R11-READ-008：网络错误、缺失记录和草稿均有恢复出口", async () => {
+  const flow = await source("features/reading/ReadingFlowScreen.tsx");
+  assert.match(flow, /setFlowError\(apiMessage\(reason\)\)/);
+  assert.match(flow, /onRetry=\{\(\)=>window\.location\.reload\(\)\}/);
+  assert.match(flow, /没有找到本次问事/);
+  assert.match(flow, /问事草稿已失效/);
 });
-
-test("R11-READ-008：生成失败与网络中断都具有安全恢复路径", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  assert.match(flow, /查看生成失败状态/);
-  assert.match(flow, /查看网络中断状态/);
-  assert.match(flow, /问题、卡牌和抽取结果都已安全保存/);
+test("R11-READ-009：正式生成没有模拟成功定时器，报告包含反馈入口", async () => {
+  const views = await source("features/reading/ReadingScreens.tsx");
+  assert.doesNotMatch(views, /setTimeout|prototypeSections/);
+  assert.match(views, /完成后会保存在问事记录中/);
+  assert.match(views, /onFeedback&&/);
 });
-
-test("R11-READ-009：报告完成后可回到问事首页，记录保留后续查看入口", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  assert.match(flow, /完成后会保存在问事记录中/);
-  assert.match(flow, /稍后从问事记录查看/);
-});
-
-test("R11-READ-010：问事记录提供历史页与完成任务恢复提示", async () => {
-  const home = await readFile(new URL("../../src/features/reading/ReadingHomeScreen.tsx", import.meta.url), "utf8");
-  const history = await readFile(new URL("../../src/features/reading/ReadingHistoryScreen.tsx", import.meta.url), "utf8");
-  assert.match(home, /ROUTES\.readingHistory/);
+test("R11-READ-010：历史页面恢复待处理任务并响应页面重新可见", async () => {
+  const history = await source("features/reading/ReadingHistoryScreen.tsx");
   assert.match(history, /待处理的任务也会在这里恢复/);
-  assert.match(history, /生成中/);
   assert.match(history, /pageshow/);
   assert.match(history, /visibilitychange/);
 });
-
-test("R11-READ-011：问事分享默认隐藏原始问题，并提供生成失败恢复", async () => {
-  const flow = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
-  assert.match(flow, /默认保护你的原始问题/);
-  assert.match(flow, /隐藏问题/);
-  assert.match(flow, /查看生成失败/);
+test("R11-READ-011：反馈保存接入后端并显示失败，不只修改本地状态", async () => {
+  const feedback = await source("features/reading/ReadingFeedbackScreen.tsx");
+  assert.match(feedback, /api\.cardReadingFeedback\(/);
+  assert.match(feedback, /role="alert"/);
 });
-
-test("R11-READ-012：所有问事页头展示后端智慧种子余额，不展示不可操作的权益或固定数字", async () => {
-  const [shell, flow, balanceHook] = await Promise.all([
-    readFile(new URL("../../src/features/reading/ReadingShell.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../src/features/reading/useWisdomSeedBalance.ts", import.meta.url), "utf8"),
-  ]);
+test("R11-READ-012：问事页头统一使用后端种子余额", async () => {
+  const [shell, views, hook] = await Promise.all([source("features/reading/ReadingShell.tsx"), source("features/reading/ReadingScreens.tsx"), source("features/reading/useWisdomSeedBalance.ts")]);
   assert.match(shell, /useWisdomSeedBalance\(\)/);
-  assert.match(flow, /function ReadingHeader[\s\S]{0,500}useWisdomSeedBalance\(\)/);
-  assert.match(balanceHook, /api\.seedAccount\(\)/);
-  assert.match(balanceHook, /account\.available/);
-  assert.match(balanceHook, /visibilitychange/);
-  assert.doesNotMatch(shell, /<i>权益<\/i>/);
-  assert.doesNotMatch(flow, /className="mini-balance"><i>●<\/i>2/);
-  assert.doesNotMatch(flow, /智慧种子 <b>-2<\/b>|本次 2 颗种子|当前余额 <b>1 ●<\/b>/);
+  assert.match(views, /import \{ ReadingHeader \} from "\.\/ReadingShell"/);
+  assert.match(hook, /api\.seedAccount\(\)/);
+  assert.match(hook, /visibilitychange/);
 });

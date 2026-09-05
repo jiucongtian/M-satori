@@ -7,7 +7,7 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { CONSUMPTION_PORT, hashPayload, type ConsumptionPort } from '@satori/application';
-import { cardReadings, feedback, generationTasks, newId, RuntimeInfrastructure } from '@satori/infrastructure';
+import { cardReadings, consumptionIntents, feedback, generationTasks, newId, RuntimeInfrastructure } from '@satori/infrastructure';
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import { createHash, randomInt } from 'node:crypto';
 import { buildReadingRequirement } from './application/index.js';
@@ -241,9 +241,15 @@ export class CardReadingService implements OnModuleInit {
         if (!recover || existingTask) return this.dto(locked);
       }
       reading = locked;
-      if (reading.status === 'FAILED' || !reading.consumptionIntentId) {
+      const [previousIntent] = reading.consumptionIntentId
+        ? await tx.select({ status: consumptionIntents.status }).from(consumptionIntents).where(eq(consumptionIntents.id, reading.consumptionIntentId)).limit(1)
+        : [];
+      // A user may return after the unstarted draw reservation has expired.
+      // Re-reserve against the same frozen cards, never resurrect a released intent.
+      const newAttempt = reading.status === 'FAILED' || (previousIntent && ['EXPIRED', 'RELEASED'].includes(previousIntent.status));
+      if (newAttempt || !reading.consumptionIntentId) {
         const attempt =
-          reading.status === 'FAILED' ? reading.consumptionAttempt + 1 : reading.consumptionAttempt;
+          newAttempt ? reading.consumptionAttempt + 1 : reading.consumptionAttempt;
         const policy = this.infrastructure.policy.cardReading.seedCost;
         const cost = reading.seedQuantity;
         const reserved = await this.consumption.reserve(

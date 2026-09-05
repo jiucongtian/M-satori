@@ -8,7 +8,6 @@ import {
   type BusinessContext,
   type CheckoutQuote,
   type EntitlementGrant,
-  type EntitlementResolution,
   type MembershipPlan,
   type MembershipSubscription,
   type MoneyOrder,
@@ -634,31 +633,8 @@ export function RefundStatusScreen() { return <RefundsScreen />; }
 
 export function ReadingPrepareScreen() {
   const router = useRouter();
-  const [resolution, setResolution] = useState<EntitlementResolution | null>(null);
-  const [context, setContext] = useState<BusinessContext | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => { const timer = window.setTimeout(() => setContext(getOrCreateReadingContext()), 0); return () => window.clearTimeout(timer); }, []);
-  useEffect(() => {
-    if (!context) return;
-    void api.resolveEntitlement("CARD_READING", 1, context, 1).then(setResolution).catch((reason) => setError(apiMessage(reason)));
-  }, [context]);
-  async function reserve() {
-    if (!resolution?.selectedSource) return;
-    setBusy(true); setError("");
-    try {
-      const intent = await api.createConsumptionIntent(resolution.resolutionId);
-      await api.startConsumptionIntent(intent.intentId);
-      router.push(ROUTES.home);
-    } catch (reason) { setError(apiMessage(reason)); setBusy(false); }
-  }
-  if (error && !resolution) return <RouteError message={error} backHref={ROUTES.home} />;
-  if (!resolution) return <RouteSkeleton label="系统正在按固定规则确认可用权益…" />;
-  const selected = resolution.selectedSource;
-  return (
-    <CommerceFrame title={selected ? "本次问事权益已确认" : "需要先获得问事权益"} eyebrow="系统自动选择" backHref={ROUTES.readings}>
-      {selected ? <><div className="resolution-card"><small>系统自动选择</small><h2>{SOURCE_NAMES[selected.sourceType] ?? selected.sourceType}</h2><p>本次使用 {selected.cost} {selected.unit === "WISDOM_SEED" ? "颗智慧种子" : "次服务"}</p>{selected.expiresAt ? <span>有效至 {date(selected.expiresAt)}</span> : null}</div><div className="commerce-safe-note">系统会自动使用合适的可用次数，无需手动选择。</div><button className="commerce-primary" disabled={busy} onClick={() => void reserve()}>{busy ? "正在确认…" : "确认后进入抽卡"}</button></> : <><div className="commerce-empty">当前会员服务、已购服务包和可用智慧种子均不足。</div><Link className="commerce-primary" href={`${ROUTES.shop}?returnTo=${encodeURIComponent(ROUTES.readingPrepare)}`}>查看问事服务包</Link></>}
-      {error ? <p className="commerce-error">{error}</p> : null}
-    </CommerceFrame>
-  );
+  // Old bookmarks and post-purchase returns must enter the real reading flow.
+  // Reserving here would create an orphan consumption without a reading/task.
+  useEffect(() => { router.replace(ROUTES.readingNew); }, [router]);
+  return <ProtectedRoute><RouteSkeleton label="正在恢复问事草稿…" /></ProtectedRoute>;
 }

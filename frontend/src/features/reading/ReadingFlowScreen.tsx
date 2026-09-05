@@ -3,20 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ReadingConfig,
-  ReadingConfirm,
   ReadingDraw,
   ReadingFailure,
   ReadingGenerate,
-  ReadingQuestion,
   ReadingReport,
   ReadingReveal,
   ReadingShuffle,
-  ReadingSpread,
-} from "@/src/features/legacy/LegacyProfileFlow";
+} from "./ReadingScreens";
 import { ProtectedRoute } from "@/src/shared/guards";
 import { ROUTES, safeReturnPath, withReturnPath } from "@/src/shared/routes";
-import { RouteError,RouteFrame } from "@/src/shared/shell";
+import { RouteError,RouteFrame,RouteSkeleton } from "@/src/shared/shell";
 import { useSession } from "@/src/shared/session";
 import { readFlowDraft } from "@/src/shared/storage";
 import { apiMessage,PageDebugLabel } from "@/src/shared/ui";
@@ -57,6 +53,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   const searchParams = useSearchParams();
   const{me}=useSession();
   const[draft,setDraft]=useState<ReadingDraft|null>(null);
+  const[draftLoaded,setDraftLoaded]=useState(false);
   const[reading,setReading]=useState<CardReading|null>(null);const[flowBusy,setFlowBusy]=useState(false);const[flowError,setFlowError]=useState("");
   const generationStartedFor=useRef<string|null>(null);
   const [drawRequestKey, setDrawRequestKey] = useState("");
@@ -71,7 +68,8 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     const timer = window.setTimeout(() => setDrawRequestKey(key), 0);
     return () => window.clearTimeout(timer);
   }, [draft, me?.userId]);
-  useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,2)),0);return()=>window.clearTimeout(timer)},[me?.userId]);
+  useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>{setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,2));setDraftLoaded(true)},0);return()=>window.clearTimeout(timer)},[me?.userId]);
+  useEffect(()=>{if(["question","confirm","spread","config"].includes(step))router.replace(withReturnPath(ROUTES.readingNew,safeReturnPath(searchParams.get("from"),ROUTES.readingHistory)))},[step,router,searchParams]);
   useEffect(()=>{
     if(!me?.userId)return;
     const requested=searchParams.get("readingId");
@@ -79,7 +77,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     const canRestoreSaved=["draw","reveal","generating","report","feedback","failure"].includes(step);
     const id=requested||(canRestoreSaved?saved:null);
     let active=true;
-    if(!id){const timer=window.setTimeout(()=>{if(active)setReading(null)},0);return()=>{active=false;window.clearTimeout(timer)}}
+    if(!id){const timer=window.setTimeout(()=>{if(active){setReading(null);if(canRestoreSaved)setFlowError("没有找到本次问事，请从问事记录继续，或发起一次新的问事。")}},0);return()=>{active=false;window.clearTimeout(timer)}}
     void api.cardReading(id).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))});
     return()=>{active=false};
   },[me?.userId,searchParams,step]);
@@ -106,26 +104,29 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     if(reading.status==="READY"){router.replace(destination("report"));return}
     if(reading.status==="FAILED"){router.replace(destination("failure"));return}
     let active=true;
-    if(reading.status==="DRAWN"&&generationStartedFor.current!==reading.readingId){generationStartedFor.current=reading.readingId;void api.completeCardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(()=>{if(active)router.replace(`${path.failure}?readingId=${encodeURIComponent(reading.readingId)}`)})}
+    if(reading.status==="DRAWN"&&generationStartedFor.current!==reading.readingId){generationStartedFor.current=reading.readingId;void api.completeCardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))})}
     const timer=["DRAWN","GENERATING"].includes(reading.status)?window.setInterval(()=>{void api.cardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))})},2500):undefined;
     return()=>{active=false;if(timer)window.clearInterval(timer)};
   },[reading,router,step,returnPath]);
 
   const screens: Record<ReadingFlowStep, React.ReactNode> = {
-    question: <ReadingQuestion onBack={()=>go("home")} onNext={()=>go("spread")}/>,
-    confirm: <ReadingConfirm onBack={()=>go("question")} onNext={()=>go("spread")} onSafety={()=>go("question")}/>,
-    spread: <ReadingSpread onBack={()=>go("question")} onNext={(count)=>router.push(`${path.payment}?cards=${count}`)}/>,
-    config: <ReadingConfig onBack={()=>go("spread")} onNext={()=>go("payment")}/>,
+    question: null,
+    confirm: null,
+    spread: null,
+    config: null,
     payment: drawRequestKey ? <ReadingPaymentScreen cardCount={cardCount} question={draft?.question} requestKey={drawRequestKey} onBack={()=>go("question")} onNext={()=>go("shuffle")}/> : null,
     shuffle: <ReadingShuffle onBack={()=>go("payment")} onNext={()=>void beginDraw()}/>,
     draw: <ReadingDraw cardCount={cardCount} onBack={()=>go("shuffle")} onNext={()=>go("reveal")}/>,
     reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>go("generating")}/>,
-    generating: <ReadingGenerate live status={reading?.status??"GENERATING"} cardCount={cardCount} cards={reading?.cards} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onSuccess={()=>router.push(`${path.report}?readingId=${encodeURIComponent(reading?.readingId??"")}`)} onFailure={()=>go("failure")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")} onNetworkError={()=>go("failure")}/>,
-    report: <ReadingReport live report={reading?.report} question={reading?.question} cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")} onShare={reading?.readingId&&reading.report?()=>router.push(`/share/generating?type=reading&readingId=${encodeURIComponent(reading.readingId)}`):undefined}/>,
+    generating: <ReadingGenerate status={reading?.status??"GENERATING"} cardCount={reading?.cardCount??cardCount} cards={reading?.cards??[]} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")}/>,
+    report: <ReadingReport report={reading?.report} question={reading?.question} cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")} onFeedback={reading?.status === "READY"?()=>go("feedback",reading.readingId,reading.cardCount):undefined} onShare={reading?.readingId&&reading.report?()=>router.push(`/share/generating?type=reading&readingId=${encodeURIComponent(reading.readingId)}`):undefined}/>,
     feedback: reading?.status === "READY" ? <ReadingFeedbackScreen readingId={reading.readingId} onBack={()=>go("report", reading.readingId, reading.cardCount)} onDone={()=>go("home")}/> : null,
     failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>{generationStartedFor.current=null;void retryReading()}}/>,
   };
 
-  if(flowError)return <RouteError title="本次问事暂时没有继续" message={flowError} backHref={ROUTES.readingHistory}/>;
-  return <ProtectedRoute><RouteFrame title="抽卡问事" label="R1.1 正式主流程"><PageDebugLabel>{`R1.1 · ${pageCode[step]}`}</PageDebugLabel>{screens[step]}{step === "report" && reading?.status === "READY" && <button className="text-action" onClick={()=>go("feedback", reading.readingId, reading.cardCount)}>留下本次问事反馈</button>}</RouteFrame></ProtectedRoute>;
+  if(flowError)return <ProtectedRoute><RouteError title="本次问事暂时没有继续" message={flowError} onRetry={()=>window.location.reload()} backHref={ROUTES.readingHistory}/></ProtectedRoute>;
+  if(["payment","shuffle"].includes(step)&&draftLoaded&&!draft)return <ProtectedRoute><RouteError message="问事草稿已失效，请重新填写问题。" backHref={ROUTES.readingNew}/></ProtectedRoute>;
+  if(["draw","reveal","generating","report","feedback","failure"].includes(step)&&!reading)return <ProtectedRoute><RouteSkeleton label="正在恢复问事记录…"/></ProtectedRoute>;
+  if(["report","feedback"].includes(step)&&reading?.status!=="READY")return <ProtectedRoute><RouteError message="报告尚未完成，请从问事记录查看进度或继续生成。" backHref={ROUTES.readingHistory}/></ProtectedRoute>;
+  return <ProtectedRoute><RouteFrame title="抽卡问事" label="R1.1 正式主流程"><PageDebugLabel>{`R1.1 · ${pageCode[step]}`}</PageDebugLabel>{screens[step]}</RouteFrame></ProtectedRoute>;
 }

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const flowPath = new URL("../src/features/reading/ReadingFlowScreen.tsx", import.meta.url);
-const legacyPath = new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url);
+const readingScreensPath = new URL("../src/features/reading/ReadingScreens.tsx", import.meta.url);
 const legacyStylePath = new URL("../src/features/legacy/legacy.css", import.meta.url);
 const globalStylePath = new URL("../app/globals.css", import.meta.url);
 const clientPath = new URL("../src/api/client.ts", import.meta.url);
@@ -26,8 +26,8 @@ test("新问事不受旧活动记录牌数影响，失败重试显式携带原�
 });
 
 test("正式生成页不使用原型定时器并展示真实报告进度", async () => {
-  const source = await readFile(legacyPath, "utf8");
-  assert.match(source, /if\(live\)return;/);
+  const source = await readFile(readingScreensPath, "utf8");
+  assert.doesNotMatch(source, /setTimeout|prototypeSections|live\s*=/);
   assert.match(source, /正在整理问事报告/);
   assert.doesNotMatch(source, /Aqua 正在整理问事报告|保存完整报告/);
   assert.match(source, /report\?\.report/);
@@ -36,7 +36,7 @@ test("正式生成页不使用原型定时器并展示真实报告进度", async
 });
 
 test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌位", async () => {
-  const [source, styles, globalStyles] = await Promise.all([readFile(legacyPath, "utf8"), readFile(legacyStylePath, "utf8"), readFile(globalStylePath, "utf8")]);
+  const [source, styles, globalStyles] = await Promise.all([readFile(readingScreensPath, "utf8"), readFile(legacyStylePath, "utf8"), readFile(globalStylePath, "utf8")]);
   assert.match(styles, /generation-card-stage,\.reading-report-scroll>\.report-card-gallery\{[^}]*height:clamp\(380px,55svh,430px\)[^}]*display:grid[^}]*grid-template-columns:repeat\(6/);
   assert.match(styles, /generation-card-stage\.count-4 figure:nth-child\(3\)[^{]*\{grid-column:1\/4!important;grid-row:2\}/);
   assert.match(styles, /generation-card-stage\.count-5 figure:nth-child\(4\)[^{]*\{grid-column:2\/4!important;grid-row:2\}/);

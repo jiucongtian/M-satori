@@ -40,4 +40,5 @@ services:
     volumes:
       - ../frontend:/work/frontend
       - ../backend:/work/backend:ro
+      - ../docs:/work/docs:ro
     command: ['sh', '-c', 'npm ci && npx tsc --noEmit && npm run lint && node --test tests/r1.1/*.test.mjs']

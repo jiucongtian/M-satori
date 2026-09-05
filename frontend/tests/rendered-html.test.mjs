@@ -10,6 +10,9 @@ const pageSourceUrls = [
   "../src/features/profile/ProfileCreateScreen.tsx",
   "../src/components/LifeWisdomCard.tsx",
   "../src/features/legacy/LegacyProfileFlow.tsx",
+  "../src/features/legacy/ReadingPrototypeScreens.tsx",
+  "../src/features/reading/ReadingScreens.tsx",
+  "../src/features/reading/ReadingShell.tsx",
 ].map((path) => new URL(path, import.meta.url));
 
 async function readPageSources() {

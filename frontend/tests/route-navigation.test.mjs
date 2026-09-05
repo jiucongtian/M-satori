@@ -174,8 +174,12 @@ test("R1.1 问事分类、翻牌布局和支付成功出口符合已确认原型
     readFile(new URL("../src/features/legacy/legacy.css", import.meta.url), "utf8"),
     readFile(new URL("../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(legacy, /"个人状态", "其他"/);
-  assert.match(legacy, /report-card-gallery reveal-card-gallery/);
+  const input = await readFile(new URL("../src/features/reading/ReadingNewScreen.tsx", import.meta.url), "utf8");
+  const views = await readFile(new URL("../src/features/reading/ReadingScreens.tsx", import.meta.url), "utf8");
+  assert.match(input, /"个人状态"/);
+  assert.match(input, /\?\?"其他"/);
+  assert.match(views, /report-card-gallery reveal-card-gallery/);
+  assert.doesNotMatch(legacy, /export function ReadingReveal/);
   assert.match(styles, /\.card-layout\.reveal-card-gallery\.count-5 figure/);
   const success = commerce.slice(commerce.indexOf("export function PaymentResultScreen"), commerce.indexOf("export function BenefitsScreen"));
   assert.match(success, /权益已经到账/);
@@ -184,13 +188,13 @@ test("R1.1 问事分类、翻牌布局和支付成功出口符合已确认原型
   assert.doesNotMatch(success, /查看本周期权益|去查看今日能量|去开始一次问事/);
 });
 
-test("READ-09 不展示原型分支或权益不足入口", async () => {
-  const [legacy, flow] = await Promise.all([
-    readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
+test("READ-09 不展示原型分支，真实权益不足有服务入口", async () => {
+  const [payment, flow] = await Promise.all([
+    readFile(new URL("../src/features/reading/ReadingPaymentScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingFlowScreen.tsx", import.meta.url), "utf8"),
   ]);
-  const payment = legacy.slice(legacy.indexOf("export function ReadingPayment"), legacy.indexOf("export function ReadingShuffle"));
   assert.doesNotMatch(payment, /原型分支|查看权益不足|onInsufficient/);
+  assert.match(payment, /当前可用权益不足/);
   assert.doesNotMatch(flow, /<ReadingPayment[^>]*onInsufficient/);
 });
 
@@ -208,7 +212,7 @@ test("READ-02 在同页完成问题、牌数与牌位并直接进入 READ-09", a
   assert.doesNotMatch(screen, /PositionMode|自己定义|按时间展开/);
   assert.match(screen, /writeFlowDraft\("reading"/);
   assert.match(screen, /router\.push\(`\/readings\/payment\?cards=\$\{cardCount\}`\)/);
-  assert.match(flow, /payment: <ReadingPayment.*onBack=\{\(\)=>go\("question"\)\}/);
+  assert.match(flow, /payment: drawRequestKey \? <ReadingPaymentScreen.*onBack=\{\(\)=>go\("question"\)\}/);
 });
 
 test("READ-01 示例覆盖不同牌数，全部牌数使用系统固定牌位", async () => {
@@ -223,8 +227,7 @@ test("READ-01 示例覆盖不同牌数，全部牌数使用系统固定牌位", 
 });
 
 test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => {
-  const [legacy, styles, legacyStyles, responsiveShell, layout, homeScreen, readingShell] = await Promise.all([
-    readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
+  const [styles, legacyStyles, responsiveShell, layout, homeScreen, readingShell] = await Promise.all([
     readFile(new URL("../src/features/reading/reading-responsive.css", import.meta.url), "utf8"),
     readFile(new URL("../src/features/legacy/legacy.css", import.meta.url), "utf8"),
     readFile(new URL("../src/shared/responsive-shell.css", import.meta.url), "utf8"),
@@ -232,9 +235,10 @@ test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => 
     readFile(new URL("../src/features/home/HomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingShell.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(legacy, /draw-page reading-action-page/);
-  assert.match(legacy, /immersive-reading reading-action-page/);
-  assert.match(legacy, /reading-generating reading-action-page/);
+  const views = await readFile(new URL("../src/features/reading/ReadingScreens.tsx", import.meta.url), "utf8");
+  assert.match(views, /draw-page reading-action-page/);
+  assert.match(views, /immersive-reading reading-action-page/);
+  assert.match(views, /reading-generating reading-action-page/);
   assert.match(styles, /\.reading-action-page\{[^}]*overflow-y:auto/);
   assert.match(styles, /\.reading-action-page>\.primary\{[^}]*position:sticky;bottom:0/);
   assert.match(styles, /\.reading-home\.root-tab-page\{[^}]*overflow:hidden/);

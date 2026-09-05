@@ -2,6 +2,12 @@
 
 本目录是 R1.1 的业务验收基线。每条用例以 `R11-` 编号管理，并与 `frontend/tests/r1.1/` 内同编号的自动化检查对应。
 
+## 2026-09-05 验证分层
+
+`frontend/tests/r1.1/*.test.mjs` 多为源码接线检查，不能证明请求真实执行或权益真实扣减。真实问事状态、反馈、结算与恢复由 `backend/tests/integration/card-reading-lifecycle.test.ts`（PostgreSQL/Redis/实际 Worker）验证；消费编排由相邻 integration 测试验证。HTTP 登录/每日指引回归在 `backend/tests/e2e/auth-flow.test.ts`。外部 Aqua 和真实支付需另行验收。
+
+现有 Playwright 配置显式启动 `dev:e2e:prototype`，仅用于视觉原型检查；普通开发命令默认关闭原型模式。本次用户要求所有测试在测试服务器独立目录运行，不在本机执行。环境、通过数与发布边界见 [当前交接](../../R1.1-current-handoff.md) 和 [修复记录](../../plans/2026-09-05-r11-hardening.md)。
+
 ## 两种使用方式
 
 1. **研发参考**：开发或调整功能前，先查看对应业务用例的前置条件、操作和预期结果；功能范围变更时，先更新用例，再更新实现。

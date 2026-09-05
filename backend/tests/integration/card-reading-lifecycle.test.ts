@@ -162,4 +162,17 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
       expect(await intentStatus(draw.readingId)).toBe('COMMITTED');
     } finally { await worker.onApplicationShutdown(); }
   });
+
+  it('resumes an expired unstarted draw using the same cards and a fresh reservation', async () => {
+    const command = await user();
+    const draw = await readings.createDraw(command, randomUUID());
+    await infrastructure.pool.query("update consumption_intents set reservation_deadline=now()-interval '1 hour' where business_context_id=$1", [`${draw.readingId}:1`]);
+    await consumption.expireDue();
+    expect(await intentStatus(draw.readingId)).toBe('EXPIRED');
+    const resumed = await readings.complete(command.ownerUserId, draw.readingId);
+    expect(resumed.cards).toEqual(draw.cards);
+    const task = await tasks.claim(await taskFor(draw.readingId, 2));
+    await runner.run(task!);
+    expect(await intentStatus(draw.readingId)).toBe('COMMITTED');
+  });
 });

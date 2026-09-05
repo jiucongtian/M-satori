@@ -89,5 +89,7 @@ test("R11-SHARE-001：分享内容默认排除敏感资料与完整报告", asyn
   const page = await readFile(new URL("../../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
   assert.match(page, /分享卡不包含出生资料与完整报告内容/);
   assert.match(page, /不包含出生日期、地点、卡牌干支与完整报告/);
-  assert.match(page, /默认保护你的原始问题/);
+  const share = await readFile(new URL("../../src/features/share/ShareFirstLookScreen.tsx", import.meta.url), "utf8");
+  const readingCopies = share.slice(share.indexOf("export function readingPosterCopies"), share.indexOf("function href"));
+  assert.doesNotMatch(readingCopies, /reading\.question/);
 });
