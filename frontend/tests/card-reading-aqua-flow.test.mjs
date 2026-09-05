@@ -40,6 +40,11 @@ test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌
   assert.match(styles, /generation-card-stage,\.reading-report-scroll>\.report-card-gallery\{[^}]*height:clamp\(380px,55svh,430px\)[^}]*display:grid[^}]*grid-template-columns:repeat\(6/);
   assert.match(styles, /generation-card-stage\.count-4 figure:nth-child\(3\)[^{]*\{grid-column:1\/4!important;grid-row:2\}/);
   assert.match(styles, /generation-card-stage\.count-5 figure:nth-child\(4\)[^{]*\{grid-column:2\/4!important;grid-row:2\}/);
+  assert.match(styles, /count-1\{--reading-card-width:162px\}/);
+  assert.match(styles, /count-2\{--reading-card-width:136px\}/);
+  assert.match(styles, /count-3\{--reading-card-width:106px\}/);
+  assert.match(styles, /count-4\{--reading-card-width:92px\}/);
+  assert.match(styles, /count-5\{--reading-card-width:88px\}/);
   assert.match(styles, /report-card-gallery figcaption\{position:static;[^}]*background:transparent/);
   assert.match(source, /<figcaption><strong>\{card\.positionLabel\}<\/strong><\/figcaption>/);
   assert.doesNotMatch(source, /<small>\{card\.displayName\}<\/small>/);

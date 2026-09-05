@@ -50,9 +50,11 @@ test("READ-13/15 的一至五张牌始终在固定区域按指定行数排列", 
     const layout = await page.locator(".report-card-gallery").evaluate((region) => {
       const bounds = region.getBoundingClientRect();
       const cards = [...region.querySelectorAll("figure")].map((card) => card.getBoundingClientRect());
-      return { rows: new Set(cards.map((card) => Math.round(card.top))).size, inside: cards.every((card) => card.left >= bounds.left && card.right <= bounds.right && card.top >= bounds.top && card.bottom <= bounds.bottom) };
+      return { stageWidth:bounds.width, cardWidth:cards[0]?.width??0, rows: new Set(cards.map((card) => Math.round(card.top))).size, inside: cards.every((card) => card.left >= bounds.left && card.right <= bounds.right && card.top >= bounds.top && card.bottom <= bounds.bottom) };
     });
     expect(layout.inside, `count=${count} layout=${JSON.stringify(layout)}`).toBeTruthy();
     expect(layout.rows).toBe(count <= 3 ? 1 : 2);
+    const minimumWidthRatio = ({1:.38,2:.31,3:.23,4:.21,5:.19} as const)[count as 1|2|3|4|5];
+    expect(layout.cardWidth/layout.stageWidth, `count=${count} should use the stable stage`).toBeGreaterThanOrEqual(minimumWidthRatio);
   }
 });
