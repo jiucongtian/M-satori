@@ -1,0 +1,74 @@
+name: Backend quality
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-quality.yml"
+  push:
+    branches: [release/r1.1]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-quality.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  quality-and-database-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: satori
+          POSTGRES_PASSWORD: satori
+          POSTGRES_DB: satori
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U satori -d satori"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql://satori:satori@127.0.0.1:5432/satori
+      REDIS_URL: redis://127.0.0.1:6379
+      RUN_DATABASE_TESTS: "true"
+      SMS_DELIVERY_MODE: FIXED_CODE
+      AQUA_BASE_URL: https://aqua.example.com
+      AQUA_SERVICE_KEY: ci-aqua-service-key-with-safe-length
+      PAYMENT_PROVIDER_MODE: FAKE
+      FAKE_PAYMENT_RESULT: PENDING
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run db:migrate
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Contract tests
+        run: npm run test:contract
+      - name: Database integration tests
+        run: npm run test:integration
+      - name: Database end-to-end tests
+        run: npm run test:e2e
