@@ -5,6 +5,7 @@ RUN npm install
 COPY operations/backend .
 RUN npm run build
 FROM node:22-alpine
+RUN apk add --no-cache git
 WORKDIR /app
 ENV NODE_ENV=production
 COPY operations/backend/package*.json ./

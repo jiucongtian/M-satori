@@ -1,5 +1,6 @@
 type ReleaseName='R1.1'|'R1.0';
 import type pg from 'pg';
+import {collectGitReleases} from './development-git.js';
 type Commit={sha:string;commit:{author:{date:string};message:string};html_url:string};
 type FileChange={filename:string;additions:number;deletions:number};
 const repository=process.env.OPERATIONS_GITHUB_REPOSITORY||'jiucongtian/M-satori',token=process.env.OPERATIONS_GITHUB_TOKEN,cache=new Map<string,{expires:number;value:any}>();
@@ -31,6 +32,23 @@ async function fetchDevelopmentCenterData(release:ReleaseName){
  quality:{cases:tests||null,functionCoverage:null,executionRate:runs.length?100:null,codeCoverage:null,passRate:finished?Math.round(successful/finished*100):null,flaky:runs.filter(x=>x.conclusion==='failure').slice(0,8).map(x=>({name:x.name,url:x.html_url,createdAt:x.created_at})),gate:runs.length?(finished===successful?'当前 Actions 均通过':'存在失败的 Actions 运行，请处理后再发布'):'当前分支暂无 Actions 运行记录'},
  issues:{total:issues.length,p0:issueRows.filter(x=>x.priority==='P0').length,p1:issueRows.filter(x=>x.priority==='P1').length,pendingVerification:issueRows.filter(x=>x.state!=='已关闭'&&x.title.includes('验证')).length,reopened:null,escaped:null,groups:issueRows,message:issues.length?'Issue 已按 Release、模块、类型和优先级聚合。':'当前 Release 未找到匹配 Issue。'},
  health:[{source:'测试环境部署回执',status:'部分可用',freshness:'每日快照',detail:'运营端环境可确认；初见端等待独立部署回执'},{source:'GitHub Commit 与差异',status:failures.some(x=>['Commit','代码差异'].includes(x))?'异常':differenceTruncated?'部分可用':'可用',freshness:'每日快照',detail:`已读取 ${commits.length}${commits.length>=100?'+':''} 次 Release 提交、${files.length}${differenceTruncated?'（接口上限）':''} 个变更文件`},{source:'GitHub Actions',status:failures.includes('Actions')?'异常':runs.length?'可用':'暂无记录',freshness:'每日快照',detail:`已读取 ${runs.length} 次工作流运行`},{source:'GitHub Issue',status:failures.includes('Issue')?'异常':'可用',freshness:'每日快照',detail:`已关联 ${issues.length} 个 Issue`},{source:'AI 发布摘要',status:failures.length||differenceTruncated?'受限':'可用',freshness:'本次快照',detail:'仅基于已读取事实生成，不补造缺失结论'}]};
+ // Git object history provides exact counts without REST pagination limits.
+ const exact=await collectGitReleases();
+ const selected=exact.find(x=>x.name===release)!;
+ const allFiles=selected.components.flatMap(x=>x.files);
+ const daily:Record<string,number>={},exactHours=Array(24).fill(0);
+ selected.commits.forEach(c=>{const date=new Date(c.date);const day=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(date);daily[day]=(daily[day]||0)+1;exactHours[Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hourCycle:'h23',timeZone:'Asia/Shanghai'}).format(date))]++;});
+ Object.assign(data,{components:selected.components.map(c=>({...c,files:undefined,commitsCapped:false,differenceComplete:true,testFileRate:c.sourceFiles?Math.round(c.testCases/c.sourceFiles*100):null,deployment:c.name.startsWith('运营')?'测试环境运行中':'待部署回执'}))});
+ Object.assign(data.code,{hours:exactHours,daily:Object.entries(daily).sort().map(([date,count])=>({date,count})),files:allFiles.sort((a,b)=>b.additions+b.deletions-a.additions-a.deletions).slice(0,50),releaseTotals:exact.map(r=>({name:r.name,sha:r.sha,totalLines:r.totalLines,components:r.components.map(c=>({name:c.name,totalLines:c.totalLines,commits:c.commits,historyCommits:c.historyCommits,sourceFiles:c.sourceFiles}))})),totalLines:selected.totalLines,sha:selected.sha,baseline:selected.baseline,scope:'代码总行数含空行和注释；含测试源码，排除依赖、构建产物、生成文件、声明文件、二进制及锁文件。提交数为本 Release 相对共同基线的目录提交数；R1.0 从仓库起点统计。'});
+ data.source.mode=failures.some(x=>!['Commit','代码差异','代码树'].includes(x))?'PARTIAL':'LIVE';
+ data.source.message='代码、增删和提交数由 GitHub 完整 Git 历史计算，固定到快照 SHA；测试覆盖率需独立覆盖报告。';
+ data.timeline=selected.commits.slice(0,50).map(c=>[c.sha.slice(0,7),new Date(c.date).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}),c.message,`https://github.com/${repository}/commit/${c.sha}`]);
+ const start=selected.commits.at(-1)?.date;
+ data.release.startedAt=start?new Date(start).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'无提交';
+ data.release.duration='分支创建与封版时间待接入';
+ data.lifecycle[0]=['首个版本提交',data.release.startedAt,'事实'];
+ Object.assign(data.quality,{executions:runs.length,successful,finished,failed:runs.filter(x=>x.conclusion==='failure').length,cases:null,testFiles:selected.components.reduce((n,c)=>n+c.testCases,0),executionRate:null,failureHours:Array.from({length:24},(_,hour)=>runs.filter(x=>x.conclusion==='failure'&&Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hourCycle:'h23',timeZone:'Asia/Shanghai'}).format(new Date(x.created_at)))===hour).length)});
+ data.health[1]={source:'GitHub 完整代码与历史',status:'可用',freshness:'每日快照',detail:`${selected.commits.length} 次版本提交 · ${selected.totalLines} 行源码 · ${selected.sha.slice(0,7)}`};
  cache.set(release,{expires:Date.now()+60000,value:data});return data;
 }
 

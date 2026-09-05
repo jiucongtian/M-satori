@@ -8,3 +8,10 @@
 .admin-shell:has(.dev-center) .admin-account strong{font-size:14px}.admin-shell:has(.dev-center) .admin-account small,.admin-shell:has(.dev-center) .admin-account .admin-link{font-size:11px;line-height:1.45}
 .admin-shell:has(.dev-center) .admin-account .admin-link{align-self:end;padding:0;white-space:nowrap}
 .dev-cell-note{display:block;margin-top:3px;color:#83948d;font-size:9px;font-weight:400;white-space:nowrap}.dev-table{overflow-x:auto}.dev-table table{min-width:760px}
+.admin-shell:has(.dev-center) .admin-account{grid-template-columns:32px minmax(0,1fr);padding:14px 8px;column-gap:8px}
+.admin-shell:has(.dev-center) .admin-account .admin-link{grid-column:2;justify-self:end;margin-top:5px}
+.dev-center .dev-tabs button{border:0;border-radius:0;background:transparent}
+.dev-center .dev-tabs button.is-active{background:transparent;box-shadow:inset 0 -2px #3f745f}
+.admin-shell:has(.dev-center) .admin-account>div:last-child{display:grid;grid-template-columns:1fr;gap:4px}
+.admin-shell:has(.dev-center) .admin-account .admin-link{display:block;grid-column:auto;justify-self:end}
+.dev-section-head{display:flex}
