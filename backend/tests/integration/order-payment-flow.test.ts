@@ -43,7 +43,10 @@ describe.skipIf(!runDatabaseTests)('money order and payment flow', () => {
   const userId = randomUUID();
   const offeringId = randomUUID();
   const versionId = randomUUID();
-  const now = new Date('2026-08-29T00:00:00.000Z');
+  // Quotes are validated against the database clock. Keep the fixture relative
+  // to the execution time so an otherwise-valid quote cannot become stale as
+  // the test suite ages.
+  const now = new Date();
 
   beforeAll(async () => {
     const infrastructure = createDatabase(
