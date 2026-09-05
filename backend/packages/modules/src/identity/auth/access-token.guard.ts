@@ -23,7 +23,10 @@ export class AccessTokenGuard implements CanActivate {
     if (isPublic) return true;
     const isOptionalAuth = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH_ROUTE, targets);
     const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const serviceToken = request.headers['x-satori-operations-token'] ?? request.headers.authorization?.replace(/^Bearer\s+/, '');
+    const isOperationsEndpoint = (request.url ?? '').startsWith('/api/v1/operations/commerce/');
+    const serviceToken = isOperationsEndpoint
+      ? request.headers['x-satori-operations-token'] ?? request.headers.authorization?.replace(/^Bearer\s+/, '')
+      : undefined;
     const expectedServiceToken = this.infrastructure.environment?.OPERATIONS_SERVICE_TOKEN;
     if (typeof serviceToken === 'string' && expectedServiceToken) {
       const actual = Buffer.from(serviceToken);
