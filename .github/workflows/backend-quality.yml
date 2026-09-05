@@ -50,6 +50,7 @@ jobs:
       SMS_DELIVERY_MODE: FIXED_CODE
       AQUA_BASE_URL: https://aqua.example.com
       AQUA_SERVICE_KEY: ci-aqua-service-key-with-safe-length
+      DAILY_INSIGHT_CONSUMPTION_MODE: LEGACY
       PAYMENT_PROVIDER_MODE: FAKE
       FAKE_PAYMENT_RESULT: PENDING
     steps:
