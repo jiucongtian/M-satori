@@ -3,6 +3,9 @@ import type { ConsumptionPort } from '@satori/application';
 import { R1_CARD_READING_SEED_COST_RULE } from '@satori/domain';
 import { describe, expect, it, vi } from 'vitest';
 import type { CardReadingWorkflowService } from '../integrations/card-reading/card-reading-workflow.service.js';
+import { generationTasks } from '@satori/infrastructure';
+import type { GenerationTaskService } from '../generation-task/generation-task.service.js';
+import type { GenerationTaskRunner } from '../generation-task/generation-task.runner.js';
 import {
   CARD_DECK,
   CardReadingService,
@@ -41,6 +44,8 @@ describe('server card draw', () => {
       infrastructure as unknown as RuntimeInfrastructure,
       {} as CardReadingWorkflowService,
       consumption as unknown as ConsumptionPort,
+      {} as GenerationTaskService,
+      {} as GenerationTaskRunner,
     );
     return { service, consumption, tx };
   }
@@ -137,30 +142,52 @@ describe('Aqua card reading generation', () => {
 
   function fixture(execute: ReturnType<typeof vi.fn>) {
     const patches: Array<Record<string, unknown>> = [];
+    const state = { ...row, status: 'GENERATING' };
+    const task = {
+      id: 'task-1',
+      status: 'RUNNING',
+      currentAttempt: 1,
+      failure: { code: 'UPSTREAM_FAILED', retryable: true },
+    };
     const returning = vi.fn().mockImplementation(() => {
       const patch = patches.at(-1) ?? {};
-      return Promise.resolve([{ ...row, ...patch }]);
+      return Promise.resolve([{ ...state, ...patch }]);
     });
     const database = {
       select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({ limit: vi.fn().mockResolvedValue([row]) })),
+        from: vi.fn((table: unknown) => ({
+          where: vi.fn(() => {
+            const query = {
+              limit: () => Promise.resolve([table === generationTasks ? task : state]),
+              for: () => query,
+            };
+            return query;
+          }),
         })),
       })),
       update: vi.fn(() => ({
         set: vi.fn((patch: Record<string, unknown>) => {
           patches.push(patch);
+          Object.assign(state, patch);
           return { where: vi.fn(() => ({ returning })) };
         }),
       })),
     };
+    const infrastructure = {
+      database: {
+        ...database,
+        transaction: (callback: (tx: typeof database) => unknown) => callback(database),
+      },
+    };
     const consumption = { commit: vi.fn().mockResolvedValue({}), release: vi.fn().mockResolvedValue({}) };
     const service = new CardReadingService(
-      { database } as unknown as RuntimeInfrastructure,
+      infrastructure as unknown as RuntimeInfrastructure,
       { execute } as unknown as CardReadingWorkflowService,
       consumption as unknown as ConsumptionPort,
+      {} as GenerationTaskService,
+      {} as GenerationTaskRunner,
     );
-    return { service, patches, consumption };
+    return { service, patches, consumption, state, task };
   }
 
   it('uses frozen cards, persists the real Aqua report and returns it', async () => {
@@ -169,11 +196,9 @@ describe('Aqua card reading generation', () => {
       requestId: 'aqua-request-1',
       manifest: { workflowVersion: 'ai-card-reading/1.0.0' },
     });
-    const { service, patches, consumption } = fixture(execute);
+    const { service, state, consumption } = fixture(execute);
 
-    const response = await service.complete(row.ownerUserId, row.id);
-
-    expect(response).toMatchObject({ status: 'GENERATING', report: null });
+    await service.generate('task-1', row.consumptionIntentId);
     await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
     expect(execute).toHaveBeenCalledWith(
       {
@@ -194,7 +219,7 @@ describe('Aqua card reading generation', () => {
       expect.stringMatching(/^[a-z0-9]+$/),
     );
     await vi.waitFor(() =>
-      expect(patches.at(-1)).toEqual(
+      expect(state).toEqual(
         expect.objectContaining({
           status: 'READY',
           content: result,
@@ -207,16 +232,19 @@ describe('Aqua card reading generation', () => {
     expect(consumption.release).not.toHaveBeenCalled();
   });
 
-  it('persists FAILED when Aqua generation fails', async () => {
+  it('keeps reservation during automatic retries and releases on final task failure', async () => {
     const execute = vi.fn().mockRejectedValue(new Error('upstream failed'));
-    const { service, patches, consumption } = fixture(execute);
+    const { service, patches, consumption, task } = fixture(execute);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    await expect(service.complete(row.ownerUserId, row.id)).resolves.toMatchObject({ status: 'GENERATING' });
+    await expect(service.generate('task-1', row.consumptionIntentId)).rejects.toThrow('Card reading generation failed');
+    expect(consumption.release).not.toHaveBeenCalled();
+    task.status = 'FAILED';
+    await service.finalFailure('task-1', row.consumptionIntentId);
     await vi.waitFor(() =>
       expect(patches.at(-1)).toMatchObject({
         status: 'FAILED',
-        failure: { code: 'CARD_READING_GENERATION_FAILED', retryable: false },
+        failure: { code: 'UPSTREAM_FAILED', retryable: true },
       }),
     );
     expect(consumption.release).toHaveBeenCalledWith('consumption-1', 'consumption-1:RELEASE');

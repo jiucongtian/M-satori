@@ -1,0 +1,43 @@
+# Run only against isolated test data; no production env file or published ports.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: r11_validation
+      POSTGRES_USER: validation
+      POSTGRES_PASSWORD: validation
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U validation -d r11_validation']
+      interval: 2s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      retries: 30
+  backend:
+    image: node:22-alpine
+    working_dir: /work/backend
+    volumes:
+      - ../backend:/work/backend
+    environment:
+      RUN_DATABASE_TESTS: 'true'
+      DATABASE_URL: postgresql://validation:validation@postgres:5432/r11_validation
+      REDIS_URL: redis://redis:6379
+      SMS_DELIVERY_MODE: FIXED_CODE
+      AQUA_BASE_URL: https://aqua.example.com
+      AQUA_SERVICE_KEY: isolated-validation-key-0001
+      DAILY_INSIGHT_CONSUMPTION_MODE: LEGACY
+      PAYMENT_PROVIDER_MODE: FAKE
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    command: ['sh', '-c', 'npm ci && npm run typecheck && npm run test:unit && npx vitest run --project integration tests/integration/card-reading-lifecycle.test.ts tests/integration/consumption-orchestration.test.ts']
+  frontend:
+    image: node:22-alpine
+    working_dir: /work/frontend
+    volumes:
+      - ../frontend:/work/frontend
+      - ../backend:/work/backend:ro
+    command: ['sh', '-c', 'npm ci && npx tsc --noEmit && npm run lint && node --test tests/r1.1/*.test.mjs']

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RuntimeInfrastructureModule } from '@satori/infrastructure';
 import {
+  CardReadingModule,
   DailyInsightModule,
   FeedbackModule,
   GenerationTaskModule,
@@ -21,6 +22,7 @@ import { RefundMaintenanceWorker } from '../../../packages/modules/src/refund/re
 import { CommerceReconciliationWorker } from '../../../packages/modules/src/operations/commerce/commerce-reconciliation.worker.js';
 import { OrderMaintenanceWorker } from '../../../packages/modules/src/order/order-maintenance.worker.js';
 import { PaymentMaintenanceWorker } from '../../../packages/modules/src/payment/payment-maintenance.worker.js';
+import { CardReadingMaintenanceWorker } from '../../../packages/modules/src/card-reading/card-reading-maintenance.worker.js';
 
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import { PaymentMaintenanceWorker } from '../../../packages/modules/src/payment/
     SeedLedgerModule,
     GenerationTaskModule,
     DailyInsightModule,
+    CardReadingModule,
     FeedbackModule,
     IntegrationsModule,
     OperationsModule,
@@ -36,6 +39,7 @@ import { PaymentMaintenanceWorker } from '../../../packages/modules/src/payment/
   ],
   providers: [
     GenerationTaskWorker,
+    CardReadingMaintenanceWorker,
     HomeEnergySummaryPrewarmWorker,
     EntitlementMaintenanceWorker,
     ComplimentarySeedMaintenanceWorker,

@@ -130,7 +130,7 @@ export class GenerationTaskService {
         .where(eq(generationTasks.id, taskId))
         .for('update')
         .limit(1);
-      if (!task || task.status === 'SUCCEEDED' || task.status === 'CANCELLED') return null;
+      if (!task || task.status === 'SUCCEEDED' || task.status === 'CANCELLED' || task.status === 'FAILED') return null;
       if (
         task.status === 'RUNNING' &&
         task.heartbeatAt &&
@@ -161,7 +161,7 @@ export class GenerationTaskService {
     });
   }
 
-  async heartbeat(taskId: string, stage?: string) {
+  async heartbeat(taskId: string, stage?: string, expectedAttempt?: number) {
     return this.infrastructure.database.transaction(async (tx) => {
       const [task] = await tx
         .select()
@@ -170,6 +170,7 @@ export class GenerationTaskService {
         .for('update')
         .limit(1);
       if (!task || task.status !== 'RUNNING') return null;
+      if (expectedAttempt !== undefined && task.currentAttempt !== expectedAttempt) return null;
       const now = new Date();
       const [updated] = await tx
         .update(generationTasks)
@@ -182,7 +183,7 @@ export class GenerationTaskService {
     });
   }
 
-  async succeed(taskId: string) {
+  async succeed(taskId: string, expectedAttempt?: number) {
     return this.infrastructure.database.transaction(async (tx) => {
       const [task] = await tx
         .select()
@@ -192,6 +193,7 @@ export class GenerationTaskService {
         .limit(1);
       if (!task || task.status === 'SUCCEEDED') return task ? this.taskDto(task) : null;
       if (task.status !== 'RUNNING') return null;
+      if (expectedAttempt !== undefined && task.currentAttempt !== expectedAttempt) return null;
       const now = new Date();
       const [updated] = await tx
         .update(generationTasks)
@@ -216,6 +218,8 @@ export class GenerationTaskService {
     taskId: string,
     error: { code: string; message: string; retryable: boolean },
     terminal: boolean,
+    expectedAttempt?: number,
+    recovery = false,
   ) {
     return this.infrastructure.database.transaction(async (tx) => {
       const [task] = await tx
@@ -225,6 +229,18 @@ export class GenerationTaskService {
         .for('update')
         .limit(1);
       if (!task || task.status === 'SUCCEEDED') return null;
+      if (
+        expectedAttempt !== undefined &&
+        (task.currentAttempt !== expectedAttempt || task.status !== 'RUNNING')
+      )
+        return null;
+      if (
+        recovery &&
+        (task.status !== 'RUNNING' ||
+          !task.heartbeatAt ||
+          task.heartbeatAt.getTime() >= Date.now() - this.infrastructure.environment.QUEUE_JOB_TIMEOUT_MS)
+      )
+        return null;
       const final = terminal || !error.retryable || task.currentAttempt >= task.maxAttempts;
       const now = new Date();
       const [updated] = await tx
@@ -254,6 +270,7 @@ export class GenerationTaskService {
         final ? 'generation.failed' : 'generation.retry_waiting',
         this.taskDto(updated!),
       );
+      if (recovery && !final) await this.enqueueOutbox(tx, taskId, 'generation.task.recovery_requested');
       return this.taskDto(updated!);
     });
   }
@@ -269,6 +286,8 @@ export class GenerationTaskService {
         task.id,
         { code: 'WORKER_HEARTBEAT_TIMEOUT', message: 'Worker heartbeat timed out', retryable: true },
         false,
+        undefined,
+        true,
       );
     return stale.length;
   }

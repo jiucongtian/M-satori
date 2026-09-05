@@ -8,13 +8,10 @@ import {
   SystemClock,
   type BenefitSourcePort,
 } from '@satori/application';
-import {
-  CONSUMPTION_REPOSITORY,
-  ConsumptionApplicationService,
-  UnknownConsumptionOutcomeQuery,
-} from './application/index.js';
+import { CONSUMPTION_REPOSITORY, ConsumptionApplicationService } from './application/index.js';
 import { ConsumptionController } from './controller/index.js';
 import { PostgresConsumptionRepository } from './repository-adapter/index.js';
+import { PostgresBusinessOutcomeQuery } from './repository-adapter/business-outcome.js';
 
 @Global()
 @Module({
@@ -23,7 +20,7 @@ import { PostgresConsumptionRepository } from './repository-adapter/index.js';
     PostgresConsumptionRepository,
     { provide: CONSUMPTION_REPOSITORY, useExisting: PostgresConsumptionRepository },
     { provide: BUSINESS_CLOCK, useClass: SystemClock },
-    { provide: CONSUMPTION_OUTCOME_QUERY_PORT, useClass: UnknownConsumptionOutcomeQuery },
+    { provide: CONSUMPTION_OUTCOME_QUERY_PORT, useClass: PostgresBusinessOutcomeQuery },
     {
       provide: ConsumptionApplicationService,
       inject: [
@@ -38,7 +35,7 @@ import { PostgresConsumptionRepository } from './repository-adapter/index.js';
         seeds: BenefitSourcePort,
         repository: PostgresConsumptionRepository,
         clock: SystemClock,
-        outcomes: UnknownConsumptionOutcomeQuery,
+        outcomes: PostgresBusinessOutcomeQuery,
       ) => new ConsumptionApplicationService(entitlements, seeds, repository, clock, outcomes),
     },
     { provide: CONSUMPTION_PORT, useExisting: ConsumptionApplicationService },

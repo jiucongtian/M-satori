@@ -39,7 +39,6 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
         concurrency: policy.concurrency,
       },
     );
-    this.worker.on('failed', (job, error) => void this.onFailed(job, error));
     this.recoveryTimer = setInterval(
       () => void this.tasks.recoverStaleTasks(),
       Math.max(5_000, policy.jobTimeoutMs / 2),
@@ -98,44 +97,49 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
     if (!job.data.taskId) throw new Error('Generation task job is missing taskId');
     const task = await this.tasks.claim(job.data.taskId);
     if (!task) return;
-    const heartbeat = setInterval(() => void this.tasks.heartbeat(task.id), Math.max(1_000, timeoutMs / 3));
+    const heartbeat = setInterval(
+      () => void this.tasks.heartbeat(task.id, undefined, task.currentAttempt),
+      Math.max(1_000, timeoutMs / 3),
+    );
     heartbeat.unref();
+    let timeout: NodeJS.Timeout | undefined;
     try {
       await Promise.race([
         this.runner.run(task),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                Object.assign(new Error('Generation timed out'), {
-                  code: 'GENERATION_TIMEOUT',
-                  retryable: true,
-                }),
-              ),
-            timeoutMs,
-          ),
+        new Promise<never>(
+          (_, reject) =>
+            (timeout = setTimeout(
+              () =>
+                reject(
+                  Object.assign(new Error('Generation timed out'), {
+                    code: 'GENERATION_TIMEOUT',
+                    retryable: true,
+                  }),
+                ),
+              timeoutMs,
+            )),
         ),
       ]);
-      await this.tasks.succeed(task.id);
+      await this.tasks.succeed(task.id, task.currentAttempt);
+    } catch (error) {
+      const failure = error as Error & { code?: string; retryable?: boolean };
+      const terminal = job.attemptsMade + 1 >= Number(job.opts.attempts ?? 1);
+      const failed = await this.tasks.failAttempt(
+        task.id,
+        {
+          code: failure.code ?? 'GENERATION_TEMPORARILY_FAILED',
+          message: failure.message,
+          retryable: failure.retryable !== false,
+        },
+        terminal,
+        task.currentAttempt,
+      );
+      if (failed?.status === 'FAILED')
+        await this.runner.finalFailure(failed.target.type, failed.taskId, failed.target.id);
+      throw error;
     } finally {
       clearInterval(heartbeat);
+      if (timeout) clearTimeout(timeout);
     }
-  }
-
-  private async onFailed(job: Job<{ taskId?: string; requestId?: string }> | undefined, error: Error) {
-    if (!job || !job.name.startsWith('generation.task.') || !job.data.taskId) return;
-    const attempts = Number(job.opts.attempts ?? 1);
-    const terminal = job.attemptsMade >= attempts;
-    const failed = await this.tasks.failAttempt(
-      job.data.taskId,
-      {
-        code: String((error as Error & { code?: string }).code ?? 'GENERATION_TEMPORARILY_FAILED'),
-        message: error.message,
-        retryable: (error as Error & { retryable?: boolean }).retryable !== false,
-      },
-      terminal,
-    );
-    if (terminal && failed)
-      await this.runner.finalFailure(failed.target.type, failed.taskId, failed.target.id);
   }
 }

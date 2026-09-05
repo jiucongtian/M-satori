@@ -1,9 +1,18 @@
-import { ConflictException, HttpException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  type OnModuleInit,
+} from '@nestjs/common';
 import { CONSUMPTION_PORT, hashPayload, type ConsumptionPort } from '@satori/application';
-import { cardReadings, RuntimeInfrastructure } from '@satori/infrastructure';
+import { cardReadings, generationTasks, RuntimeInfrastructure } from '@satori/infrastructure';
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import { createHash, randomInt } from 'node:crypto';
 import { buildReadingRequirement } from './application/index.js';
+import { GenerationTaskRunner } from '../generation-task/generation-task.runner.js';
+import { GenerationTaskService } from '../generation-task/generation-task.service.js';
 import { CardReadingWorkflowService } from '../integrations/card-reading/card-reading-workflow.service.js';
 import type { CardReadingResult } from '../integrations/card-reading/card-reading-workflow.types.js';
 
@@ -55,12 +64,22 @@ export function drawUniqueCardCodes(cardCount: number, nextInt: (max: number) =>
 type ReadingRow = typeof cardReadings.$inferSelect;
 
 @Injectable()
-export class CardReadingService {
+export class CardReadingService implements OnModuleInit {
   constructor(
     private readonly infrastructure: RuntimeInfrastructure,
     private readonly workflow: CardReadingWorkflowService,
     @Inject(CONSUMPTION_PORT) private readonly consumption: ConsumptionPort,
+    private readonly tasks: GenerationTaskService,
+    private readonly runner: GenerationTaskRunner,
   ) {}
+
+  onModuleInit() {
+    this.runner.register(
+      'CARD_READING',
+      (task) => this.generate(task.id, task.targetId),
+      (taskId, targetId) => this.finalFailure(taskId, targetId),
+    );
+  }
 
   async createDraw(
     command: {
@@ -78,6 +97,7 @@ export class CardReadingService {
     const readingId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
     const requestHash = hashPayload(command);
     return this.infrastructure.database.transaction(async (tx) => {
+      await tx.execute(sql`set local lock_timeout = '2s'`);
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${readingId}, 11))`);
       const [existing] = await tx.select().from(cardReadings).where(eq(cardReadings.id, readingId)).limit(1);
       if (existing) {
@@ -96,7 +116,6 @@ export class CardReadingService {
         seedCostPolicy: policy,
       });
       const reserved = await this.consumption.reserve(requirement, `${readingId}:1:RESERVE`);
-      await this.consumption.start(reserved.intentId, `${reserved.intentId}:START`);
       const now = new Date();
       const [created] = await tx
         .insert(cardReadings)
@@ -155,13 +174,13 @@ export class CardReadingService {
   async complete(ownerUserId: string, readingId: string) {
     const reading = await this.requireOwned(ownerUserId, readingId);
     if (reading.status === 'READY') return this.dto(reading);
-    if (!['DRAWN', 'GENERATING'].includes(reading.status)) {
+    if (!['DRAWN', 'GENERATING', 'SETTLING'].includes(reading.status)) {
       throw new ConflictException({
         code: 'CARD_READING_NOT_COMPLETABLE',
         message: 'Card reading cannot be completed',
       });
     }
-    if (reading.status === 'GENERATING') return this.dto(reading);
+    if (reading.status === 'GENERATING' || reading.status === 'SETTLING') return this.dto(reading);
     return this.startGeneration(reading);
   }
 
@@ -176,104 +195,192 @@ export class CardReadingService {
     return this.startGeneration(reading);
   }
 
-  private async startGeneration(reading: ReadingRow) {
-    if (reading.status === 'FAILED' || !reading.consumptionIntentId) {
-      const attempt =
-        reading.status === 'FAILED' ? reading.consumptionAttempt + 1 : reading.consumptionAttempt;
-      const policy = this.infrastructure.policy.cardReading.seedCost;
-      const cost = reading.seedQuantity;
-      const reserved = await this.consumption.reserve(
-        buildReadingRequirement(
-          {
-            ownerUserId: reading.ownerUserId,
-            readingIntentId: reading.id,
-            cardCount: reading.cardCount,
-            seedCostPolicy: cost
-              ? {
-                  version: reading.seedCostRuleVersion ?? policy.version,
-                  costByCardCount: { 1: cost, 2: cost, 3: cost, 4: cost, 5: cost },
-                }
-              : policy,
-          },
-          attempt,
-        ),
-        `${reading.id}:${attempt}:RESERVE`,
-      );
-      await this.consumption.start(reserved.intentId, `${reserved.intentId}:START`);
-      reading = { ...reading, consumptionIntentId: reserved.intentId, consumptionAttempt: attempt };
-    }
-    const startedAt = new Date();
-    const [started] = await this.infrastructure.database
-      .update(cardReadings)
-      .set({
-        status: 'GENERATING',
-        consumptionIntentId: reading.consumptionIntentId,
-        consumptionAttempt: reading.consumptionAttempt,
-        failure: null,
-        generationStartedAt: startedAt,
-        completedAt: null,
-        updatedAt: startedAt,
-      })
-      .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)))
-      .returning();
-    void this.generate(started!, startedAt.getTime().toString(36)).catch((error: unknown) => {
-      const failure = readingFailure(error);
-      console.error('card_reading_background_generation_failed', {
-        readingId: reading.id,
-        code: failure.code,
-        retryable: failure.retryable,
-        ...('providerRequestId' in failure ? { providerRequestId: failure.providerRequestId } : {}),
-      });
-    });
-    return this.dto(started!);
+  async recoverLegacy(ownerUserId: string, readingId: string) {
+    const reading = await this.requireOwned(ownerUserId, readingId);
+    return this.startGeneration(reading, true);
   }
 
-  private async generate(reading: ReadingRow, attemptId: string) {
-    try {
-      const execution = await this.workflow.execute(
-        {
-          audience: 'C',
-          question: reading.question,
-          cards: cardNumbersFromCodes(reading.cardCodes as string[]),
-          context: {
-            category: reading.category,
-            position_labels: reading.positionLabels as string[],
-            presentation_requirements: {
-              report_title: '使用疗愈、具体且面向用户的中文标题，不罗列卡牌编号，不使用技术词或用户问题原句',
-              section_count: '根据内容拆分为 5 至 9 个有逻辑关系的章节',
-              section_titles:
-                '每个标题必须高度概括对应章节，并共同形成从看见自己、理解感受、读懂牌面到落地行动和温柔收束的完整故事；禁止使用“继续看见”“第X节”等占位标题',
+  private async startGeneration(reading: ReadingRow, recover = false) {
+    return this.infrastructure.database.transaction(async (tx) => {
+      await tx.execute(sql`set local lock_timeout = '2s'`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${reading.id}, 11))`);
+      const [locked] = await tx
+        .select()
+        .from(cardReadings)
+        .where(eq(cardReadings.id, reading.id))
+        .for('update')
+        .limit(1);
+      if (!locked) throw new NotFoundException({ code: 'CARD_READING_NOT_FOUND' });
+      if (locked.status === 'READY') return this.dto(locked);
+      if (['GENERATING', 'SETTLING'].includes(locked.status)) {
+        const [existingTask] = await tx
+          .select()
+          .from(generationTasks)
+          .where(
+            and(
+              eq(generationTasks.targetType, 'CARD_READING'),
+              eq(generationTasks.targetId, locked.consumptionIntentId ?? locked.id),
+            ),
+          )
+          .limit(1);
+        if (!recover || existingTask) return this.dto(locked);
+      }
+      reading = locked;
+      if (reading.status === 'FAILED' || !reading.consumptionIntentId) {
+        const attempt =
+          reading.status === 'FAILED' ? reading.consumptionAttempt + 1 : reading.consumptionAttempt;
+        const policy = this.infrastructure.policy.cardReading.seedCost;
+        const cost = reading.seedQuantity;
+        const reserved = await this.consumption.reserve(
+          buildReadingRequirement(
+            {
+              ownerUserId: reading.ownerUserId,
+              readingIntentId: reading.id,
+              cardCount: reading.cardCount,
+              seedCostPolicy: cost
+                ? {
+                    version: reading.seedCostRuleVersion ?? policy.version,
+                    costByCardCount: { 1: cost, 2: cost, 3: cost, 4: cost, 5: cost },
+                  }
+                : policy,
             },
-          },
-        },
-        reading.id,
-        attemptId,
-      );
-      const completedAt = new Date();
-      await this.consumption.commit(reading.consumptionIntentId!, `${reading.consumptionIntentId}:COMMIT`);
-      const [updated] = await this.infrastructure.database
+            attempt,
+          ),
+          `${reading.id}:${attempt}:RESERVE`,
+        );
+        reading = { ...reading, consumptionIntentId: reserved.intentId, consumptionAttempt: attempt };
+      }
+      const startedAt = new Date();
+      await this.consumption.start(reading.consumptionIntentId!, `${reading.consumptionIntentId}:START`);
+      await this.tasks.createInTransaction(tx, {
+        ownerUserId: reading.ownerUserId,
+        targetType: 'CARD_READING',
+        targetId: reading.consumptionIntentId!,
+      });
+      const [started] = await tx
         .update(cardReadings)
         .set({
-          status: 'READY',
-          content: execution.result,
-          generationManifest: execution.manifest,
-          providerRequestId: execution.requestId,
+          status: 'GENERATING',
+          consumptionIntentId: reading.consumptionIntentId,
+          consumptionAttempt: reading.consumptionAttempt,
           failure: null,
-          completedAt,
-          updatedAt: completedAt,
+          generationStartedAt: startedAt,
+          completedAt: null,
+          updatedAt: startedAt,
         })
         .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)))
         .returning();
-      return this.dto(updated!);
-    } catch (error) {
-      const failedAt = new Date();
-      await this.infrastructure.database
-        .update(cardReadings)
-        .set({ status: 'FAILED', failure: readingFailure(error), updatedAt: failedAt })
-        .where(and(eq(cardReadings.id, reading.id), eq(cardReadings.ownerUserId, reading.ownerUserId)));
-      await this.consumption.release(reading.consumptionIntentId!, `${reading.consumptionIntentId}:RELEASE`);
-      throw error;
+      return this.dto(started!);
+    });
+  }
+
+  async generate(taskId: string, targetId: string) {
+    const [reading] = await this.infrastructure.database
+      .select()
+      .from(cardReadings)
+      .where(eq(cardReadings.consumptionIntentId, targetId))
+      .limit(1);
+    if (!reading || reading.consumptionIntentId !== targetId || reading.status === 'READY') return;
+    if (!['GENERATING', 'SETTLING'].includes(reading.status)) return;
+    const [claimed] = await this.infrastructure.database
+      .select()
+      .from(generationTasks)
+      .where(eq(generationTasks.id, taskId))
+      .limit(1);
+    if (!claimed || claimed.status !== 'RUNNING') return;
+    // One upstream idempotency key per consumption attempt, including worker retries.
+    if (!isCardReadingResult(reading.content)) {
+      const execution = await this.workflow
+        .execute(
+          {
+            audience: 'C',
+            question: reading.question,
+            cards: cardNumbersFromCodes(reading.cardCodes as string[]),
+            context: {
+              category: reading.category,
+              position_labels: reading.positionLabels as string[],
+              presentation_requirements: {
+                report_title:
+                  '使用疗愈、具体且面向用户的中文标题，不罗列卡牌编号，不使用技术词或用户问题原句',
+                section_count: '根据内容拆分为 5 至 9 个有逻辑关系的章节',
+                section_titles:
+                  '每个标题必须高度概括对应章节，并共同形成从看见自己、理解感受、读懂牌面到落地行动和温柔收束的完整故事；禁止使用“继续看见”“第X节”等占位标题',
+              },
+            },
+          },
+          reading.id,
+          String(reading.consumptionAttempt),
+        )
+        .catch((error: unknown) => {
+          throw Object.assign(new Error('Card reading generation failed'), readingFailure(error));
+        });
+      await this.infrastructure.database.transaction(async (tx) => {
+        const [task] = await tx
+          .select()
+          .from(generationTasks)
+          .where(eq(generationTasks.id, taskId))
+          .for('update')
+          .limit(1);
+        if (!task || task.status !== 'RUNNING' || task.currentAttempt !== claimed.currentAttempt) return;
+        await tx
+          .update(cardReadings)
+          .set({
+            status: 'SETTLING',
+            content: execution.result,
+            generationManifest: execution.manifest,
+            providerRequestId: execution.requestId,
+            failure: null,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(cardReadings.id, reading.id),
+              eq(cardReadings.consumptionAttempt, reading.consumptionAttempt),
+              eq(cardReadings.status, 'GENERATING'),
+            ),
+          );
+      });
     }
+    await this.settleReading(reading.id, reading.consumptionAttempt);
+  }
+
+  private async settleReading(readingId: string, attempt: number) {
+    await this.infrastructure.database.transaction(async (tx) => {
+      const [reading] = await tx
+        .select()
+        .from(cardReadings)
+        .where(eq(cardReadings.id, readingId))
+        .for('update')
+        .limit(1);
+      if (!reading || reading.consumptionAttempt !== attempt || reading.status !== 'SETTLING') return;
+      await this.consumption.commit(reading.consumptionIntentId!, `${reading.consumptionIntentId}:COMMIT`);
+      await tx
+        .update(cardReadings)
+        .set({ status: 'READY', failure: null, completedAt: new Date(), updatedAt: new Date() })
+        .where(eq(cardReadings.id, reading.id));
+    });
+  }
+
+  async finalFailure(taskId: string, targetId: string) {
+    const [candidate] = await this.infrastructure.database.select().from(cardReadings).where(eq(cardReadings.consumptionIntentId, targetId)).limit(1);
+    if (!candidate) return;
+    await this.settleReading(candidate.id, candidate.consumptionAttempt);
+    await this.infrastructure.database.transaction(async (tx) => {
+      const [reading] = await tx
+        .select()
+        .from(cardReadings)
+        .where(eq(cardReadings.consumptionIntentId, targetId))
+        .for('update')
+        .limit(1);
+      if (!reading || reading.consumptionIntentId !== targetId || reading.status === 'READY') return;
+      const [task] = await tx.select().from(generationTasks).where(eq(generationTasks.id, taskId)).limit(1);
+      if (task?.status !== 'FAILED') return;
+      await this.consumption.release(targetId, `${targetId}:RELEASE`);
+      await tx
+        .update(cardReadings)
+        .set({ status: 'FAILED', failure: task.failure, updatedAt: new Date() })
+        .where(eq(cardReadings.id, reading.id));
+    });
   }
 
   private async requireOwned(ownerUserId: string, readingId: string) {
@@ -295,7 +402,7 @@ export class CardReadingService {
       question: row.question,
       category: row.category,
       cardCount: row.cardCount,
-      status: row.status,
+      status: row.status === 'SETTLING' ? 'GENERATING' : row.status,
       report: isCardReadingResult(row.content) ? row.content : null,
       cards: codes.map((code, index) => {
         const card = CARD_DECK.find((candidate) => candidate.code === code)!;

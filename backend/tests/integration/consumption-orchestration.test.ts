@@ -199,7 +199,7 @@ describe.skipIf(!runDatabaseTests)('consumption orchestration', () => {
       seeds,
       consumptionRepository,
       new SystemClock(),
-      { getOutcome: () => Promise.resolve('SUCCEEDED') },
+      { getOutcome: (context) => Promise.resolve(context.id === requirement('reconciliation-reading').businessContext.id ? 'SUCCEEDED' : 'UNKNOWN') },
     );
 
     await expect(reconciler.reconcile()).resolves.toMatchObject({ committed: 1 });
