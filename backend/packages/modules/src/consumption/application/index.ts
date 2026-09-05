@@ -101,7 +101,10 @@ export class ConsumptionApplicationService implements ConsumptionPort {
       throw new ConsumptionError('RESOLUTION_NOT_FOUND', 'Entitlement resolution was not found');
     }
     if (!resolution.selectedSource) {
-      throw new ConsumptionError('PURCHASE_REQUIRED', 'No eligible benefit source is available');
+      throw new ConsumptionError(
+        'PURCHASE_REQUIRED',
+        '当前没有可用的服务权益，请前往“我的权益”查看',
+      );
     }
     if (resolution.expiresAt <= this.clock.now()) {
       throw new ConsumptionError('RESOLUTION_EXPIRED', 'Entitlement resolution has expired');
