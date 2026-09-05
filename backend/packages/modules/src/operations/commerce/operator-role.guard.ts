@@ -9,6 +9,7 @@ export class OperatorRoleGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if ((request as AuthenticatedRequest & { operationsService?: boolean }).operationsService) return true;
     const [role] = await this.infrastructure.database
       .select({ role: operatorRoles.role })
       .from(operatorRoles)

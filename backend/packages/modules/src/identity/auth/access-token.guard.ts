@@ -1,5 +1,6 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 import { Reflector } from '@nestjs/core';
 import { OPTIONAL_AUTH_ROUTE, PUBLIC_ROUTE } from '@satori/contracts';
 import { RuntimeInfrastructure, sessions, users } from '@satori/infrastructure';
@@ -22,6 +23,20 @@ export class AccessTokenGuard implements CanActivate {
     if (isPublic) return true;
     const isOptionalAuth = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH_ROUTE, targets);
     const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const serviceToken = request.headers['x-satori-operations-token'] ?? request.headers.authorization?.replace(/^Bearer\s+/, '');
+    const expectedServiceToken = this.infrastructure.environment?.OPERATIONS_SERVICE_TOKEN;
+    if (typeof serviceToken === 'string' && expectedServiceToken) {
+      const actual = Buffer.from(serviceToken);
+      const expected = Buffer.from(expectedServiceToken);
+      if (actual.length === expected.length && timingSafeEqual(actual, expected)) {
+        (request as AuthenticatedRequest).auth = {
+          userId: this.infrastructure.environment.OPERATIONS_SERVICE_USER_ID,
+          sessionId: 'operations-service',
+        };
+        (request as AuthenticatedRequest & { operationsService?: boolean }).operationsService = true;
+        return true;
+      }
+    }
     const authorization = request.headers.authorization;
     if (!authorization?.startsWith('Bearer ')) {
       if (isOptionalAuth) return true;

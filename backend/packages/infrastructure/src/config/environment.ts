@@ -27,6 +27,8 @@ const environmentShape = {
   ANALYTICS_INGESTION_ENABLED: booleanFromString,
   AUTH_HMAC_SECRET: z.string().min(32).default('development-auth-hmac-secret-0001'),
   ACCESS_TOKEN_SECRET: z.string().min(32).default('development-access-token-secret-01'),
+  OPERATIONS_SERVICE_TOKEN: z.string().min(32).optional(),
+  OPERATIONS_SERVICE_USER_ID: z.string().uuid().default('00000000-0000-4000-8000-000000000001'),
   DATA_ENCRYPTION_KEY: z
     .string()
     .regex(/^[0-9a-f]{64}$/i)
