@@ -131,7 +131,7 @@ export class CommerceOperationsService {
     actionId: string;
     quantity: number;
     reason: string;
-    operatorUserId: string;
+    operatorUserId: string | null;
     requestId: string;
   }) {
     const [identity] = await this.infrastructure.database
@@ -151,6 +151,7 @@ export class CommerceOperationsService {
       quantity: command.quantity,
       reason: command.reason,
       transactionId: applied.transaction.transactionId,
+      actorType: command.operatorUserId ? 'USER_OPERATOR' : 'OPERATIONS_SERVICE',
     });
     return { delivered: true, available: applied.account.available, transactionId: applied.transaction.transactionId };
   }
@@ -180,7 +181,7 @@ export class CommerceOperationsService {
     sourceId: string,
     reasonCode: string,
     note: string,
-    operatorUserId: string,
+    operatorUserId: string | null,
     requestId: string,
   ) {
     await this.entitlements.unfreezeBySource(sourceId, reasonCode);
@@ -297,7 +298,7 @@ export class CommerceOperationsService {
   }
 
   private async audit(
-    operatorUserId: string,
+    operatorUserId: string | null,
     action: string,
     resourceType: string,
     resourceId: string,

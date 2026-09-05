@@ -74,7 +74,17 @@ export class CommerceOperationsController {
 
   @Post('seeds/manual-grants')
   async grantManualSeeds(@Req() request: AuthenticatedRequest, @Body() body: ManualSeedGrantDto) {
-    return { data: await this.operations.grantManualSeeds({ ...body, operatorUserId: request.auth.userId, requestId: request.id }) };
+    const operationsService = (request as AuthenticatedRequest & { operationsService?: boolean }).operationsService;
+    return {
+      data: await this.operations.grantManualSeeds({
+        ...body,
+        // The operations service is not a consumer user row. The originating
+        // operator remains in the operations audit trail, while this service
+        // audit is explicitly marked as a trusted service action.
+        operatorUserId: operationsService ? null : request.auth.userId,
+        requestId: request.id,
+      }),
+    };
   }
 
   @Post('entitlement-sources/:sourceId/forfeit')
