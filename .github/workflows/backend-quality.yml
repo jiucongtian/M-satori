@@ -64,6 +64,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run db:migrate
+      - run: npm run db:seed
       - name: Unit tests
         run: npm run test:unit
       - name: Contract tests
