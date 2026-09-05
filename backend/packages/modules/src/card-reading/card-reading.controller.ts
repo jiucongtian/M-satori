@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Body, Controller, Get, Headers, Param, Post, Query, Req } from '@nestjs/common';
 import {
   ArrayMaxSize,
   IsArray,
@@ -24,6 +24,10 @@ class CreateCardDrawDto {
   @IsOptional() @IsIn(['SYSTEM_RANDOM']) drawMethod?: 'SYSTEM_RANDOM';
 }
 
+class ReadingFeedbackDto {
+  @IsIn(['CLEARER', 'INSPIRED', 'NEEDS_TIME', 'NOT_HELPFUL']) feeling!: 'CLEARER' | 'INSPIRED' | 'NEEDS_TIME' | 'NOT_HELPFUL';
+}
+
 @Controller('card-readings')
 export class CardReadingController {
   constructor(
@@ -46,7 +50,9 @@ export class CardReadingController {
   async createInterpretation(
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() body: unknown,
+    @Req() request: AuthenticatedRequest & { operationsService?: boolean },
   ): Promise<{ data: CardReadingResult }> {
+    if (request.operationsService !== true) throw new ForbiddenException({ code: 'OPERATIONS_SERVICE_REQUIRED' });
     if (!idempotencyKey || idempotencyKey.length < 16 || idempotencyKey.length > 128) {
       throw new BadRequestException({
         code: 'IDEMPOTENCY_KEY_REQUIRED',
@@ -79,5 +85,10 @@ export class CardReadingController {
   @Post(':readingId/retry')
   async retry(@Req() request: AuthenticatedRequest, @Param('readingId') readingId: string) {
     return { data: await this.readings.retry(request.auth.userId, readingId) };
+  }
+
+  @Post(':readingId/feedback')
+  async feedback(@Req() request: AuthenticatedRequest, @Param('readingId') readingId: string, @Body() body: ReadingFeedbackDto) {
+    return { data: await this.readings.saveFeedback(request.auth.userId, readingId, body.feeling) };
   }
 }

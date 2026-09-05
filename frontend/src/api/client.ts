@@ -33,9 +33,9 @@ type MembershipSubscription = Schemas["MembershipSubscription"];
 type RefundQuote = Schemas["RefundQuote"];
 type Refund = Schemas["Refund"];
 type BusinessContext = Schemas["BusinessContext"];
-export type CardReadingCard = { position: number; positionLabel: string; cardCode: string; displayName: string };
-export type CardReadingReport = { audience: "B" | "C"; cards: number[]; missing_fields: string[]; mode: "single" | "dual" | "multi"; notice: string; question_type: string; report: string; status: string; title: string };
-export type CardReading = { readingId: string; question: string; category: string; cardCount: number; status: "DRAWN" | "GENERATING" | "READY" | "FAILED"; report: CardReadingReport | null; cards: CardReadingCard[]; failure: { code?: string; message?: string; retryable?: boolean } | null; createdAt: string; updatedAt: string; completedAt: string | null };
+export type CardReadingCard = Schemas["CardReadingCard"];
+export type CardReadingReport = Schemas["CardReadingReport"];
+export type CardReading = Schemas["CardReading"];
 
 export type {
   Bootstrap,
@@ -518,6 +518,10 @@ class SatoriApiClient {
   }
   completeCardReading(readingId: string) {
     return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/complete`, { method: "POST", body: JSON.stringify({}) }).then((x) => x.data);
+  }
+
+  cardReadingFeedback(readingId: string, feeling: "CLEARER" | "INSPIRED" | "NEEDS_TIME" | "NOT_HELPFUL") {
+    return this.command<{ data: { feedbackId: string; feeling: string } }>(`/card-readings/${encodeURIComponent(readingId)}/feedback`, { method: "POST", body: JSON.stringify({ feeling }) }).then(x => x.data);
   }
   retryCardReading(readingId: string) {
     return this.command<{ data: CardReading }>(`/card-readings/${encodeURIComponent(readingId)}/retry`, { method: "POST", body: JSON.stringify({}) }).then((x) => x.data);

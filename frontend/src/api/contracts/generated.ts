@@ -4,6 +4,106 @@
  */
 
 export interface paths {
+    "/card-readings/draws": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reserve benefits and freeze a server-generated draw */
+        post: operations["createCardReadingDraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/card-readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCardReadings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/card-readings/{readingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCardReading"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/card-readings/{readingId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Atomically enqueue one durable generation task for the current consumption attempt */
+        post: operations["completeCardReading"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/card-readings/{readingId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reserve a new benefit attempt and reuse frozen cards after failure */
+        post: operations["retryCardReading"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/card-readings/{readingId}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upsert feedback for an owned completed reading */
+        post: operations["saveCardReadingFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/app/bootstrap": {
         parameters: {
             query?: never;
@@ -1000,6 +1100,50 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CardReadingEnvelope: {
+            data: components["schemas"]["CardReading"];
+        };
+        CardReading: {
+            /** Format: uuid */
+            readingId: string;
+            question: string;
+            category: string;
+            cardCount: number;
+            /** @enum {string} */
+            status: "DRAWN" | "GENERATING" | "READY" | "FAILED";
+            report: components["schemas"]["CardReadingReport"] | null;
+            cards: components["schemas"]["CardReadingCard"][];
+            failure: {
+                code?: string;
+                message?: string;
+                retryable?: boolean;
+            } | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            completedAt: string | null;
+        };
+        CardReadingCard: {
+            position: number;
+            positionLabel: string;
+            cardCode: string;
+            displayName: string;
+        };
+        CardReadingReport: {
+            /** @enum {string} */
+            audience: "B" | "C";
+            cards: number[];
+            missing_fields: string[];
+            /** @enum {string} */
+            mode: "single" | "dual" | "multi";
+            notice: string;
+            question_type: string;
+            report: string;
+            status: string;
+            title: string;
+        };
         AnalyticsEventBatch: {
             events: components["schemas"]["AnalyticsEvent"][];
         };
@@ -2032,6 +2176,7 @@ export interface components {
         };
     };
     parameters: {
+        ReadingId: string;
         IdempotencyKey: string;
         Cursor: string;
         Limit: number;
@@ -2052,6 +2197,175 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createCardReadingDraw: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    question: string;
+                    category: string;
+                    cardCount: number;
+                    positionLabels: string[];
+                    /** @enum {string} */
+                    drawMethod?: "SYSTEM_RANDOM";
+                };
+            };
+        };
+        responses: {
+            /** @description Frozen draw or idempotent replay */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardReadingEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCardReadings: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owned reading history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: components["schemas"]["CardReading"][];
+                            nextCursor: string | null;
+                        };
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCardReading: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                readingId: components["parameters"]["ReadingId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owned reading */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardReadingEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    completeCardReading: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                readingId: components["parameters"]["ReadingId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current reading status; replay does not enqueue again */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardReadingEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    retryCardReading: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                readingId: components["parameters"]["ReadingId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retried or already running reading */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardReadingEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveCardReadingFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                readingId: components["parameters"]["ReadingId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    feeling: "CLEARER" | "INSPIRED" | "NEEDS_TIME" | "NOT_HELPFUL";
+                };
+            };
+        };
+        responses: {
+            /** @description Saved feedback */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            feedbackId: string;
+                            /** @enum {string} */
+                            feeling: "CLEARER" | "INSPIRED" | "NEEDS_TIME" | "NOT_HELPFUL";
+                        };
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getBootstrap: {
         parameters: {
             query?: never;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PROTECTED_PATHS, ROUTES } from "../../src/shared/routes.ts";
+import { canSubmitCheckout } from "../../src/features/commerce/checkoutState.ts";
 
 test("R11-PAY-001：会员、服务包、收银台和订单均为受保护的真实路由", () => {
   for (const path of [
@@ -37,8 +38,12 @@ test("R11-PAY-002：会员方案由目录定义并明确记录权益周期边界
 
 test("R11-PAY-003：支付提交具有进行中锁且 Fake 支付不会调用微信收银台", async () => {
   const page = await readFile(new URL("../../src/features/commerce/CommerceScreens.tsx", import.meta.url), "utf8");
-  assert.match(page, /if \(!quote \|\| busy\) return/);
-  assert.match(page, /disabled=\{busy\}/);
+  assert.equal(canSubmitCheckout(null, false, "ready"), false);
+  assert.equal(canSubmitCheckout({}, true, "ready"), false);
+  assert.equal(canSubmitCheckout({}, false, "blocked"), false);
+  assert.equal(canSubmitCheckout({}, false, "loading"), false);
+  assert.equal(canSubmitCheckout({}, false, "ready"), true);
+  assert.match(page, /canSubmitCheckout\(quote, busy, payerPreparation\)/);
   assert.match(page, /payment\.provider === "WECHAT_PAY"/);
   assert.match(page, /invokeWechatPay\(payment\.clientParameters\)/);
   assert.match(page, /请勿重复支付/);

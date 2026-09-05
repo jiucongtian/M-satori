@@ -5,6 +5,8 @@ import { SystemClock } from '@satori/application';
 import { FieldCipher, R1_RUNTIME_POLICY, type RuntimeInfrastructure } from '@satori/infrastructure';
 import { validateEnvironment } from '../../packages/infrastructure/src/config/environment.js';
 import { createDatabase } from '../../packages/infrastructure/src/database/client.js';
+import { createQueueInfrastructure, closeQueueInfrastructure } from '../../packages/infrastructure/src/queue/client.js';
+import { GenerationTaskWorker } from '../../packages/modules/src/generation-task/generation-task.worker.js';
 import { CardReadingService } from '../../packages/modules/src/card-reading/card-reading.service.js';
 import { GenerationTaskService } from '../../packages/modules/src/generation-task/generation-task.service.js';
 import { GenerationTaskRunner } from '../../packages/modules/src/generation-task/generation-task.runner.js';
@@ -27,10 +29,10 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
   const execute = vi.fn(() => Promise.resolve({ result: { audience: 'C', cards: [1], missing_fields: [], mode: 'single', notice: '参考', question_type: 'career', report: '数据库生命周期测试报告', status: 'complete', title: '新的方向' }, requestId: 'test', manifest: {} }));
 
   beforeAll(async () => {
-    const environment = validateEnvironment({ ...process.env, SMS_DELIVERY_MODE: 'FIXED_CODE', AQUA_BASE_URL: 'https://aqua.example.com', AQUA_SERVICE_KEY: 'isolated-integration-key-0001' });
+    const environment = validateEnvironment({ ...process.env, QUEUE_PREFIX: `r11-test-${randomUUID()}`, SMS_DELIVERY_MODE: 'FIXED_CODE', AQUA_BASE_URL: 'https://aqua.example.com', AQUA_SERVICE_KEY: 'isolated-integration-key-0001' });
     const db = createDatabase(environment);
     await migrate(db.database, { migrationsFolder: './drizzle' });
-    infrastructure = { ...db, environment, policy: R1_RUNTIME_POLICY, redis: { publish: vi.fn() } } as unknown as RuntimeInfrastructure;
+    infrastructure = { ...db, ...createQueueInfrastructure(environment, R1_RUNTIME_POLICY), environment, policy: R1_RUNTIME_POLICY } as RuntimeInfrastructure;
     const clock = new SystemClock();
     grants = new PostgresEntitlementRepository(infrastructure);
     const entitlements = new EntitlementApplicationService(grants, 'integration-cursor-secret', clock);
@@ -41,7 +43,7 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
     readings = new CardReadingService(infrastructure, { execute } as unknown as CardReadingWorkflowService, consumption, tasks, runner);
     readings.onModuleInit();
   });
-  afterAll(async () => { await infrastructure?.pool.end(); });
+  afterAll(async () => { if (infrastructure) { await closeQueueInfrastructure(infrastructure.redis, infrastructure.generationQueue); await infrastructure.pool.end(); } });
 
   async function user(quantity = 5) {
     const ownerUserId = randomUUID();
@@ -83,6 +85,9 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
     await runner.run(claimed!);
     await tasks.succeed(taskId, claimed!.currentAttempt);
     expect((await readings.get(command.ownerUserId, a.readingId)).status).toBe('READY');
+    const [feedbackA, feedbackB] = await Promise.all([readings.saveFeedback(command.ownerUserId, a.readingId, 'CLEARER'), readings.saveFeedback(command.ownerUserId, a.readingId, 'CLEARER')]);
+    expect(feedbackA.feedbackId).toBe(feedbackB.feedbackId);
+    await expect(readings.saveFeedback(randomUUID(), a.readingId, 'NOT_HELPFUL')).rejects.toThrow();
     expect(await intentStatus(a.readingId)).toBe('COMMITTED');
     await runner.run(claimed!);
     expect(execute.mock.calls.length).toBe(calls + 1);
@@ -92,6 +97,7 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
   it('releases final failure and retries with the frozen cards and a new reservation', async () => {
     const command = await user();
     const draw = await readings.createDraw(command, randomUUID());
+    await expect(readings.saveFeedback(command.ownerUserId, draw.readingId, 'CLEARER')).rejects.toThrow();
     await readings.complete(command.ownerUserId, draw.readingId);
     const taskId = await taskFor(draw.readingId);
     const claimed = await tasks.claim(taskId);
@@ -139,5 +145,21 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
     expect(execute.mock.calls.length).toBe(calls);
     expect(await intentStatus(draw.readingId)).toBe('COMMITTED');
     expect((await readings.get(command.ownerUserId, draw.readingId)).status).toBe('READY');
+  });
+
+  it('executes a persisted reading through real Redis and the actual generation worker', async () => {
+    const command = await user();
+    const draw = await readings.createDraw(command, randomUUID());
+    await readings.complete(command.ownerUserId, draw.readingId);
+    const taskId = await taskFor(draw.readingId);
+    const worker = new GenerationTaskWorker(infrastructure, tasks, runner, {} as never, {} as never, {} as never, {} as never);
+    worker.onModuleInit();
+    try {
+      await infrastructure.generationQueue.add('generation.task.requested', { taskId });
+      await vi.waitFor(async () => {
+        expect((await tasks.getOwned(command.ownerUserId, taskId)).status).toBe('READY');
+      }, { timeout: 10000, interval: 100 });
+      expect(await intentStatus(draw.readingId)).toBe('COMMITTED');
+    } finally { await worker.onApplicationShutdown(); }
   });
 });

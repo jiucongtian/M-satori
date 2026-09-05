@@ -7,7 +7,7 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { CONSUMPTION_PORT, hashPayload, type ConsumptionPort } from '@satori/application';
-import { cardReadings, generationTasks, RuntimeInfrastructure } from '@satori/infrastructure';
+import { cardReadings, feedback, generationTasks, newId, RuntimeInfrastructure } from '@satori/infrastructure';
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import { createHash, randomInt } from 'node:crypto';
 import { buildReadingRequirement } from './application/index.js';
@@ -186,6 +186,7 @@ export class CardReadingService implements OnModuleInit {
 
   async retry(ownerUserId: string, readingId: string) {
     const reading = await this.requireOwned(ownerUserId, readingId);
+    if (['GENERATING', 'SETTLING', 'READY'].includes(reading.status)) return this.dto(reading);
     if (reading.status !== 'FAILED') {
       throw new ConflictException({
         code: 'CARD_READING_NOT_RETRYABLE',
@@ -193,6 +194,20 @@ export class CardReadingService implements OnModuleInit {
       });
     }
     return this.startGeneration(reading);
+  }
+
+  async saveFeedback(ownerUserId: string, readingId: string, feeling: 'CLEARER' | 'INSPIRED' | 'NEEDS_TIME' | 'NOT_HELPFUL') {
+    return this.infrastructure.database.transaction(async tx => {
+      const [reading] = await tx.select().from(cardReadings).where(and(eq(cardReadings.id, readingId), eq(cardReadings.ownerUserId, ownerUserId))).for('update').limit(1);
+      if (!reading) throw new NotFoundException({ code: 'CARD_READING_NOT_FOUND' });
+      if (reading.status !== 'READY') throw new ConflictException({ code: 'CARD_READING_NOT_READY' });
+      const [existing] = await tx.select().from(feedback).where(and(eq(feedback.userId, ownerUserId), eq(feedback.targetType, 'CARD_READING'), eq(feedback.targetId, readingId))).limit(1);
+      const rating = { CLEARER: 5, INSPIRED: 4, NEEDS_TIME: 3, NOT_HELPFUL: 1 }[feeling];
+      const feedbackId = existing?.id ?? newId();
+      if (existing) await tx.update(feedback).set({ rating, reason: feeling }).where(eq(feedback.id, existing.id));
+      else await tx.insert(feedback).values({ id: feedbackId, userId: ownerUserId, targetType: 'CARD_READING', targetId: readingId, rating, reason: feeling });
+      return { feedbackId, feeling };
+    });
   }
 
   async recoverLegacy(ownerUserId: string, readingId: string) {

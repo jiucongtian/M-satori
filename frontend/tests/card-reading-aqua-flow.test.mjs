@@ -59,7 +59,9 @@ test("READ-13 与 READ-15 的 1 至 5 张牌共用固定区域且报告展示牌
 test("问事接口类型包含完整 Aqua 报告", async () => {
   const source = await readFile(clientPath, "utf8");
   assert.match(source, /export type CardReadingReport/);
-  assert.match(source, /report: CardReadingReport \| null/);
+  assert.match(source, /export type CardReading = Schemas\["CardReading"\]/);
+  const contract = await readFile(new URL("../src/api/contracts/generated.ts", import.meta.url), "utf8");
+  assert.match(contract, /report: components\["schemas"\]\["CardReadingReport"\] \| null/);
   assert.match(source, /completeCardReading[\s\S]*?body: JSON\.stringify\(\{\}\)/);
   assert.match(source, /retryCardReading[\s\S]*?body: JSON\.stringify\(\{\}\)/);
 });

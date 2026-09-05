@@ -29,6 +29,7 @@ import {
   savePendingCommerceContext,
 } from "./commerceContext";
 import { invokeWechatPay } from "./wechatPay";
+import { canSubmitCheckout } from "./checkoutState";
 import { track } from "@/src/analytics/client";
 
 const PLAN_NAMES: Record<string, string> = { GLOW: "微光", SERENITY: "清和", FREEDOM: "自在" };
@@ -329,7 +330,7 @@ export function CheckoutScreen() {
   }, [businessContext, params.offeringId, params.previousSubscriptionId, params.targetPlanVersionId]);
 
   async function submit() {
-    if (!quote || busy || payerPreparation !== "ready") return;
+    if (!quote || !canSubmitCheckout(quote, busy, payerPreparation)) return;
     setBusy(true);
     setError("");
     try {

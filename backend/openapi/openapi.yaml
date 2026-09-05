@@ -26,7 +26,77 @@ tags:
   - name: Membership
   - name: Refunds
   - name: Analytics
+  - name: CardReading
 paths:
+  /card-readings/draws:
+    post:
+      tags: [CardReading]
+      operationId: createCardReadingDraw
+      summary: Reserve benefits and freeze a server-generated draw
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [question, category, cardCount, positionLabels]
+              properties:
+                question: {type: string, minLength: 6, maxLength: 120}
+                category: {type: string, maxLength: 32}
+                cardCount: {type: integer, minimum: 1, maximum: 5}
+                positionLabels: {type: array, maxItems: 5, items: {type: string}}
+                drawMethod: {type: string, enum: [SYSTEM_RANDOM]}
+      responses:
+        '201': {description: Frozen draw or idempotent replay, content: {application/json: {schema: {$ref: '#/components/schemas/CardReadingEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /card-readings:
+    get:
+      tags: [CardReading]
+      operationId: listCardReadings
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Owned reading history, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, required: [items, nextCursor], properties: {items: {type: array, items: {$ref: '#/components/schemas/CardReading'}}, nextCursor: {type: [string, 'null']}}}}}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /card-readings/{readingId}:
+    get:
+      tags: [CardReading]
+      operationId: getCardReading
+      parameters: [{$ref: '#/components/parameters/ReadingId'}]
+      responses:
+        '200': {description: Owned reading, content: {application/json: {schema: {$ref: '#/components/schemas/CardReadingEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /card-readings/{readingId}/complete:
+    post:
+      tags: [CardReading]
+      operationId: completeCardReading
+      summary: Atomically enqueue one durable generation task for the current consumption attempt
+      parameters: [{$ref: '#/components/parameters/ReadingId'}]
+      responses:
+        '201': {description: Current reading status; replay does not enqueue again, content: {application/json: {schema: {$ref: '#/components/schemas/CardReadingEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /card-readings/{readingId}/retry:
+    post:
+      tags: [CardReading]
+      operationId: retryCardReading
+      summary: Reserve a new benefit attempt and reuse frozen cards after failure
+      parameters: [{$ref: '#/components/parameters/ReadingId'}]
+      responses:
+        '201': {description: Retried or already running reading, content: {application/json: {schema: {$ref: '#/components/schemas/CardReadingEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /card-readings/{readingId}/feedback:
+    post:
+      tags: [CardReading]
+      operationId: saveCardReadingFeedback
+      summary: Upsert feedback for an owned completed reading
+      parameters: [{$ref: '#/components/parameters/ReadingId'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [feeling], properties: {feeling: {type: string, enum: [CLEARER, INSPIRED, NEEDS_TIME, NOT_HELPFUL]}}}}}
+      responses:
+        '201': {description: Saved feedback, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, required: [feedbackId, feeling], properties: {feedbackId: {type: string, format: uuid}, feeling: {type: string, enum: [CLEARER, INSPIRED, NEEDS_TIME, NOT_HELPFUL]}}}}}}}}
+        default: {$ref: '#/components/responses/Error'}
   /app/bootstrap:
     get:
       tags: [Foundation]
@@ -642,6 +712,7 @@ components:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
     refreshCookie: {type: apiKey, in: cookie, name: satori_refresh}
   parameters:
+    ReadingId: {name: readingId, in: path, required: true, schema: {type: string, format: uuid}}
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
     Cursor: {name: cursor, in: query, required: false, schema: {type: string}}
     Limit: {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
@@ -661,6 +732,42 @@ components:
       headers: {X-Request-Id: {schema: {type: string}}}
       content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
   schemas:
+    CardReadingEnvelope:
+      type: object
+      required: [data]
+      properties: {data: {$ref: '#/components/schemas/CardReading'}}
+    CardReading:
+      type: object
+      required: [readingId, question, category, cardCount, status, report, cards, failure, createdAt, updatedAt, completedAt]
+      properties:
+        readingId: {type: string, format: uuid}
+        question: {type: string}
+        category: {type: string}
+        cardCount: {type: integer, minimum: 1, maximum: 5}
+        status: {type: string, enum: [DRAWN, GENERATING, READY, FAILED]}
+        report: {anyOf: [{$ref: '#/components/schemas/CardReadingReport'}, {type: 'null'}]}
+        cards: {type: array, items: {$ref: '#/components/schemas/CardReadingCard'}}
+        failure: {type: [object, 'null'], properties: {code: {type: string}, message: {type: string}, retryable: {type: boolean}}}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        completedAt: {type: [string, 'null'], format: date-time}
+    CardReadingCard:
+      type: object
+      required: [position, positionLabel, cardCode, displayName]
+      properties: {position: {type: integer}, positionLabel: {type: string}, cardCode: {type: string}, displayName: {type: string}}
+    CardReadingReport:
+      type: object
+      required: [audience, cards, missing_fields, mode, notice, question_type, report, status, title]
+      properties:
+        audience: {type: string, enum: [B, C]}
+        cards: {type: array, items: {type: integer}}
+        missing_fields: {type: array, items: {type: string}}
+        mode: {type: string, enum: [single, dual, multi]}
+        notice: {type: string}
+        question_type: {type: string}
+        report: {type: string}
+        status: {type: string}
+        title: {type: string}
     AnalyticsEventBatch:
       type: object
       additionalProperties: false

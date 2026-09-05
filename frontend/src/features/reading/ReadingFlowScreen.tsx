@@ -7,7 +7,6 @@ import {
   ReadingConfirm,
   ReadingDraw,
   ReadingFailure,
-  ReadingFeedback,
   ReadingGenerate,
   ReadingQuestion,
   ReadingReport,
@@ -23,6 +22,7 @@ import { readFlowDraft } from "@/src/shared/storage";
 import { apiMessage,PageDebugLabel } from "@/src/shared/ui";
 import { api,type CardReading } from "@/src/api/client";
 import { ReadingPaymentScreen } from "./ReadingPaymentScreen";
+import { ReadingFeedbackScreen } from "./ReadingFeedbackScreen";
 
 type ReadingDraft = { question:string; category:string; cardCount:number; positions:string[] };
 
@@ -80,7 +80,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     const id=requested||(canRestoreSaved?saved:null);
     let active=true;
     if(!id){const timer=window.setTimeout(()=>{if(active)setReading(null)},0);return()=>{active=false;window.clearTimeout(timer)}}
-    void api.cardReading(id).then(value=>{if(active)setReading(value)}).catch(()=>{if(saved===id)window.sessionStorage.removeItem(`fresh:active-reading:${me.userId}`)});
+    void api.cardReading(id).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))});
     return()=>{active=false};
   },[me?.userId,searchParams,step]);
   const requestedCount = Number(searchParams.get("cards")||2);
@@ -102,13 +102,14 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
   async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating",retried.readingId,retried.cardCount)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   useEffect(()=>{
     if(step!=="generating"||!reading)return;
-    if(reading.status==="READY"){router.replace(`${path.report}?readingId=${encodeURIComponent(reading.readingId)}`);return}
-    if(reading.status==="FAILED"){router.replace(`${path.failure}?readingId=${encodeURIComponent(reading.readingId)}`);return}
+    const destination = (target: "report" | "failure") => withReturnPath(`${path[target]}?readingId=${encodeURIComponent(reading.readingId)}&cards=${reading.cardCount}`, returnPath);
+    if(reading.status==="READY"){router.replace(destination("report"));return}
+    if(reading.status==="FAILED"){router.replace(destination("failure"));return}
     let active=true;
     if(reading.status==="DRAWN"&&generationStartedFor.current!==reading.readingId){generationStartedFor.current=reading.readingId;void api.completeCardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(()=>{if(active)router.replace(`${path.failure}?readingId=${encodeURIComponent(reading.readingId)}`)})}
-    const timer=reading.status==="GENERATING"?window.setInterval(()=>{void api.cardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(()=>undefined)},2500):undefined;
+    const timer=["DRAWN","GENERATING"].includes(reading.status)?window.setInterval(()=>{void api.cardReading(reading.readingId).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))})},2500):undefined;
     return()=>{active=false;if(timer)window.clearInterval(timer)};
-  },[reading,router,step]);
+  },[reading,router,step,returnPath]);
 
   const screens: Record<ReadingFlowStep, React.ReactNode> = {
     question: <ReadingQuestion onBack={()=>go("home")} onNext={()=>go("spread")}/>,
@@ -121,10 +122,10 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>go("generating")}/>,
     generating: <ReadingGenerate live status={reading?.status??"GENERATING"} cardCount={cardCount} cards={reading?.cards} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onSuccess={()=>router.push(`${path.report}?readingId=${encodeURIComponent(reading?.readingId??"")}`)} onFailure={()=>go("failure")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")} onNetworkError={()=>go("failure")}/>,
     report: <ReadingReport live report={reading?.report} question={reading?.question} cardCount={reading?.cardCount??cardCount} cards={reading?.cards} onBack={()=>router.push(returnPath)} onNext={()=>go("home")} onShare={reading?.readingId&&reading.report?()=>router.push(`/share/generating?type=reading&readingId=${encodeURIComponent(reading.readingId)}`):undefined}/>,
-    feedback: <ReadingFeedback onBack={()=>go("report")} onHome={()=>go("home")} onShare={()=>go("report")}/>,
+    feedback: reading?.status === "READY" ? <ReadingFeedbackScreen readingId={reading.readingId} onBack={()=>go("report", reading.readingId, reading.cardCount)} onDone={()=>go("home")}/> : null,
     failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>{generationStartedFor.current=null;void retryReading()}}/>,
   };
 
   if(flowError)return <RouteError title="本次问事暂时没有继续" message={flowError} backHref={ROUTES.readingHistory}/>;
-  return <ProtectedRoute><RouteFrame title="抽卡问事" label="R1.1 正式主流程"><PageDebugLabel>{`R1.1 · ${pageCode[step]}`}</PageDebugLabel>{screens[step]}</RouteFrame></ProtectedRoute>;
+  return <ProtectedRoute><RouteFrame title="抽卡问事" label="R1.1 正式主流程"><PageDebugLabel>{`R1.1 · ${pageCode[step]}`}</PageDebugLabel>{screens[step]}{step === "report" && reading?.status === "READY" && <button className="text-action" onClick={()=>go("feedback", reading.readingId, reading.cardCount)}>留下本次问事反馈</button>}</RouteFrame></ProtectedRoute>;
 }
