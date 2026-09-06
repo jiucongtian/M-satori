@@ -258,6 +258,17 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
 
     await ledger.claimRegistrationReward(registrationUserId);
     await ledger.claimRegistrationReward(registrationUserId);
+    const context = { type: 'DAILY_INSIGHT', id: randomUUID() };
+    const reservation = await repository.reserve({
+      ownerUserId: registrationUserId,
+      businessSpace: 'SATORI',
+      serviceType: 'DAILY_INSIGHT',
+      quantity: 1,
+      businessKey: `registration-consumption:${randomUUID()}`,
+      businessContext: context,
+      requestId: randomUUID(),
+    });
+    await repository.settle(reservation.reservationId, 'CONSUME', context, randomUUID());
     const migration = await repository.migrateLegacyAccount(registrationUserId, randomUUID());
 
     const candidates = await repository.listCandidates({
@@ -269,10 +280,11 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
       businessContext: { type: 'DAILY_INSIGHT', id: randomUUID() },
     });
     expect(candidates).toHaveLength(1);
-    expect(candidates[0]).toMatchObject({ availableQuantity: 3 });
+    expect(candidates[0]).toMatchObject({ availableQuantity: 2 });
     expect(await repository.getAccount(registrationUserId)).toMatchObject({
-      available: 3,
+      available: 2,
       totalEarned: 3,
+      totalSpent: 1,
     });
     expect(migration).toMatchObject({ state: 'REPLAYED', consistent: true });
     expect(await repository.listGrants(registrationUserId)).toHaveLength(1);

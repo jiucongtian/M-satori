@@ -673,6 +673,7 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
       const internallyConsistent =
         batch.available === grants.rows[0]!.available && batch.reserved === grants.rows[0]!.reserved;
       const legacyMatchesUnmigratedBatch =
+        batchActivity.rows[0]!.exists ||
         grantId !== null ||
         (batch.available === legacyTotals.available &&
           batch.reserved === legacyTotals.reserved &&
