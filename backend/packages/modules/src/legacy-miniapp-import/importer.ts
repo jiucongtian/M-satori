@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { PoolClient } from 'pg';
 import type { Database } from '../../../infrastructure/src/database/client.js';
@@ -41,6 +41,9 @@ export async function executePlan(
   if (!/^[a-f\d]{64}$/i.test(options.encryptionKey)) throw new Error('INVALID_TARGET_ENCRYPTION_KEY');
   if (options.cursorSecret.length < 16) throw new Error('INVALID_CURSOR_SECRET');
   if (!plan.profiles.length) throw new Error('EMPTY_IMPORT_SELECTION');
+  if (plan.profiles.some((item) => item.subjectType !== 'OTHER' || item.relationshipType !== 'FRIEND')) {
+    throw new Error('ONLY_OTHER_FRIEND_PROFILES_ALLOWED');
+  }
   try {
     return await drizzle(client, { schema }).transaction(async (transaction) => {
       const database = transaction as unknown as Database;
@@ -139,34 +142,18 @@ export async function executePlan(
           });
           continue;
         }
-        if (item.subjectType === 'SELF') {
-          const [self] = await database
-            .select({ id: schema.subjects.id })
-            .from(schema.subjects)
-            .where(
-              and(
-                eq(schema.subjects.ownerUserId, item.targetUserId),
-                eq(schema.subjects.type, 'SELF'),
-                isNull(schema.subjects.deletedAt),
-              ),
-            );
-          if (self) throw new Error('EXISTING_SELF_PROFILE_WOULD_BE_OVERWRITTEN');
-        }
         const key = `miniapp:${markerId}`;
-        const created =
-          item.subjectType === 'OTHER'
-            ? await library.create({
-                userId: item.targetUserId,
-                displayName: item.displayName,
-                relationshipType: item.relationshipType,
-                idempotencyKey: `${key}:create`,
-              })
-            : null;
+        const created = await library.create({
+          userId: item.targetUserId,
+          displayName: item.displayName,
+          relationshipType: 'FRIEND',
+          idempotencyKey: `${key}:create`,
+        });
         const revision = await profiles.preview({
           userId: item.targetUserId,
           birthInput: item.birthInput,
           idempotencyKey: `${key}:preview`,
-          ...(created ? { profileId: created.profileId } : {}),
+          profileId: created.profileId,
         });
         const confirmed = await profiles.confirm({
           userId: item.targetUserId,
@@ -174,10 +161,8 @@ export async function executePlan(
           fingerprint: revision.inputFingerprint,
           enhancedConfirmationAccepted: true,
           idempotencyKey: `${key}:confirm`,
-          ...(created ? { profileId: created.profileId } : {}),
+          profileId: created.profileId,
         });
-        if (item.subjectType === 'SELF')
-          await profiles.updateDisplayName(item.targetUserId, item.displayName);
         // Original timestamps belong to the imported profile; the new revision keeps its actual creation time.
         const createdAt = sourceDate(item.original.createTime)!;
         const [imported] = await database

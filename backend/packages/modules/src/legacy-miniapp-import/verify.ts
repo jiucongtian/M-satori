@@ -19,7 +19,7 @@ export async function verifyArchive(source: SourceData) {
     profiles: eligible.map((profile) => ({
       sourceProfileId: profile.sourceProfileId,
       subjectType: 'OTHER',
-      relationshipType: 'OTHER',
+      relationshipType: 'FRIEND',
       locationId: 'loc_cn_110000',
       timePrecision:
         originals.get(profile.sourceProfileId)!.isUncertainTime === true ? 'DATE_ONLY' : 'APPROXIMATE',
@@ -41,7 +41,9 @@ export async function verifyArchive(source: SourceData) {
       profile.birthInput.date.day !== birth.day ||
       profile.birthInput.date.isLeapMonth !== (birth.isLeapMonth === true) ||
       profile.birthInput.calendarType !== (birth.isLunar ? 'LUNAR' : 'SOLAR') ||
-      profile.birthInput.calculationGender !== (original.gender === 1 ? 'MALE' : 'FEMALE')
+      profile.birthInput.calculationGender !== (original.gender === 1 ? 'MALE' : 'FEMALE') ||
+      profile.subjectType !== 'OTHER' ||
+      profile.relationshipType !== 'FRIEND'
     ) {
       throw new Error('SOURCE_PRESERVATION_FAILED');
     }
@@ -58,6 +60,7 @@ export async function verifyArchive(source: SourceData) {
     sourceHash: originalHash,
     ...assessment.summary,
     calculatedProfiles: plan.profiles.length,
+    otherFriendProfiles: plan.profiles.length,
     preservedOriginalProfiles: source.profiles.length,
     preservedOriginalUsers: source.users.length,
     changedCardProfiles,

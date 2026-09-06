@@ -16,8 +16,8 @@ const userMapping = z
 const profileMapping = z
   .object({
     sourceProfileId: z.string().min(1),
-    subjectType: z.enum(['SELF', 'OTHER']),
-    relationshipType: z.enum(['FAMILY', 'FRIEND', 'COLLEAGUE', 'OTHER']).default('OTHER'),
+    subjectType: z.literal('OTHER').default('OTHER'),
+    relationshipType: z.literal('FRIEND').default('FRIEND'),
     locationId: z.string().min(1),
     timePrecision: z.enum(['EXACT_MINUTE', 'APPROXIMATE', 'HOUR_RANGE', 'DATE_ONLY']),
     hourBranchCode: z
@@ -41,8 +41,8 @@ export interface PlannedProfile {
   sourceUserId: string;
   targetUserId: string;
   displayName: string;
-  subjectType: 'SELF' | 'OTHER';
-  relationshipType: 'FAMILY' | 'FRIEND' | 'COLLEAGUE' | 'OTHER';
+  subjectType: 'OTHER';
+  relationshipType: 'FRIEND';
   birthInput: BirthInput;
   location: StandardLocation;
   chart: BirthChartResult;
@@ -58,7 +58,7 @@ export interface ImportPlan {
   sourceHash: string;
 }
 
-/** All selections must be explicit: neither phone matching nor default birth locations are allowed. */
+/** Every legacy profile is an OTHER/FRIEND archive entry; ownership and birth location still require review. */
 export async function buildPlan(source: SourceData, rawMapping: unknown): Promise<ImportPlan> {
   const mapping = mappingSchema.parse(rawMapping);
   if (mapping.namespace !== source.namespace) throw new Error('NAMESPACE_MISMATCH');
@@ -78,7 +78,6 @@ export async function buildPlan(source: SourceData, rawMapping: unknown): Promis
   const locations = new LocalLocationProvider();
   const calculator = new ReferenceBirthChartCalculator();
   const selected = new Set<string>();
-  const selfOwners = new Set<string>();
   const profiles: PlannedProfile[] = [];
   for (const selection of mapping.profiles) {
     if (selected.has(selection.sourceProfileId)) throw new Error('DUPLICATE_PROFILE_SELECTION');
@@ -89,11 +88,6 @@ export async function buildPlan(source: SourceData, rawMapping: unknown): Promis
       throw new Error('PROFILE_NOT_ELIGIBLE');
     const owner = owners.get(candidate.sourceUserId);
     if (!owner) throw new Error('VERIFIED_OWNER_MAPPING_REQUIRED');
-    if (selection.subjectType === 'SELF') {
-      if (selfOwners.has(owner.targetUserId)) throw new Error('MULTIPLE_SELF_PROFILES');
-      if (String(original.profileName).length > 16) throw new Error('SELF_NAME_TOO_LONG');
-      selfOwners.add(owner.targetUserId);
-    }
     if (original.isUncertainTime === true && selection.timePrecision !== 'DATE_ONLY') {
       throw new Error('UNKNOWN_TIME_MUST_REMAIN_DATE_ONLY');
     }

@@ -110,6 +110,47 @@ describe('miniapp source preservation and validation', () => {
 });
 
 describe('miniapp reviewed import planning', () => {
+  it('defaults all legacy names to OTHER/FRIEND without inferring SELF or family relationships', async () => {
+    const source = await syntheticSource();
+    const names = ['我自己', '爸爸', '朋友', '这是超过十六个字仍然需要完整保留的档案名称'];
+    source.profiles = names.map((profileName, index) => ({
+      ...source.profiles[0],
+      _id: `profile-${index}`,
+      profileName,
+    }));
+    const mapping = syntheticMapping(randomUUID());
+    const selection = mapping.profiles[0]!;
+    const plan = await buildPlan(source, {
+      ...mapping,
+      profiles: source.profiles.map((profile) => ({
+        sourceProfileId: profile._id,
+        locationId: selection.locationId,
+        timePrecision: selection.timePrecision,
+        confirmed: true,
+        acceptRecalculatedCards: false,
+      })),
+    });
+    expect(plan.profiles.map((profile) => profile.displayName)).toEqual(names);
+    expect(
+      plan.profiles.every(
+        (profile) => profile.subjectType === 'OTHER' && profile.relationshipType === 'FRIEND',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects old SELF mappings and alternative relationships instead of silently creating a main profile', async () => {
+    const source = await syntheticSource();
+    const mapping = syntheticMapping(randomUUID());
+    for (const override of [
+      { subjectType: 'SELF' },
+      { relationshipType: 'FAMILY' },
+      { relationshipType: 'OTHER' },
+    ]) {
+      await expect(
+        buildPlan(source, { ...mapping, profiles: [{ ...mapping.profiles[0], ...override }] }),
+      ).rejects.toThrow();
+    }
+  });
   it('full offline verification never emits a usable synthetic claim or changes source records', async () => {
     const source = await syntheticSource();
     const before = digest(source);

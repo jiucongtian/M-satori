@@ -14,7 +14,7 @@ import {
 import { digest } from '../../packages/modules/src/legacy-miniapp-import/source.js';
 import { assessSource, object } from '../../packages/modules/src/legacy-miniapp-import/source.js';
 import { loadArchive } from '../../packages/modules/src/legacy-miniapp-import/archive.js';
-import type { Mapping } from '../../packages/modules/src/legacy-miniapp-import/plan.js';
+import type { ImportPlan, Mapping } from '../../packages/modules/src/legacy-miniapp-import/plan.js';
 
 const connectionString = process.env.MINIAPP_TEST_DATABASE_URL;
 const key = '11'.repeat(32);
@@ -129,8 +129,10 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
       created_at: Date;
       birth_data_ciphertext: string;
       status: string;
+      subject_type: string;
+      relationship_type: string;
     }>(
-      `select s.display_name_ciphertext, lp.created_at, r.birth_data_ciphertext, r.status
+      `select s.display_name_ciphertext, lp.created_at, r.birth_data_ciphertext, r.status, s.type as subject_type, lp.relationship_type
       from life_profiles lp join subjects s on s.id=lp.subject_id join life_profile_revisions r on r.id=lp.active_revision_id
       where lp.id=$1 and lp.owner_user_id=$2`,
       [profileId, userId],
@@ -143,6 +145,11 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
     });
     expect(rows[0]!.created_at.toISOString()).toBe('2024-01-02T03:04:05.000Z');
     expect(rows[0]!.status).toBe('ACTIVE');
+    expect(rows[0]!.subject_type).toBe('OTHER');
+    expect(rows[0]!.relationship_type).toBe('FRIEND');
+    expect(
+      (await pool.query("select id from subjects where owner_user_id=$1 and type='SELF'", [userId])).rowCount,
+    ).toBe(0);
     const after = await counts();
     expect(after.card_bindings! - before.card_bindings!).toBe(4);
     for (const table of [
@@ -180,24 +187,55 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
     expect(await counts()).toEqual(before);
   });
 
-  it('rolls back earlier records when a later SELF import would overwrite an existing profile', async () => {
+  it('rolls back earlier new profiles when a later record conflicts with a previous import', async () => {
+    const { source, mapping } = await fixture();
+    await run(await buildPlan(source, mapping));
+    const original = source.profiles[0]!;
+    source.profiles = [
+      { ...original, _id: 'fresh-profile' },
+      { ...original, profileName: '更改后的旧档案名称' },
+    ];
+    mapping.profiles = [{ ...mapping.profiles[0]!, sourceProfileId: 'fresh-profile' }, mapping.profiles[0]!];
+    const before = await counts();
+    await expect(run(await buildPlan(source, mapping))).rejects.toThrow('IMPORT_REPLAY_CONFLICT');
+    expect(await counts()).toEqual(before);
+  });
+
+  it('adds all names as friends when the target already has a SELF profile, leaving that profile unchanged', async () => {
     const { source, mapping, userId } = await fixture();
     const selfSubject = randomUUID();
     await pool.query(
       "insert into subjects (id, owner_user_id, type, display_name_ciphertext) values ($1,$2,'SELF',$3)",
       [selfSubject, userId, new FieldCipher(key).encrypt('已存在的本人')],
     );
-    source.profiles.push({ ...source.profiles[0], _id: 'second-profile' });
+    const selfProfile = randomUUID();
+    await pool.query(
+      "insert into life_profiles (id, subject_id, owner_user_id, relationship_type) values ($1,$2,$3,'SELF')",
+      [selfProfile, selfSubject, userId],
+    );
+    const existing = await pool.query('select * from life_profiles where id=$1', [selfProfile]);
+    source.profiles[0]!.profileName = '我自己';
+    source.profiles.push({ ...source.profiles[0], _id: 'second-profile', profileName: '爸爸' });
     mapping.profiles.push({
       ...mapping.profiles[0]!,
       sourceProfileId: 'second-profile',
-      subjectType: 'SELF',
     });
-    const before = await counts();
-    await expect(run(await buildPlan(source, mapping))).rejects.toThrow(
-      'EXISTING_SELF_PROFILE_WOULD_BE_OVERWRITTEN',
+    const result = await run(await buildPlan(source, mapping));
+    expect(result.results).toHaveLength(2);
+    expect(digest((await pool.query('select * from life_profiles where id=$1', [selfProfile])).rows)).toBe(
+      digest(existing.rows),
     );
-    expect(await counts()).toEqual(before);
+    expect(
+      (await pool.query("select id from subjects where owner_user_id=$1 and type='SELF'", [userId])).rowCount,
+    ).toBe(1);
+    expect(
+      (
+        await pool.query(
+          "select id from life_profiles where owner_user_id=$1 and relationship_type='FRIEND'",
+          [userId],
+        )
+      ).rowCount,
+    ).toBe(2);
     expect(
       new FieldCipher(key).decrypt(
         (
@@ -210,24 +248,22 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
     ).toBe('已存在的本人');
   });
 
-  it('imports a confirmed SELF name correctly when there is no existing SELF', async () => {
-    const { source, mapping, userId } = await fixture();
-    mapping.profiles[0]!.subjectType = 'SELF';
-    await run(await buildPlan(source, mapping));
-    const row = (
-      await pool.query<{ display_name_ciphertext: string }>(
-        "select display_name_ciphertext from subjects where owner_user_id=$1 and type='SELF'",
-        [userId],
-      )
-    ).rows[0];
-    expect(new FieldCipher(key).decrypt(row!.display_name_ciphertext)).toBe('测试档案');
+  it('rejects forged SELF or non-friend plans at execution even if mapping validation was bypassed', async () => {
+    const { source, mapping } = await fixture();
+    const plan = await buildPlan(source, mapping);
+    const before = await counts();
+    for (const override of [{ subjectType: 'SELF' }, { relationshipType: 'FAMILY' }]) {
+      const forged = { ...plan, profiles: [{ ...plan.profiles[0], ...override }] } as unknown as ImportPlan;
+      await expect(run(forged)).rejects.toThrow('ONLY_OTHER_FRIEND_PROFILES_ALLOWED');
+    }
+    expect(await counts()).toEqual(before);
   });
 
   it('rejects changed input on replay and prevents a source account being claimed by another target', async () => {
     const { source, mapping } = await fixture();
     await run(await buildPlan(source, mapping));
     const before = await counts();
-    mapping.profiles[0]!.relationshipType = 'FRIEND';
+    source.profiles[0]!.profileName = '更改后的名称';
     await expect(run(await buildPlan(source, mapping))).rejects.toThrow('IMPORT_REPLAY_CONFLICT');
     expect(await counts()).toEqual(before);
     const other = randomUUID();
@@ -317,7 +353,7 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
       mapping.profiles = source.profiles.map((profile) => ({
         sourceProfileId: String(profile._id),
         subjectType: 'OTHER',
-        relationshipType: 'OTHER',
+        relationshipType: 'FRIEND',
         locationId: 'loc_cn_110000',
         timePrecision: profile.isUncertainTime === true ? 'DATE_ONLY' : 'APPROXIMATE',
         confirmed: true,
@@ -344,6 +380,16 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
       }
       const after = await counts();
       expect(after.card_bindings! - before.card_bindings!).toBe(source.profiles.length * 4);
+      const importedIds = outcome.results.map((result) => result.profileId);
+      expect(
+        (
+          await pool.query(
+            `select lp.id from life_profiles lp join subjects s on s.id=lp.subject_id
+        where lp.id=any($1::uuid[]) and s.type='OTHER' and lp.relationship_type='FRIEND'`,
+            [importedIds],
+          )
+        ).rowCount,
+      ).toBe(source.profiles.length);
       await run(plan);
       expect(await counts()).toEqual(after);
       expect(await structure()).toBe(schemaBefore);

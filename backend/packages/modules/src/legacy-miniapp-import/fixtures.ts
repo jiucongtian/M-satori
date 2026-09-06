@@ -68,7 +68,7 @@ export function syntheticMapping(targetUserId: string): Mapping {
       {
         sourceProfileId: 'old-profile',
         subjectType: 'OTHER',
-        relationshipType: 'OTHER',
+        relationshipType: 'FRIEND',
         locationId: 'loc_cn_110000',
         timePrecision: 'EXACT_MINUTE',
         confirmed: true,
