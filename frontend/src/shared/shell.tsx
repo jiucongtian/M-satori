@@ -28,7 +28,7 @@ const ROUTE_DEBUG_LABELS: Record<string, string> = {
   "/services/energy-pack": "R1.1 · GOODS-01",
   "/services/reading-pack": "R1.1 · GOODS-02",
   "/shop": "R1.1 · SHOP-01",
-  "/shop/detail": "R1.1 · SHOP-04",
+  "/shop/detail": "R1.1 · SHOP-02",
   "/checkout": "R1.1 · ORDER-01",
   "/checkout/pay": "R1.1 · ORDER-02",
   "/checkout/result": "R1.1 · ORDER-03",

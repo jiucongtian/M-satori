@@ -13,7 +13,7 @@ describe('R1 runtime policy', () => {
       version: 'reading-seed-cost-r1.1-v1',
       costByCardCount: { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9 },
     });
-    expect(R1_RUNTIME_POLICY.registration.rewardAmount).toBe(18);
+    expect(R1_RUNTIME_POLICY.registration.rewardAmount).toBe(3);
     expect(R1_RUNTIME_POLICY.accountDeletion.cancellationHours).toBe(168);
   });
 

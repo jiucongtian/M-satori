@@ -1755,7 +1755,10 @@ export interface components {
             promotion: {
                 eligible: boolean;
                 ruleVersion?: string | null;
+                availableSeedQuantity: number;
+                minimumSeedBalance: number;
                 seedReservationRequired: number;
+                activityPrice: components["schemas"]["Money"] | null;
                 message?: string | null;
             };
             businessContext?: components["schemas"]["BusinessContext"] | null;

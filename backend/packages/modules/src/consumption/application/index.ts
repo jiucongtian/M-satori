@@ -250,6 +250,7 @@ export class ConsumptionApplicationService implements ConsumptionPort {
 }
 
 function seedCost(requirement: ServiceRequirement) {
+  if (requirement.serviceType !== 'DAILY_INSIGHT') return null;
   if (requirement.unit === 'SEED') return requirement.quantity;
   const configured = requirement.attributes?.seedQuantity;
   return typeof configured === 'number' && Number.isInteger(configured) && configured > 0 ? configured : null;

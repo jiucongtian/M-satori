@@ -20,7 +20,10 @@ export interface CheckoutQuoteView {
   readonly promotion: {
     readonly eligible: boolean;
     readonly ruleVersion: string | null;
+    readonly availableSeedQuantity: number;
+    readonly minimumSeedBalance: number;
     readonly seedReservationRequired: number;
+    readonly activityPrice: { readonly amountMinor: number; readonly currency: 'CNY' } | null;
     readonly message: string | null;
   };
   readonly businessContext: BusinessContext | null;
@@ -112,6 +115,9 @@ export class PricingApplicationService {
     const promotion = eligibleRules.sort(
       (left, right) => left.activityAmountMinor - right.activityAmountMinor,
     )[0];
+    const displayedPromotion = [...rules].sort(
+      (left, right) => left.activityAmountMinor - right.activityAmountMinor,
+    )[0];
     const issuedAt = now;
     const expiresAt = new Date(now.getTime() + CHECKOUT_QUOTE_TTL_MS);
     const view: CheckoutQuoteView = {
@@ -123,9 +129,18 @@ export class PricingApplicationService {
       },
       promotion: {
         eligible: Boolean(promotion),
-        ruleVersion: promotion?.ruleVersion ?? null,
+        ruleVersion: displayedPromotion?.ruleVersion ?? null,
+        availableSeedQuantity: seedBalance,
+        minimumSeedBalance: displayedPromotion?.minimumSeedBalance ?? 0,
         seedReservationRequired: promotion?.reservedSeedQuantity ?? 0,
-        message: promotion ? '消耗指定智慧种子，解锁本商品活动价' : null,
+        activityPrice: displayedPromotion
+          ? { amountMinor: displayedPromotion.activityAmountMinor, currency: 'CNY' }
+          : null,
+        message: promotion
+          ? `支付成功后将消耗 ${promotion.reservedSeedQuantity} 颗智慧种子，解锁活动价`
+          : displayedPromotion
+            ? `当前有 ${seedBalance} 颗智慧种子，满 ${displayedPromotion.minimumSeedBalance} 颗可解锁活动价`
+            : null,
       },
       businessContext: command.businessContext ?? null,
       issuedAt,

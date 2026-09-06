@@ -38,8 +38,23 @@ describe('PricingApplicationService', () => {
     const quote = await service.createQuote(command());
     expect(quote.price.amountMinor).toBe(2_190);
     expect(quote.promotion.seedReservationRequired).toBe(80);
+    expect(quote.promotion.availableSeedQuantity).toBe(100);
+    expect(quote.promotion.activityPrice?.amountMinor).toBe(2_190);
     expect(quote.expiresAt.getTime() - quote.issuedAt.getTime()).toBe(CHECKOUT_QUOTE_TTL_MS);
     expect(quote.promotion.message).not.toMatch(/抵扣|每颗|组合支付/);
+  });
+
+  it('shows the configured activity threshold even when the user is not yet eligible', async () => {
+    const service = pricing(memoryRepository(), { purchases: 0, seeds: 3, now: new Date() });
+    const quote = await service.createQuote(command());
+    expect(quote.price.amountMinor).toBe(2_490);
+    expect(quote.promotion).toMatchObject({
+      eligible: false,
+      availableSeedQuantity: 3,
+      minimumSeedBalance: 80,
+      seedReservationRequired: 0,
+      activityPrice: { amountMinor: 2_190, currency: 'CNY' },
+    });
   });
 
   it('replays the same command but rejects the same key with a different payload', async () => {

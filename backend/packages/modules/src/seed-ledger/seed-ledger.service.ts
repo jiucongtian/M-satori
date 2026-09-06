@@ -16,6 +16,9 @@ import {
   newId,
   registrationRewards,
   RuntimeInfrastructure,
+  complimentarySeedAccountProjections,
+  complimentarySeedEntries,
+  complimentarySeedGrants,
   seedAccounts,
   seedEntries,
 } from '@satori/infrastructure';
@@ -187,6 +190,8 @@ export class SeedLedgerService {
           code: 'REGISTRATION_REWARD_INELIGIBLE',
           message: 'Registration reward is not available',
         });
+
+      await ensureRegistrationRewardBatch(tx, reward);
 
       if (reward.seedEntryId) {
         const [entry] = await tx
@@ -533,4 +538,104 @@ export class SeedLedgerService {
       actual: { available: account.available, reserved: account.reserved },
     };
   }
+}
+
+async function ensureRegistrationRewardBatch(
+  tx: SeedLedgerTransaction,
+  reward: typeof registrationRewards.$inferSelect,
+) {
+  const grantId = newId();
+  const requestId = newId();
+  const [inserted] = await tx
+    .insert(complimentarySeedGrants)
+    .values({
+      id: grantId,
+      ownerUserId: reward.userId,
+      businessSpace: 'SATORI',
+      sourceType: 'REGISTRATION',
+      sourceId: reward.id,
+      applicableServices: ['DAILY_INSIGHT'],
+      totalQuantity: reward.amount,
+      availableQuantity: reward.amount,
+      reservedQuantity: 0,
+      status: 'ACTIVE',
+      effectiveAt: reward.createdAt,
+      expiresAt: null,
+      grantedAt: reward.createdAt,
+      expiryTimezone: null,
+      ruleVersion: 'registration-reward-v1',
+      requestId,
+    })
+    .onConflictDoNothing({
+      target: [
+        complimentarySeedGrants.ownerUserId,
+        complimentarySeedGrants.sourceType,
+        complimentarySeedGrants.sourceId,
+      ],
+    })
+    .returning({ id: complimentarySeedGrants.id });
+  if (!inserted) {
+    const [existing] = await tx
+      .select()
+      .from(complimentarySeedGrants)
+      .where(
+        and(
+          eq(complimentarySeedGrants.ownerUserId, reward.userId),
+          eq(complimentarySeedGrants.sourceType, 'REGISTRATION'),
+          eq(complimentarySeedGrants.sourceId, reward.id),
+        ),
+      )
+      .limit(1);
+    if (
+      !existing ||
+      existing.totalQuantity !== reward.amount ||
+      existing.ruleVersion !== 'registration-reward-v1' ||
+      !sameServices(existing.applicableServices as string[], ['DAILY_INSIGHT'])
+    )
+      throw new Error('Registration reward batch ledger invariant violated');
+    return;
+  }
+
+  await tx
+    .insert(complimentarySeedAccountProjections)
+    .values({
+      ownerUserId: reward.userId,
+      businessSpace: 'SATORI',
+      availableQuantity: reward.amount,
+      reservedQuantity: 0,
+      totalGranted: reward.amount,
+      totalConsumed: 0,
+      version: 1,
+    })
+    .onConflictDoUpdate({
+      target: complimentarySeedAccountProjections.ownerUserId,
+      set: {
+        availableQuantity: sql`${complimentarySeedAccountProjections.availableQuantity} + ${reward.amount}`,
+        totalGranted: sql`${complimentarySeedAccountProjections.totalGranted} + ${reward.amount}`,
+        version: sql`${complimentarySeedAccountProjections.version} + 1`,
+        updatedAt: new Date(),
+      },
+    });
+  await tx.insert(complimentarySeedEntries).values({
+    id: newId(),
+    grantId,
+    ownerUserId: reward.userId,
+    businessSpace: 'SATORI',
+    entryType: 'GRANT',
+    quantity: reward.amount,
+    availableAfter: reward.amount,
+    reservedAfter: 0,
+    businessKey: `registration-reward:${reward.id}:GRANT`,
+    businessContextType: 'REGISTRATION',
+    businessContextId: reward.id,
+    requestId,
+    metadata: {
+      applicableServices: ['DAILY_INSIGHT'],
+      ruleVersion: 'registration-reward-v1',
+    },
+  });
+}
+
+function sameServices(actual: string[], expected: string[]) {
+  return actual.length === expected.length && expected.every((service) => actual.includes(service));
 }

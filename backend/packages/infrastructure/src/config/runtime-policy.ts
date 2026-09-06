@@ -105,7 +105,7 @@ export const R1_RUNTIME_POLICY = {
 
   registration: {
     /** 新用户注册后创建的待领取智慧种子奖励数量；已创建奖励会在数据库保存实际金额。 */
-    rewardAmount: 18,
+    rewardAmount: 3,
   },
 
   accountDeletion: {

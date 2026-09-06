@@ -6,6 +6,7 @@ import { validateEnvironment } from '../../packages/infrastructure/src/config/en
 import { createDatabase } from '../../packages/infrastructure/src/database/client.js';
 import { ComplimentarySeedApplicationService } from '../../packages/modules/src/complimentary-seed/application/index.js';
 import { PostgresComplimentarySeedRepository } from '../../packages/modules/src/complimentary-seed/repository-adapter/index.js';
+import { SeedLedgerService } from '../../packages/modules/src/seed-ledger/seed-ledger.service.js';
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === 'true';
 
@@ -13,25 +14,30 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
   let pool: Pool;
   let repository: PostgresComplimentarySeedRepository;
   let seeds: ComplimentarySeedApplicationService;
+  let infrastructure: ReturnType<typeof createDatabase>;
+  let environment: ReturnType<typeof validateEnvironment>;
   const userId = randomUUID();
   const migrationUserId = randomUUID();
   const concurrencyUserId = randomUUID();
+  const migrationReplayUserId = randomUUID();
+  const registrationUserId = randomUUID();
 
   beforeAll(async () => {
-    const infrastructure = createDatabase(
-      validateEnvironment({
-        ...process.env,
-        SMS_DELIVERY_MODE: process.env.SMS_DELIVERY_MODE ?? 'FIXED_CODE',
-        AQUA_BASE_URL: process.env.AQUA_BASE_URL ?? 'https://aqua.example.com',
-        AQUA_SERVICE_KEY: process.env.AQUA_SERVICE_KEY ?? 'integration-service-key',
-      }),
-    );
+    environment = validateEnvironment({
+      ...process.env,
+      SMS_DELIVERY_MODE: process.env.SMS_DELIVERY_MODE ?? 'FIXED_CODE',
+      AQUA_BASE_URL: process.env.AQUA_BASE_URL ?? 'https://aqua.example.com',
+      AQUA_SERVICE_KEY: process.env.AQUA_SERVICE_KEY ?? 'integration-service-key',
+    });
+    infrastructure = createDatabase(environment);
     pool = infrastructure.pool;
     await migrate(infrastructure.database, { migrationsFolder: './drizzle' });
-    await pool.query(`insert into users(id) values($1),($2),($3)`, [
+    await pool.query(`insert into users(id) values($1),($2),($3),($4),($5)`, [
       userId,
       migrationUserId,
       concurrencyUserId,
+      migrationReplayUserId,
+      registrationUserId,
     ]);
     repository = new PostgresComplimentarySeedRepository({ pool } as never);
     seeds = new ComplimentarySeedApplicationService(repository);
@@ -40,11 +46,20 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
   afterAll(async () => {
     await pool.query(`alter table seed_entries disable trigger seed_entries_append_only`);
     try {
-      for (const owner of [userId, migrationUserId, concurrencyUserId]) {
+      for (const owner of [
+        userId,
+        migrationUserId,
+        concurrencyUserId,
+        migrationReplayUserId,
+        registrationUserId,
+      ]) {
+        await pool.query(`delete from registration_rewards where user_id=$1`, [owner]);
         await pool.query(`delete from complimentary_seed_entries where owner_user_id=$1`, [owner]);
         await pool.query(`delete from complimentary_seed_allocations where owner_user_id=$1`, [owner]);
         await pool.query(`delete from complimentary_seed_grants where owner_user_id=$1`, [owner]);
-        await pool.query(`delete from complimentary_seed_account_projections where owner_user_id=$1`, [owner]);
+        await pool.query(`delete from complimentary_seed_account_projections where owner_user_id=$1`, [
+          owner,
+        ]);
         await pool.query(
           `delete from seed_entries where account_id in (select id from seed_accounts where user_id=$1)`,
           [owner],
@@ -142,21 +157,11 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
       requestId: randomUUID(),
     };
     const reserved = await seeds.reserveForOrderCreation(command);
-    expect(
-      (await seeds.reserveForOrderCreation({ ...command, requestId: randomUUID() })).reservationId,
-    ).toBe(reserved.reservationId);
-    await seeds.releaseAfterOrderClosure(
+    expect((await seeds.reserveForOrderCreation({ ...command, requestId: randomUUID() })).reservationId).toBe(
       reserved.reservationId,
-      orderId,
-      'ORDER_EXPIRED',
-      randomUUID(),
     );
-    await seeds.releaseAfterOrderClosure(
-      reserved.reservationId,
-      orderId,
-      'ORDER_EXPIRED',
-      randomUUID(),
-    );
+    await seeds.releaseAfterOrderClosure(reserved.reservationId, orderId, 'ORDER_EXPIRED', randomUUID());
+    await seeds.releaseAfterOrderClosure(reserved.reservationId, orderId, 'ORDER_EXPIRED', randomUUID());
     expect(await repository.getAccount(userId)).toMatchObject({ available: 18, reserved: 0 });
 
     const paidOrderId = randomUUID();
@@ -210,6 +215,67 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
       }),
     ]);
     expect(await repository.reconcile(migrationUserId)).toMatchObject({ consistent: true });
+  });
+
+  it('does not overwrite batch consumption when the deployment migration replays', async () => {
+    await pool.query(
+      `insert into seed_accounts(id,user_id,available,reserved,total_earned,total_spent) values($1,$2,18,0,18,0)`,
+      [randomUUID(), migrationReplayUserId],
+    );
+    await repository.migrateLegacyAccount(migrationReplayUserId, randomUUID());
+    const context = { type: 'READING', id: randomUUID() };
+    const reservation = await repository.reserve({
+      ownerUserId: migrationReplayUserId,
+      businessSpace: 'SATORI',
+      serviceType: 'CARD_READING',
+      quantity: 2,
+      businessKey: `migration-replay:${randomUUID()}`,
+      businessContext: context,
+      requestId: randomUUID(),
+    });
+    await repository.settle(reservation.reservationId, 'CONSUME', context, randomUUID());
+
+    const replay = await repository.migrateLegacyAccount(migrationReplayUserId, randomUUID());
+
+    expect(await repository.getAccount(migrationReplayUserId)).toMatchObject({
+      available: 16,
+      totalSpent: 2,
+    });
+    expect(replay).toMatchObject({ state: 'REPLAYED', consistent: true });
+    expect(await repository.reconcile(migrationReplayUserId)).toMatchObject({ consistent: true });
+  });
+
+  it('makes a claimed registration reward immediately eligible for unified consumption', async () => {
+    await pool.query(
+      `insert into seed_accounts(id,user_id,available,reserved,total_earned,total_spent) values($1,$2,0,0,0,0)`,
+      [randomUUID(), registrationUserId],
+    );
+    await pool.query(
+      `insert into registration_rewards(id,user_id,reward_type,amount) values($1,$2,'NEW_USER_ONBOARDING',3)`,
+      [randomUUID(), registrationUserId],
+    );
+    const ledger = new SeedLedgerService({ ...infrastructure, environment } as never);
+
+    await ledger.claimRegistrationReward(registrationUserId);
+    await ledger.claimRegistrationReward(registrationUserId);
+    const migration = await repository.migrateLegacyAccount(registrationUserId, randomUUID());
+
+    const candidates = await repository.listCandidates({
+      userId: registrationUserId,
+      businessSpace: 'SATORI',
+      serviceType: 'DAILY_INSIGHT',
+      quantity: 1,
+      unit: 'SEED',
+      businessContext: { type: 'DAILY_INSIGHT', id: randomUUID() },
+    });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ availableQuantity: 3 });
+    expect(await repository.getAccount(registrationUserId)).toMatchObject({
+      available: 3,
+      totalEarned: 3,
+    });
+    expect(migration).toMatchObject({ state: 'REPLAYED', consistent: true });
+    expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
   });
 
   it('replays an identical adjustment but rejects a changed payload', async () => {

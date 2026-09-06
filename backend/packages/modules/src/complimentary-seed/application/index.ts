@@ -142,7 +142,9 @@ export class ComplimentarySeedApplicationService
     return this.repository.reserve({
       ownerUserId: command.ownerUserId,
       businessSpace: 'SATORI',
-      serviceType: command.serviceType,
+      // 商城活动价是种子的独立用途，不等于直接消费该商品的服务。
+      // 注册赠送种子只开放每日指引直接消费，同时仍可在商城锁定活动价。
+      serviceType: 'DAILY_INSIGHT',
       quantity: command.quantity,
       businessKey: `money-order:${command.orderId}:seed-promotion`,
       businessContext: { type: 'MONEY_ORDER', id: command.orderId },
