@@ -31,12 +31,16 @@ const offering: OfferingQuoteSnapshot = {
 };
 
 describe('PricingApplicationService', () => {
-  it('issues a 15-minute authoritative seed-activity quote without exchange-rate wording', async () => {
+  it('only applies the authoritative seed activity price after the user selects it', async () => {
     const repository = memoryRepository();
     const now = new Date('2026-08-28T08:00:00.000Z');
     const service = pricing(repository, { purchases: 0, seeds: 100, now });
-    const quote = await service.createQuote(command());
+    const preview = await service.createQuote(command());
+    expect(preview.price.amountMinor).toBe(2_490);
+    expect(preview.promotion).toMatchObject({ eligible: true, applied: false, seedReservationRequired: 0 });
+    const quote = await service.createQuote({ ...command('fedcba9876543210'), useSeedPromotion: true });
     expect(quote.price.amountMinor).toBe(2_190);
+    expect(quote.promotion.applied).toBe(true);
     expect(quote.promotion.seedReservationRequired).toBe(18);
     expect(quote.promotion.availableSeedQuantity).toBe(100);
     expect(quote.promotion.activityPrice?.amountMinor).toBe(2_190);
@@ -50,6 +54,7 @@ describe('PricingApplicationService', () => {
     expect(quote.price.amountMinor).toBe(2_490);
     expect(quote.promotion).toMatchObject({
       eligible: false,
+      applied: false,
       availableSeedQuantity: 3,
       minimumSeedBalance: 18,
       seedReservationRequired: 0,
@@ -93,11 +98,11 @@ function pricing(
   );
 }
 
-function command() {
+function command(idempotencyKey = '0123456789abcdef') {
   return {
     ownerUserId: 'user-1',
     offeringId: offering.offeringId,
-    idempotencyKey: '0123456789abcdef',
+    idempotencyKey,
     requestId: 'request-1',
   } as const;
 }

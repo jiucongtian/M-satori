@@ -153,19 +153,23 @@ test("商业路由进入保护列表且不允许敏感查询参数", async () =>
 test("商城详情保留来源页面，返回操作不再统一跳到我的", async () => {
   const [screens, routes] = await Promise.all([readFile(screensUrl, "utf8"), readFile(routesUrl, "utf8")]);
   assert.match(screens, /function useCommerceBack\(fallback: AppPath\)/);
-  assert.match(screens, /<CommerceFrame title=\{productName\(offering\.name\)\} eyebrow=\{kindLabel\(offering\.kind\)\} backHref=\{ROUTES\.shop\}>/);
+  assert.match(screens, /returnTo === ROUTES\.myMembership \? withReturnPath\(ROUTES\.myMembership, ROUTES\.my\)/);
+  assert.match(screens, /ROUTES\.shopDetail.*returnTo=/s);
+  assert.match(screens, /requestedReturn === ROUTES\.readingPrepare \|\| requestedReturn === ROUTES\.myMembership/);
   assert.doesNotMatch(screens, /fresh-membership-entry/);
   assert.match(screens, /withReturnPath\(`\$\{ROUTES\.myOrders\}\?kind=service`, ROUTES\.shop\)/);
   assert.match(routes, /\[ROUTES\.shop\]: new Set\(\["returnTo", "from"\]\)/);
   assert.match(routes, /\[ROUTES\.myOrders\]: new Set\(\["orderId", "kind", "from"\]\)/);
 });
 
-test("商品详情与确认订单完整展示智慧种子活动价资格", async () => {
+test("商品详情与确认订单按资格展示并由用户主动选择智慧种子活动价", async () => {
   const screens = await readFile(screensUrl, "utf8");
   const detail = screens.match(/export function ShopDetailScreen[\s\S]*?export function CheckoutScreen/)?.[0] ?? "";
   const checkout = screens.match(/export function CheckoutScreen[\s\S]*?export function PaymentResultScreen/)?.[0] ?? "";
-  for (const text of ["商品原价", "解锁条件", "当前拥有", "还差"]) assert.match(detail, new RegExp(text));
-  for (const text of ["商品原价", "智慧种子", "活动价格", "支付后消耗"]) assert.match(checkout, new RegExp(text));
+  for (const text of ["智慧种子专属价格", "解锁条件", "当前拥有", "还差"]) assert.match(detail, new RegExp(text));
+  for (const text of ["商品原价", "智慧种子", "专属价格", "使用智慧种子", "保留智慧种子", "本次按标准价格支付"]) assert.match(checkout, new RegExp(text));
+  assert.match(checkout, /quote\.promotion\.applied/);
+  assert.match(checkout, /api\.createCheckoutQuote\(params\.offeringId, businessContext, useSeedPromotion\)/);
   assert.match(checkout, /backHref=\{`\$\{ROUTES\.shopDetail\}\?offeringId=/);
 });
 

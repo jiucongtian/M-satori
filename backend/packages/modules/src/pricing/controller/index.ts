@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Headers, Post, Req } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 import type { FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { PricingApplicationService } from '../application/index.js';
@@ -15,6 +15,7 @@ class CreateCheckoutQuoteDto {
   @IsString() offeringId!: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) offeringVersion?: number;
   @IsOptional() @ValidateNested() @Type(() => BusinessContextDto) businessContext?: BusinessContextDto | null;
+  @IsOptional() @IsBoolean() useSeedPromotion?: boolean;
 }
 
 type CommerceRequest = FastifyRequest & { auth: { userId: string } };
@@ -38,6 +39,7 @@ export class PricingController {
       offeringId: body.offeringId,
       ...(body.offeringVersion === undefined ? {} : { offeringVersion: body.offeringVersion }),
       ...(body.businessContext === undefined ? {} : { businessContext: body.businessContext }),
+      ...(body.useSeedPromotion === undefined ? {} : { useSeedPromotion: body.useSeedPromotion }),
       idempotencyKey,
       requestId: validUuid(requestId) ? requestId : randomUUID(),
     });
@@ -46,6 +48,12 @@ export class PricingController {
         ...quote,
         offering: toOfferingResponse(quote.offering),
         price: { amount: quote.price.amountMinor, currency: quote.price.currency },
+        promotion: {
+          ...quote.promotion,
+          activityPrice: quote.promotion.activityPrice
+            ? { amount: quote.promotion.activityPrice.amountMinor, currency: quote.promotion.activityPrice.currency }
+            : null,
+        },
         issuedAt: quote.issuedAt.toISOString(),
         expiresAt: quote.expiresAt.toISOString(),
       },

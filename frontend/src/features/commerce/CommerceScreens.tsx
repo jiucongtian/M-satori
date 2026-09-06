@@ -230,7 +230,7 @@ export function ShopDetailScreen() {
   const [offeringId, setOfferingId] = useState("");
   const [returnTo, setReturnTo] = useState("");
   const [ready, setReady] = useState(false);
-  useEffect(() => { const timer = window.setTimeout(() => { const query = readQuery(); setOfferingId(query.get("offeringId") ?? ""); setReturnTo(query.get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ""); setReady(true); }, 0); return () => window.clearTimeout(timer); }, []);
+  useEffect(() => { const timer = window.setTimeout(() => { const query = readQuery(); const requestedReturn = query.get("returnTo"); setOfferingId(query.get("offeringId") ?? ""); setReturnTo(requestedReturn === ROUTES.readingPrepare || requestedReturn === ROUTES.myMembership ? requestedReturn : ""); setReady(true); }, 0); return () => window.clearTimeout(timer); }, []);
   const loader = useCallback(() => offeringId ? Promise.all([api.serviceOffering(offeringId), api.currentMembership(), api.moneyOrders(), api.createCheckoutQuote(offeringId, null)]) : Promise.resolve(null), [offeringId]);
   const { data, error } = useLoad(loader, [loader, offeringId]);
   if (!ready) return <RouteSkeleton label="正在读取商品详情…" />;
@@ -248,15 +248,16 @@ export function ShopDetailScreen() {
   const isUpgrade = Boolean(active && targetRank > currentRank);
   const membershipChangeUnavailable = Boolean(active && targetPlanCode && !isRenewal && !isUpgrade);
   const checkoutHref = isUpgrade && membership
-    ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(offering.offeringVersionId)}`
+    ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(offering.offeringVersionId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`
     : `${ROUTES.checkout}?offeringId=${encodeURIComponent(offering.offeringId)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`;
+  const detailBackHref = returnTo === ROUTES.myMembership ? withReturnPath(ROUTES.myMembership, ROUTES.my) : returnTo || ROUTES.shop;
   return (
-    <CommerceFrame title={productName(offering.name)} eyebrow={kindLabel(offering.kind)} backHref={ROUTES.shop}>
+    <CommerceFrame title={productName(offering.name)} eyebrow={kindLabel(offering.kind)} backHref={detailBackHref}>
       <div className="offering-hero"><span>{serviceLabel(offering.serviceType)}</span><strong>{money(offering.price.amount)}</strong><small>结算前会再次确认金额</small></div>
       {quote.promotion.activityPrice ? <div className={`seed-promotion-card ${quote.promotion.eligible ? "eligible" : "locked"}`}>
-        <span>智慧种子活动价</span><strong>{money(quote.promotion.activityPrice.amount)}</strong>
+        <span>{quote.promotion.eligible ? "智慧种子专属价格" : "智慧种子活动资格"}</span>{quote.promotion.eligible ? <strong>{money(quote.promotion.activityPrice.amount)}</strong> : null}
         <dl><div><dt>商品原价</dt><dd>{money(offering.price.amount)}</dd></div><div><dt>解锁条件</dt><dd>{quote.promotion.minimumSeedBalance} 颗</dd></div><div><dt>当前拥有</dt><dd>{quote.promotion.availableSeedQuantity} 颗</dd></div></dl>
-        <p>{quote.promotion.eligible ? `已满足条件，购买后消耗 ${quote.promotion.seedReservationRequired} 颗智慧种子` : `还差 ${Math.max(0, quote.promotion.minimumSeedBalance - quote.promotion.availableSeedQuantity)} 颗智慧种子即可解锁`}</p>
+        <p>{quote.promotion.eligible ? `已满足条件，可选择使用 ${quote.promotion.minimumSeedBalance} 颗智慧种子解锁` : `还差 ${Math.max(0, quote.promotion.minimumSeedBalance - quote.promotion.availableSeedQuantity)} 颗智慧种子即可解锁`}</p>
       </div> : null}
       <section className="detail-facts">
         {offering.benefits.map((benefit, index) => <p key={`${benefit.serviceType}-${index}`}><span>{serviceLabel(benefit.serviceType)}</span><strong>{benefit.quantity} 次</strong></p>)}
@@ -280,6 +281,9 @@ export function CheckoutScreen() {
   const paymentRef = useRef<PaymentAttempt | null>(null);
   const [params, setParams] = useState<{ offeringId: string; returnTo: string; previousSubscriptionId: string; targetPlanVersionId: string }>({ offeringId: "", returnTo: ROUTES.shop, previousSubscriptionId: "", targetPlanVersionId: "" });
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
+  const [useSeedPromotion, setUseSeedPromotion] = useState(false);
+  const [priceLocked, setPriceLocked] = useState(false);
+  const [quoteRefreshing, setQuoteRefreshing] = useState(false);
   const [upgradeNotice, setUpgradeNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -289,7 +293,8 @@ export function CheckoutScreen() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const query = readQuery();
-      const returnTo = query.get("returnTo") === ROUTES.readingPrepare ? ROUTES.readingPrepare : ROUTES.shop;
+      const requestedReturn = query.get("returnTo");
+      const returnTo = requestedReturn === ROUTES.readingPrepare || requestedReturn === ROUTES.myMembership ? requestedReturn : ROUTES.shop;
       setParams({
         offeringId: query.get("offeringId") ?? "",
         returnTo,
@@ -305,10 +310,11 @@ export function CheckoutScreen() {
     if (!ready || !params.offeringId) return;
     const key = `fresh:checkout:${params.offeringId}`;
     try {
-      const saved = JSON.parse(window.sessionStorage.getItem(key) ?? "null") as { order?: MoneyOrder; payment?: PaymentAttempt; requestKey?: string } | null;
-      if (saved?.order) orderRef.current = saved.order;
+      const saved = JSON.parse(window.sessionStorage.getItem(key) ?? "null") as { order?: MoneyOrder; payment?: PaymentAttempt; requestKey?: string; useSeedPromotion?: boolean } | null;
+      if (saved?.order) { orderRef.current = saved.order; window.setTimeout(() => setPriceLocked(true), 0); }
       if (saved?.payment) paymentRef.current = saved.payment;
       if (saved?.requestKey) paymentRequestKey.current = saved.requestKey;
+      if (saved?.useSeedPromotion) window.setTimeout(() => setUseSeedPromotion(true), 0);
     } catch { window.sessionStorage.removeItem(key); }
     const query = new URLSearchParams(window.location.search);
     if (query.get("wechatPaymentTicket")) { const timer = window.setTimeout(() => setPayerPreparation("ready"), 0); return () => window.clearTimeout(timer); }
@@ -330,7 +336,7 @@ export function CheckoutScreen() {
     if (!params.offeringId || businessContext === undefined) return;
     let active = true;
     void Promise.all([
-      api.createCheckoutQuote(params.offeringId, businessContext),
+      api.createCheckoutQuote(params.offeringId, businessContext, useSeedPromotion),
       params.previousSubscriptionId && params.targetPlanVersionId
         ? api.previewMembershipUpgrade(params.previousSubscriptionId, params.targetPlanVersionId)
         : Promise.resolve(null),
@@ -338,9 +344,15 @@ export function CheckoutScreen() {
       if (!active) return;
       setQuote(nextQuote);
       setUpgradeNotice(preview?.confirmation ?? "");
-    }).catch((reason) => active && setError(apiMessage(reason)));
+    }).catch((reason) => active && setError(apiMessage(reason))).finally(() => { if (active) setQuoteRefreshing(false); });
     return () => { active = false; };
-  }, [businessContext, params.offeringId, params.previousSubscriptionId, params.targetPlanVersionId]);
+  }, [businessContext, params.offeringId, params.previousSubscriptionId, params.targetPlanVersionId, useSeedPromotion]);
+
+  function chooseSeedPromotion(next: boolean) {
+    if (next === useSeedPromotion) return;
+    setQuoteRefreshing(true);
+    setUseSeedPromotion(next);
+  }
 
   async function submit() {
     if (!quote || !canSubmitCheckout(quote, busy, payerPreparation)) return;
@@ -351,6 +363,7 @@ export function CheckoutScreen() {
       const payerTicket = query.get("wechatPaymentTicket") ?? undefined;
       const order = orderRef.current ?? await api.createMoneyOrder(quote.quoteId);
       orderRef.current = order;
+      setPriceLocked(true);
       if (params.previousSubscriptionId && params.targetPlanVersionId) {
         await api.registerMembershipUpgrade({
           previousSubscriptionId: params.previousSubscriptionId,
@@ -361,7 +374,7 @@ export function CheckoutScreen() {
       if (!paymentRequestKey.current) paymentRequestKey.current = crypto.randomUUID();
       const payment = paymentRef.current ?? await api.createPaymentAttempt(order.orderId, payerTicket, paymentRequestKey.current);
       paymentRef.current = payment;
-      window.sessionStorage.setItem(`fresh:checkout:${params.offeringId}`, JSON.stringify({ order, payment, requestKey: paymentRequestKey.current }));
+      window.sessionStorage.setItem(`fresh:checkout:${params.offeringId}`, JSON.stringify({ order, payment, requestKey: paymentRequestKey.current, useSeedPromotion }));
       if (payerTicket) { query.delete("wechatPaymentTicket"); window.history.replaceState(window.history.state, "", `${window.location.pathname}${query.size ? `?${query.toString()}` : ""}`); }
       savePendingCommerceContext({
         orderId: order.orderId,
@@ -398,17 +411,18 @@ export function CheckoutScreen() {
     <CommerceFrame title="确认订单" eyebrow="价格与资格确认" backHref={`${ROUTES.shopDetail}?offeringId=${encodeURIComponent(params.offeringId)}${params.returnTo !== ROUTES.shop ? `&returnTo=${encodeURIComponent(params.returnTo)}` : ""}`}>
       <div className="checkout-card">
         <small>{kindLabel(quote.offering.kind)}</small><h2>{productName(quote.offering.name)}</h2>
-        {quote.promotion.activityPrice ? <p><span>商品原价</span><del>{money(quote.offering.price.amount)}</del></p> : null}
-        {quote.promotion.activityPrice ? <p><span>智慧种子</span><strong>{quote.promotion.eligible ? `消耗 ${quote.promotion.seedReservationRequired} 颗` : `当前 ${quote.promotion.availableSeedQuantity} / 需 ${quote.promotion.minimumSeedBalance} 颗`}</strong></p> : null}
-        {quote.promotion.activityPrice ? <p><span>活动价格</span><strong>{money(quote.promotion.activityPrice.amount)}</strong></p> : null}
+        {quote.promotion.applied ? <p><span>商品原价</span><del>{money(quote.offering.price.amount)}</del></p> : null}
+        {quote.promotion.applied ? <p><span>智慧种子</span><strong>消耗 {quote.promotion.seedReservationRequired} 颗</strong></p> : null}
+        {quote.promotion.applied && quote.promotion.activityPrice ? <p><span>专属价格</span><strong>{money(quote.promotion.activityPrice.amount)}</strong></p> : null}
         <p><span>应付金额</span><strong>{money(quote.price.amount)}</strong></p>
         <p><span>请在此时间前支付</span><strong>{new Date(quote.expiresAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</strong></p>
         <p><span>支付方式</span><strong>微信支付</strong></p>
       </div>
-      {quote.promotion.activityPrice ? <div className={`seed-promotion-confirm ${quote.promotion.eligible ? "eligible" : "locked"}`}><strong>{quote.promotion.eligible ? `已解锁活动价 · 支付后消耗 ${quote.promotion.seedReservationRequired} 颗` : `再获得 ${Math.max(0, quote.promotion.minimumSeedBalance - quote.promotion.availableSeedQuantity)} 颗即可解锁活动价`}</strong><p>{quote.promotion.message}</p><small>智慧种子不会折算现金；支付失败或订单关闭会自动释放。</small></div> : null}
+      {quote.promotion.activityPrice && quote.promotion.eligible ? <div className="seed-promotion-confirm eligible"><strong>你可以使用智慧种子解锁专属价格</strong><p>当前有 {quote.promotion.availableSeedQuantity} 颗，使用 {quote.promotion.minimumSeedBalance} 颗后按 {money(quote.promotion.activityPrice.amount)} 支付。</p><div className="seed-promotion-options"><button type="button" className={quote.promotion.applied ? "active" : ""} disabled={priceLocked || quoteRefreshing} onClick={() => chooseSeedPromotion(true)}>使用智慧种子</button><button type="button" className={!quote.promotion.applied ? "active" : ""} disabled={priceLocked || quoteRefreshing} onClick={() => chooseSeedPromotion(false)}>保留智慧种子</button></div><small>{priceLocked ? "支付已发起，本次价格选择已锁定。" : quoteRefreshing ? "正在更新本次订单价格…" : "智慧种子不会折算现金；支付失败或订单关闭会自动释放。"}</small></div> : null}
+      {quote.promotion.activityPrice && !quote.promotion.eligible ? <div className="seed-promotion-confirm locked"><strong>当前智慧种子暂不足</strong><p>当前有 {quote.promotion.availableSeedQuantity} 颗，还差 {Math.max(0, quote.promotion.minimumSeedBalance - quote.promotion.availableSeedQuantity)} 颗可解锁会员专属价格。</p><small>本次按标准价格支付，不会消耗智慧种子。</small></div> : null}
       {upgradeNotice ? <div className="upgrade-notice"><strong>升级确认</strong><p>{upgradeNotice}</p><p>新方案生效后原方案结束，原方案未使用次数不保留。</p></div> : null}
       {error ? <p className="commerce-error" role="alert">{error}</p> : null}
-      <button className="commerce-primary" type="button" disabled={busy || payerPreparation !== "ready"} onClick={() => void submit()}>{payerPreparation === "blocked" ? "请在微信中打开后支付" : payerPreparation === "preparing" ? "正在准备微信支付…" : busy ? "正在提交…" : `微信支付 ${money(quote.price.amount)}`}</button>
+      <button className="commerce-primary" type="button" disabled={busy || quoteRefreshing || payerPreparation !== "ready"} onClick={() => void submit()}>{payerPreparation === "blocked" ? "请在微信中打开后支付" : payerPreparation === "preparing" ? "正在准备微信支付…" : quoteRefreshing ? "正在更新价格…" : busy ? "正在提交…" : `微信支付 ${money(quote.price.amount)}`}</button>
       <p className="commerce-footnote">支付完成后，服务可能需要几秒到账，请勿重复支付。</p>
     </CommerceFrame>
   );
@@ -565,7 +579,7 @@ export function MembershipScreen() {
         {active ? <div><span>当前计划</span><strong>{PLAN_NAMES[active.planCode]}计划</strong><b>还剩 {remainingDays} 天</b></div> : <div><span>当前计划</span><strong>尚未开通</strong><b>选择后开始</b></div>}
       </section>
       <div className="fresh-plan-note"><strong>续费与升级</strong><p>续费周期在当前周期结束后依次开始；升级会在新方案安全生效后结束原方案，暂不支持降级。</p></div>
-      <div className="fresh-membership-plans">{plans.map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} currentRank={currentRank} />)}</div>
+      <div className="fresh-membership-plans">{plans.map((plan) => <MembershipAction key={plan.offeringId} plan={plan} membership={membership} activePlanCode={active?.planCode} currentRank={currentRank} returnTo={backHref === ROUTES.my ? ROUTES.myMembership : ROUTES.shop} />)}</div>
       {periods.length ? <section className="commerce-section fresh-period-section"><header><h2>会员记录</h2><small>当前与即将生效的计划</small></header>{visiblePeriods.length ? <PeriodList periods={visiblePeriods} /> : <div className="commerce-empty">当前没有正在使用或等待生效的计划</div>}{historyPeriods.length ? <details className="membership-history"><summary>查看过去的会员计划</summary><PeriodList periods={historyPeriods} /></details> : null}</section> : null}
       <div className="fresh-store-boundary"><strong>共同规则</strong><p>权益按会员周期记录，未使用次数到期不结转；会员名称表示陪伴方案，不是身份等级。</p></div>
       <div className="commerce-context-actions"><Link href={withReturnPath(`${ROUTES.myOrders}?kind=membership`, ROUTES.myMembership)}>查看会员订单 <span>→</span></Link></div>
@@ -577,13 +591,11 @@ function PeriodList({ periods }: { periods: MembershipSubscription["periods"] })
   return <div className="period-list">{periods.map((period) => <p key={period.periodId}><i>{PLAN_NAMES[period.planCode]}</i><span>{date(period.startsAt)} — {date(period.endsAt)}</span><strong>{statusLabel(period.status)}</strong></p>)}</div>;
 }
 
-function MembershipAction({ plan, membership, activePlanCode, currentRank }: { plan: MembershipPlan; membership: MembershipSubscription | null; activePlanCode?: string; currentRank: number }) {
+function MembershipAction({ plan, membership, activePlanCode, currentRank, returnTo }: { plan: MembershipPlan; membership: MembershipSubscription | null; activePlanCode?: string; currentRank: number; returnTo: AppPath }) {
   const renewal = Boolean(membership && activePlanCode === plan.planCode);
   const rank = PLAN_RANKS.indexOf(plan.planCode);
   const downgrade = Boolean(membership && rank < currentRank);
-  const href = membership && !renewal && !downgrade
-    ? `${ROUTES.checkout}?offeringId=${encodeURIComponent(plan.offeringId)}&previousSubscriptionId=${encodeURIComponent(membership.subscriptionId)}&targetPlanVersionId=${encodeURIComponent(plan.offeringVersionId)}`
-    : `${ROUTES.checkout}?offeringId=${encodeURIComponent(plan.offeringId)}`;
+  const href = `${ROUTES.shopDetail}?offeringId=${encodeURIComponent(plan.offeringId)}&returnTo=${encodeURIComponent(returnTo)}`;
   const benefits = plan.benefits.map((benefit) => `${serviceLabel(benefit.serviceType)} ${benefit.quantity} 次`).join(" ＋ ");
   return <Link className={`fresh-membership-plan ${plan.planCode === "SERENITY" ? "recommended" : ""} ${downgrade ? "disabled" : ""}`} aria-disabled={downgrade} href={downgrade ? ROUTES.myMembership : href}>
     {plan.planCode === "SERENITY" ? <em>推荐</em> : null}

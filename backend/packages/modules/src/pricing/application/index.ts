@@ -19,6 +19,7 @@ export interface CheckoutQuoteView {
   readonly price: { readonly amountMinor: number; readonly currency: 'CNY' };
   readonly promotion: {
     readonly eligible: boolean;
+    readonly applied: boolean;
     readonly ruleVersion: string | null;
     readonly availableSeedQuantity: number;
     readonly minimumSeedBalance: number;
@@ -64,6 +65,7 @@ export interface CreateCheckoutQuoteCommand {
   readonly offeringId: string;
   readonly offeringVersion?: number;
   readonly businessContext?: BusinessContext | null;
+  readonly useSeedPromotion?: boolean;
   readonly idempotencyKey: string;
   readonly requestId: string;
 }
@@ -82,6 +84,7 @@ export class PricingApplicationService {
       offeringId: command.offeringId,
       offeringVersion: command.offeringVersion ?? null,
       businessContext: command.businessContext ?? null,
+      useSeedPromotion: command.useSeedPromotion ?? false,
     });
     const replay = await this.repository.findQuoteByIdempotency(command.ownerUserId, command.idempotencyKey);
     if (replay) {
@@ -112,9 +115,10 @@ export class PricingApplicationService {
       (rule) =>
         seedBalance >= rule.minimumSeedBalance && eligibleIdentity(rule.identityConstraint, purchaseCount),
     );
-    const promotion = eligibleRules.sort(
+    const eligiblePromotion = eligibleRules.sort(
       (left, right) => left.activityAmountMinor - right.activityAmountMinor,
     )[0];
+    const promotion = command.useSeedPromotion ? eligiblePromotion : undefined;
     const displayedPromotion = [...rules].sort(
       (left, right) => left.activityAmountMinor - right.activityAmountMinor,
     )[0];
@@ -128,7 +132,8 @@ export class PricingApplicationService {
         currency: 'CNY',
       },
       promotion: {
-        eligible: Boolean(promotion),
+        eligible: Boolean(eligiblePromotion),
+        applied: Boolean(promotion),
         ruleVersion: displayedPromotion?.ruleVersion ?? null,
         availableSeedQuantity: seedBalance,
         minimumSeedBalance: displayedPromotion?.minimumSeedBalance ?? 0,
@@ -138,6 +143,8 @@ export class PricingApplicationService {
           : null,
         message: promotion
           ? `支付成功后将消耗 ${promotion.reservedSeedQuantity} 颗智慧种子，解锁活动价`
+          : eligiblePromotion
+            ? `当前智慧种子充足，可选择使用 ${eligiblePromotion.reservedSeedQuantity} 颗解锁活动价`
           : displayedPromotion
             ? `当前有 ${seedBalance} 颗智慧种子，满 ${displayedPromotion.minimumSeedBalance} 颗可解锁活动价`
             : null,
