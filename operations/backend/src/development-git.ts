@@ -8,7 +8,10 @@ const excluded=['node_modules','dist','out','build','coverage','.next','vendor',
 let pending:ReturnType<typeof collect>|undefined;
 const dir=process.env.OPERATIONS_GIT_CACHE||'/tmp/operations-development-git';
 async function git(args:string[]){
- const token=process.env.OPERATIONS_GITHUB_TOKEN;
+ // Keep REST API credentials separate from Git transport credentials. The
+ // configured repository is public today, so Git fetches anonymously unless a
+ // dedicated token is explicitly supplied for a future private repository.
+ const token=process.env.OPERATIONS_GIT_TOKEN;
  const env={...process.env,GIT_TERMINAL_PROMPT:'0',...(token?{GIT_CONFIG_COUNT:'1',GIT_CONFIG_KEY_0:'http.https://github.com/.extraheader',GIT_CONFIG_VALUE_0:`Authorization: Basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`}:{})};
  try{return (await exec('git',['-C',dir,...args],{env,timeout:180000,maxBuffer:64*1024*1024})).stdout;}catch{throw new Error('完整 Git 仓库采集失败，请检查数据源连接');}
 }
