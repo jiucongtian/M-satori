@@ -75,9 +75,9 @@ export const R11_CATALOG_SEED: readonly (CatalogSeedDefinition & typeof common)[
     purchaseLimit: { recommended: true, displayChannels: ['STORE', 'SHORTAGE'] },
     ...common,
   },
-  membership('glow', '微光计划', 1_290, 7, 3, 30, 1_090),
-  membership('serenity', '清和计划', 2_490, 15, 5, 80, 2_190, true),
-  membership('freedom', '自在计划', 3_990, 30, 8, 168, 3_490),
+  membership('glow', '微光计划', 1_290, 7, 3, null),
+  membership('serenity', '清和计划', 2_490, 15, 5, { seedThreshold: 18, activityAmountMinor: 2_190 }, true),
+  membership('freedom', '自在计划', 3_990, 30, 8, { seedThreshold: 25, activityAmountMinor: 3_490 }),
 ];
 
 export const JSAPI_TEST_OFFERING_SEED: CatalogSeedDefinition & typeof common = {
@@ -101,12 +101,11 @@ function membership(
   amountMinor: number,
   dailyQuantity: number,
   readingQuantity: number,
-  seedThreshold: number,
-  activityAmountMinor: number,
+  promotion: { readonly seedThreshold: number; readonly activityAmountMinor: number } | null,
   recommended = false,
 ) {
   return {
-    version: 2,
+    version: 3,
     code: `membership-${code}-r11`,
     serviceType: 'CARD_READING' as const,
     offeringKind: 'MEMBERSHIP' as const,
@@ -122,11 +121,15 @@ function membership(
       ],
     },
     purchaseLimit: { recommended, displayChannels: ['STORE', 'SHORTAGE'] },
-    promotion: {
-      minimumSeedBalance: seedThreshold,
-      reservedSeedQuantity: seedThreshold,
-      activityAmountMinor,
-    },
+    ...(promotion
+      ? {
+          promotion: {
+            minimumSeedBalance: promotion.seedThreshold,
+            reservedSeedQuantity: promotion.seedThreshold,
+            activityAmountMinor: promotion.activityAmountMinor,
+          },
+        }
+      : {}),
     ...common,
   };
 }

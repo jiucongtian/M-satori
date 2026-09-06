@@ -37,7 +37,7 @@ describe('PricingApplicationService', () => {
     const service = pricing(repository, { purchases: 0, seeds: 100, now });
     const quote = await service.createQuote(command());
     expect(quote.price.amountMinor).toBe(2_190);
-    expect(quote.promotion.seedReservationRequired).toBe(80);
+    expect(quote.promotion.seedReservationRequired).toBe(18);
     expect(quote.promotion.availableSeedQuantity).toBe(100);
     expect(quote.promotion.activityPrice?.amountMinor).toBe(2_190);
     expect(quote.expiresAt.getTime() - quote.issuedAt.getTime()).toBe(CHECKOUT_QUOTE_TTL_MS);
@@ -51,7 +51,7 @@ describe('PricingApplicationService', () => {
     expect(quote.promotion).toMatchObject({
       eligible: false,
       availableSeedQuantity: 3,
-      minimumSeedBalance: 80,
+      minimumSeedBalance: 18,
       seedReservationRequired: 0,
       activityPrice: { amountMinor: 2_190, currency: 'CNY' },
     });
@@ -110,8 +110,8 @@ function memoryRepository(): PricingRepository {
         {
           id: 'promotion-1',
           ruleVersion: 'r11-v1',
-          minimumSeedBalance: 80,
-          reservedSeedQuantity: 80,
+          minimumSeedBalance: 18,
+          reservedSeedQuantity: 18,
           activityAmountMinor: 2_190,
           identityConstraint: {},
           purchaseLimit: {},

@@ -80,7 +80,7 @@ describe.skipIf(!runDatabaseTests)('R1.1 commerce schema', () => {
     });
   });
 
-  it('seeds only the seven R1.1 sellable products and three seed promotions idempotently', async () => {
+  it('seeds only the seven R1.1 sellable products and two seed promotions idempotently', async () => {
     const offerings = await pool.query<{ code: string; amount_minor: number }>(
       `select so.code, ov.amount_minor
        from service_offerings so
@@ -92,10 +92,29 @@ describe.skipIf(!runDatabaseTests)('R1.1 commerce schema', () => {
     expect(offerings.rows).toContainEqual({ code: 'daily-insight-newcomer-10', amount_minor: 990 });
     expect(offerings.rows).toContainEqual({ code: 'card-reading-10', amount_minor: 5_990 });
     expect(offerings.rows.map((row) => row.code)).not.toContain('life-light-report');
-    const promotions = await pool.query<{ count: string }>(
-      `select count(*)::text as count from seed_promotion_rules where status = 'ACTIVE'`,
+    const promotions = await pool.query<{
+      code: string;
+      minimum_seed_balance: number;
+      activity_amount_minor: number;
+    }>(
+      `select so.code, spr.minimum_seed_balance, spr.activity_amount_minor
+       from service_offerings so
+       join seed_promotion_rules spr on spr.offering_version_id = so.current_version_id
+       where so.business_space = 'SATORI' and spr.status = 'ACTIVE'
+       order by so.code`,
     );
-    expect(promotions.rows[0]?.count).toBe('3');
+    expect(promotions.rows).toEqual([
+      {
+        code: 'membership-freedom-r11',
+        minimum_seed_balance: 25,
+        activity_amount_minor: 3_490,
+      },
+      {
+        code: 'membership-serenity-r11',
+        minimum_seed_balance: 18,
+        activity_amount_minor: 2_190,
+      },
+    ]);
   });
 });
 
