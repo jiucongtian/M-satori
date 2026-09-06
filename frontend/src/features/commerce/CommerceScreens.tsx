@@ -253,7 +253,11 @@ export function ShopDetailScreen() {
   return (
     <CommerceFrame title={productName(offering.name)} eyebrow={kindLabel(offering.kind)} backHref={ROUTES.shop}>
       <div className="offering-hero"><span>{serviceLabel(offering.serviceType)}</span><strong>{money(offering.price.amount)}</strong><small>结算前会再次确认金额</small></div>
-      {quote.promotion.activityPrice ? <div className="seed-promotion-card"><span>智慧种子活动价</span><strong>{money(quote.promotion.activityPrice.amount)}</strong><p>{quote.promotion.message}</p></div> : null}
+      {quote.promotion.activityPrice ? <div className={`seed-promotion-card ${quote.promotion.eligible ? "eligible" : "locked"}`}>
+        <span>智慧种子活动价</span><strong>{money(quote.promotion.activityPrice.amount)}</strong>
+        <dl><div><dt>商品原价</dt><dd>{money(offering.price.amount)}</dd></div><div><dt>解锁条件</dt><dd>{quote.promotion.minimumSeedBalance} 颗</dd></div><div><dt>当前拥有</dt><dd>{quote.promotion.availableSeedQuantity} 颗</dd></div></dl>
+        <p>{quote.promotion.eligible ? `已满足条件，购买后消耗 ${quote.promotion.seedReservationRequired} 颗智慧种子` : `还差 ${Math.max(0, quote.promotion.minimumSeedBalance - quote.promotion.availableSeedQuantity)} 颗智慧种子即可解锁`}</p>
+      </div> : null}
       <section className="detail-facts">
         {offering.benefits.map((benefit, index) => <p key={`${benefit.serviceType}-${index}`}><span>{serviceLabel(benefit.serviceType)}</span><strong>{benefit.quantity} 次</strong></p>)}
         <p><span>有效期</span><strong>{offering.kind === "MEMBERSHIP_PLAN" ? `${offering.validityDays} 天会员周期` : `购买日起 ${offering.validityDays} 天`}</strong></p>
@@ -394,7 +398,9 @@ export function CheckoutScreen() {
     <CommerceFrame title="确认订单" eyebrow="价格与资格确认" backHref={`${ROUTES.shopDetail}?offeringId=${encodeURIComponent(params.offeringId)}${params.returnTo !== ROUTES.shop ? `&returnTo=${encodeURIComponent(params.returnTo)}` : ""}`}>
       <div className="checkout-card">
         <small>{kindLabel(quote.offering.kind)}</small><h2>{productName(quote.offering.name)}</h2>
-        {quote.promotion.eligible && quote.promotion.activityPrice ? <p><span>商品原价</span><del>{money(quote.offering.price.amount)}</del></p> : null}
+        {quote.promotion.activityPrice ? <p><span>商品原价</span><del>{money(quote.offering.price.amount)}</del></p> : null}
+        {quote.promotion.activityPrice ? <p><span>智慧种子</span><strong>{quote.promotion.eligible ? `消耗 ${quote.promotion.seedReservationRequired} 颗` : `当前 ${quote.promotion.availableSeedQuantity} / 需 ${quote.promotion.minimumSeedBalance} 颗`}</strong></p> : null}
+        {quote.promotion.activityPrice ? <p><span>活动价格</span><strong>{money(quote.promotion.activityPrice.amount)}</strong></p> : null}
         <p><span>应付金额</span><strong>{money(quote.price.amount)}</strong></p>
         <p><span>请在此时间前支付</span><strong>{new Date(quote.expiresAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</strong></p>
         <p><span>支付方式</span><strong>微信支付</strong></p>

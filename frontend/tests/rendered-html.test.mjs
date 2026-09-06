@@ -167,10 +167,17 @@ test("R1.1 我的首页会员与服务权益来自后端事实", async () => {
   const legacy = await readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8");
   assert.match(my, /api\.currentMembership\(\)/);
   assert.match(my, /api\.entitlements\(\)/);
-  assert.match(my, /toMyServiceSummary\(membership,entitlements\)/);
+  assert.match(my, /toMyServiceSummary\(membership,entitlements,overview\.wisdomSeedAccount\.available\)/);
+  assert.match(my, /available:\s*entitlement\.available\s*\+\s*seedAvailable/);
   assert.match(legacy, /serviceSummary\?\.membership/);
   assert.match(legacy, /当前尚未开通会员/);
   assert.doesNotMatch(my, /剩余 18 天|12<em> \/ 15次|4<em> \/ 5份/);
+});
+
+test("每日指引消费后立即失效首页与种子余额缓存", async () => {
+  const daily = await readFile(new URL("../src/features/daily/DailyScreen.tsx", import.meta.url), "utf8");
+  assert.match(daily, /invalidateQuery\("home:overview"\)/);
+  assert.match(daily, /invalidateQuery\("my:seeds"\)/);
 });
 
 test("R1.0 智慧种子统一为不可交易的 AI 体验额度，赠送页不重复展示说明", async () => {

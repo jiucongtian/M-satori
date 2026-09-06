@@ -3,6 +3,7 @@ import { IdempotencyService } from '@satori/application';
 import {
   auditLogs,
   consentRecords,
+  complimentarySeedAccountProjections,
   identities,
   legalDocuments,
   lifeProfiles,
@@ -301,6 +302,15 @@ export class SessionService {
         });
         const seedAccountId = newId();
         await tx.insert(seedAccounts).values({ id: seedAccountId, userId });
+        await tx.insert(complimentarySeedAccountProjections).values({
+          ownerUserId: userId,
+          businessSpace: 'SATORI',
+          availableQuantity: 0,
+          reservedQuantity: 0,
+          totalGranted: 0,
+          totalConsumed: 0,
+          version: 0,
+        });
         await tx.insert(registrationRewards).values({
           id: newId(),
           userId,

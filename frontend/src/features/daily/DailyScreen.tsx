@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/src/shared/guards";
 import { dailyReportPath, ROUTES } from "@/src/shared/routes";
 import { RouteFrame } from "@/src/shared/shell";
 import { apiMessage, PageDebugLabel } from "@/src/shared/ui";
+import { invalidateQuery } from "@/src/shared/query";
 import { dailyReducer, initialDailyMachine } from "./dailyMachine";
 
 export default function DailyScreen() {
@@ -50,6 +51,8 @@ export default function DailyScreen() {
       void api.generationTask(taskId).then(async (task) => {
         if (task.status === "READY") {
           window.clearInterval(timer);
+          invalidateQuery("home:overview");
+          invalidateQuery("my:seeds");
           const date = home?.dailyInsight.localDate ?? new Date().toISOString().slice(0, 10);
           await api.dailyInsight(date);
           dispatch({ type: "READY" });
@@ -72,6 +75,8 @@ export default function DailyScreen() {
     setErrorCode("");
     try {
       const result = await api.createTodayInsight();
+      invalidateQuery("home:overview");
+      invalidateQuery("my:seeds");
       setTaskId(result.task?.taskId ?? result.dailyInsight.taskId ?? null);
       setAccount(await api.seedAccount());
       if (result.dailyInsight.status === "READY") {

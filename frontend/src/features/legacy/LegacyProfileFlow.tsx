@@ -15,7 +15,7 @@ type EnergyLevel = "高" | "中" | "低";
 export type HomeNavTarget = "today" | "reading" | "relationship" | "growth" | "my";
 export type MyServiceSummary = {
   membership: { planName: string; remainingDays: number } | null;
-  daily: { available: number; total: number; expiresAt: string | null };
+  daily: { available: number; total: number; expiresAt: string | null; seedAvailable?: number };
   reading: { available: number; total: number; expiresAt: string | null };
 };
 const showPageDebugLabels = process.env.NEXT_PUBLIC_SHOW_PAGE_LABELS !== "false";

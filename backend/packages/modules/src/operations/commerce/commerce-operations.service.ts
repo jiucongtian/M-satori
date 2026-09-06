@@ -7,7 +7,6 @@ import type { QueryResultRow } from 'pg';
 import { ComplimentarySeedApplicationService } from '../../complimentary-seed/application/index.js';
 import { ConsumptionApplicationService } from '../../consumption/application/index.js';
 import { EntitlementApplicationService } from '../../entitlement/application/index.js';
-import { SeedLedgerService } from '../../seed-ledger/seed-ledger.service.js';
 
 @Injectable()
 export class CommerceOperationsService {
@@ -16,7 +15,6 @@ export class CommerceOperationsService {
     private readonly entitlements: EntitlementApplicationService,
     private readonly seeds: ComplimentarySeedApplicationService,
     private readonly consumption: ConsumptionApplicationService,
-    private readonly seedLedger: SeedLedgerService,
   ) {}
 
   async orderView(orderId: string) {
@@ -140,20 +138,26 @@ export class CommerceOperationsService {
       .where(and(eq(identities.provider, 'PHONE'), eq(identities.providerSubjectHash, command.phoneHash)))
       .limit(1);
     if (!identity) throw new Error('MANUAL_GRANT_USER_NOT_FOUND');
-    const applied = await this.seedLedger.grantManual({
-      userId: identity.userId,
-      amount: command.quantity,
-      businessKey: `operations-manual-grant:${command.actionId}`,
-      resourceId: null,
-      title: '运营平台人工赠送智慧种子',
-    });
+    const applied = await this.seeds.grant({
+      ownerUserId: identity.userId,
+      businessSpace: 'SATORI',
+      sourceType: 'MANUAL',
+      sourceId: command.actionId,
+      applicableServices: ['DAILY_INSIGHT'],
+      quantity: command.quantity,
+      effectiveAt: new Date(),
+      expiresAt: null,
+      ruleVersion: 'operations-manual-grant-v1',
+      requestId: command.requestId,
+    }, `operations-manual-grant:${command.actionId}`);
     await this.audit(command.operatorUserId, 'MANUAL_SEED_GRANTED', 'WISDOM_SEED', command.actionId, command.requestId, {
       quantity: command.quantity,
       reason: command.reason,
-      transactionId: applied.transaction.transactionId,
+      grantId: applied.grantId,
       actorType: command.operatorUserId ? 'USER_OPERATOR' : 'OPERATIONS_SERVICE',
     });
-    return { delivered: true, available: applied.account.available, transactionId: applied.transaction.transactionId };
+    const account = await this.seeds.getAccount(identity.userId);
+    return { delivered: true, available: account?.available ?? 0, transactionId: applied.grantId };
   }
 
   async forfeitEntitlements(

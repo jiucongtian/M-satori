@@ -14,14 +14,14 @@ import { apiMessage } from "@/src/shared/ui";
 
 export function MyHomeScreen(){
   const[home,setHome]=useState<HomeOverview|null>(()=>readQueryCache<HomeOverview>("home:overview")??null);const[serviceSummary,setServiceSummary]=useState<MyServiceSummary|undefined>(undefined);const[state,setState]=useState<"home"|"settings"|"support"|"成长"|"关系">("home");const[error,setError]=useState("");const router=useRouter();const{logout}=useSession();
-  useEffect(()=>{let active=true;void queryOnce("home:overview",()=>api.home()).then(overview=>active&&setHome(overview)).catch(e=>active&&setError(apiMessage(e)));void Promise.all([queryOnce("my:membership",()=>api.currentMembership()),queryOnce("my:entitlements",()=>api.entitlements())]).then(([membership,entitlements])=>active&&setServiceSummary(toMyServiceSummary(membership,entitlements))).catch(()=>active&&setServiceSummary(undefined));return()=>{active=false;};},[]);
+  useEffect(()=>{let active=true;void Promise.all([queryOnce("home:overview",()=>api.home()),queryOnce("my:membership",()=>api.currentMembership()),queryOnce("my:entitlements",()=>api.entitlements())]).then(([overview,membership,entitlements])=>{if(active){setHome(overview);setServiceSummary(toMyServiceSummary(membership,entitlements,overview.wisdomSeedAccount.available));}}).catch(e=>active&&setError(apiMessage(e)));return()=>{active=false;};},[]);
   const open=(action:string)=>{if(action==="home")router.push(ROUTES.home);else if(action==="daily")router.push(ROUTES.daily);else if(action==="profile")router.push(ROUTES.myProfile);else if(action==="benefits")router.push(withReturnPath(ROUTES.myBenefits,ROUTES.my));else if(action==="membership")router.push(withReturnPath(ROUTES.myMembership,ROUTES.my));else if(action==="services")router.push(withReturnPath(ROUTES.shop,ROUTES.my));else if(action==="orders")router.push(withReturnPath(ROUTES.myOrders,ROUTES.my));else if(action==="seeds")router.push(ROUTES.mySeeds);else if(action==="settings")setState("settings");else if(action==="support")setState("support");else if(action==="archive")router.push(ROUTES.myArchive);};
   const navigate=(target:HomeNavTarget)=>{if(target==="today")router.push(ROUTES.home);else if(target==="reading")router.push(ROUTES.readings);else if(target==="my")setState("home");else setState(target==="relationship"?"关系":"成长");};const preview=state==="成长"||state==="关系"?state:null;
   if(error)return <RouteError message={error}/>;if(!home)return <ProtectedRoute><RouteFrame title="我的" label="我的首页"><section className="my-page my-home"><div className="my-home-scroll my-home-loading" aria-busy="true"><div className="my-home-loading-mark">芽</div><p>正在整理你的生命智慧档案…</p></div><AppBottomNav active="我的" onNavigate={tab=>navigate(tab==="今日"?"today":tab==="问事"?"reading":tab==="关系"?"relationship":tab==="成长"?"growth":"my")}/></section></RouteFrame></ProtectedRoute>;
   return <ProtectedRoute><RouteFrame title={preview??"我的"} label="我的首页">{preview?<ComingSoonPage kind={preview} navigate={navigate}/>:state==="settings"?<MySettings busy={false} onBack={()=>setState("home")} onLogout={()=>void logout()}/>:state==="support"?<MySupport onBack={()=>setState("home")}/>:<MyHome name={home.profile.displayName} balance={home.wisdomSeedAccount.available} serviceSummary={serviceSummary??undefined} open={open} navigate={navigate}/>}</RouteFrame></ProtectedRoute>;
 }
 
-function toMyServiceSummary(membership: MembershipSubscription | null, entitlements: EntitlementGrant[]): MyServiceSummary {
+function toMyServiceSummary(membership: MembershipSubscription | null, entitlements: EntitlementGrant[], seedAvailable: number): MyServiceSummary {
   const active = membership?.activePeriod ?? null;
   const summarize = (serviceType: EntitlementGrant["serviceType"]) => {
     const grants = entitlements.filter((grant) => grant.serviceType === serviceType && ["AVAILABLE", "RESERVED", "FROZEN"].includes(grant.status));
@@ -31,7 +31,7 @@ function toMyServiceSummary(membership: MembershipSubscription | null, entitleme
   const planNames = { GLOW: "微光计划", SERENITY: "清和计划", FREEDOM: "自在计划" } as const;
   return {
     membership: active ? { planName: planNames[active.planCode], remainingDays: Math.max(0, Math.ceil((new Date(active.endsAt).getTime() - Date.now()) / 86_400_000)) } : null,
-    daily: summarize("DAILY_ENERGY"),
+    daily: (() => { const entitlement = summarize("DAILY_ENERGY"); return { ...entitlement, available: entitlement.available + seedAvailable, total: entitlement.total + seedAvailable, seedAvailable }; })(),
     reading: summarize("CARD_READING"),
   };
 }
