@@ -1747,6 +1747,7 @@ export interface components {
             offeringId: string;
             offeringVersion?: string;
             businessContext?: components["schemas"]["BusinessContext"] | null;
+            useSeedPromotion?: boolean;
         };
         CheckoutQuote: {
             quoteId: string;
@@ -1754,6 +1755,7 @@ export interface components {
             price: components["schemas"]["Money"];
             promotion: {
                 eligible: boolean;
+                applied: boolean;
                 ruleVersion?: string | null;
                 availableSeedQuantity: number;
                 minimumSeedBalance: number;

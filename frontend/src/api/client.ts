@@ -396,10 +396,10 @@ class SatoriApiClient {
     return this.request<Schemas["MembershipPlanListEnvelope"]>("/membership-plans").then((x) => x.data);
   }
 
-  createCheckoutQuote(offeringId: string, businessContext?: BusinessContext | null) {
+  createCheckoutQuote(offeringId: string, businessContext?: BusinessContext | null, useSeedPromotion = false) {
     return this.command<Schemas["CheckoutQuoteEnvelope"]>("/checkout-quotes", {
       method: "POST",
-      body: JSON.stringify({ offeringId, businessContext: businessContext ?? null }),
+      body: JSON.stringify({ offeringId, businessContext: businessContext ?? null, useSeedPromotion }),
     }).then((x) => x.data);
   }
 
