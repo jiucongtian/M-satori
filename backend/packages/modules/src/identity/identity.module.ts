@@ -4,7 +4,12 @@ import { RuntimeInfrastructure } from '@satori/infrastructure';
 import { AccessTokenGuard } from './auth/access-token.guard.js';
 import { AccessTokenService } from './auth/access-token.service.js';
 import { AuthCrypto } from './auth/auth.crypto.js';
-import { DevelopmentSmsGateway, HttpSmsGateway, SMS_GATEWAY } from './auth/sms.gateway.js';
+import {
+  DevelopmentSmsGateway,
+  HttpSmsGateway,
+  SMS_GATEWAY,
+  TencentCloudSmsGateway,
+} from './auth/sms.gateway.js';
 import { SmsChallengeController } from './auth/sms-challenge.controller.js';
 import { SmsChallengeService } from './auth/sms-challenge.service.js';
 import { SmsRateLimiter } from './auth/sms-rate-limiter.js';
@@ -27,10 +32,15 @@ import { MeService } from './me/me.service.js';
     {
       provide: SMS_GATEWAY,
       inject: [RuntimeInfrastructure],
-      useFactory: (infrastructure: RuntimeInfrastructure) =>
-        infrastructure.environment.SMS_DELIVERY_MODE === 'GATEWAY'
-          ? new HttpSmsGateway(infrastructure)
-          : new DevelopmentSmsGateway(),
+      useFactory: (infrastructure: RuntimeInfrastructure) => {
+        if (infrastructure.environment.SMS_DELIVERY_MODE === 'TENCENT_CLOUD') {
+          return new TencentCloudSmsGateway(infrastructure);
+        }
+        if (infrastructure.environment.SMS_DELIVERY_MODE === 'GATEWAY') {
+          return new HttpSmsGateway(infrastructure);
+        }
+        return new DevelopmentSmsGateway();
+      },
     },
     { provide: APP_GUARD, useClass: AccessTokenGuard },
     { provide: APP_GUARD, useClass: ConsentGuard },

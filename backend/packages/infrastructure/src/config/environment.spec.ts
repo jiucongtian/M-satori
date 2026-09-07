@@ -53,6 +53,22 @@ describe('runtime baseline', () => {
       SMS_GATEWAY_API_KEY: 'test-sms-key-safe-length',
     });
     expect(gateway.SMS_DELIVERY_MODE).toBe('GATEWAY');
+
+    expect(() => validateEnvironment({ ...aquaEnvironment, SMS_DELIVERY_MODE: 'TENCENT_CLOUD' })).toThrow();
+    const tencentCloud = validateEnvironment({
+      ...aquaEnvironment,
+      SMS_DELIVERY_MODE: 'TENCENT_CLOUD',
+      TENCENTCLOUD_SECRET_ID: 'test-secret-id',
+      TENCENTCLOUD_SECRET_KEY: 'test-secret-key-safe-length',
+      TENCENT_SMS_SDK_APP_ID: '1400000000',
+      TENCENT_SMS_SIGN_NAME: '测试签名',
+      TENCENT_SMS_TEMPLATE_ID: '1234567',
+    });
+    expect(tencentCloud).toMatchObject({
+      SMS_DELIVERY_MODE: 'TENCENT_CLOUD',
+      TENCENT_SMS_REGION: 'ap-guangzhou',
+      TENCENT_SMS_TEMPLATE_PARAM_MODE: 'CODE_AND_EXPIRY_MINUTES',
+    });
   });
 
   it('requires all payment secrets together and keeps the fake adapter credential-free', () => {

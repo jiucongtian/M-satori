@@ -32,10 +32,19 @@ const environmentShape = {
     .regex(/^[0-9a-f]{64}$/i)
     .default('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'),
   COOKIE_SECURE: booleanFromString,
-  SMS_DELIVERY_MODE: z.enum(['FIXED_CODE', 'GATEWAY']),
+  SMS_DELIVERY_MODE: z.enum(['FIXED_CODE', 'GATEWAY', 'TENCENT_CLOUD']),
   SMS_GATEWAY_URL: z.string().url().optional(),
   SMS_GATEWAY_API_KEY: z.string().min(16).optional(),
   SMS_GATEWAY_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  TENCENTCLOUD_SECRET_ID: z.string().min(8).optional(),
+  TENCENTCLOUD_SECRET_KEY: z.string().min(16).optional(),
+  TENCENT_SMS_SDK_APP_ID: z.string().regex(/^\d+$/).optional(),
+  TENCENT_SMS_SIGN_NAME: z.string().min(1).optional(),
+  TENCENT_SMS_TEMPLATE_ID: z.string().regex(/^\d+$/).optional(),
+  TENCENT_SMS_REGION: z.string().min(1).default('ap-guangzhou'),
+  TENCENT_SMS_TEMPLATE_PARAM_MODE: z
+    .enum(['CODE_ONLY', 'CODE_AND_EXPIRY_MINUTES'])
+    .default('CODE_AND_EXPIRY_MINUTES'),
   AQUA_BASE_URL: z.string().url(),
   AQUA_SERVICE_KEY: z.string().min(20),
   PAYMENT_PROVIDER_MODE: z.enum(['FAKE', 'WECHAT_PAY']).default('FAKE'),
@@ -76,6 +85,23 @@ export const environmentSchema = z.object(environmentShape).superRefine((environ
       path: ['SMS_GATEWAY_URL'],
       message: 'SMS gateway URL and API key are required in GATEWAY mode',
     });
+  }
+  if (environment.SMS_DELIVERY_MODE === 'TENCENT_CLOUD') {
+    for (const key of [
+      'TENCENTCLOUD_SECRET_ID',
+      'TENCENTCLOUD_SECRET_KEY',
+      'TENCENT_SMS_SDK_APP_ID',
+      'TENCENT_SMS_SIGN_NAME',
+      'TENCENT_SMS_TEMPLATE_ID',
+    ] as const) {
+      if (!environment[key]) {
+        context.addIssue({
+          code: 'custom',
+          path: [key],
+          message: `${key} is required in TENCENT_CLOUD mode`,
+        });
+      }
+    }
   }
   if (environment.PAYMENT_PROVIDER_MODE === 'WECHAT_PAY') {
     for (const key of [
