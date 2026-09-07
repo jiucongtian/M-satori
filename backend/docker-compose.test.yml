@@ -6,7 +6,7 @@ x-app-environment: &app-environment
   DATABASE_URL: postgresql://satori:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/satori
   REDIS_URL: redis://redis:6379
   COOKIE_SECURE: 'true'
-  SMS_DELIVERY_MODE: FIXED_CODE
+  SMS_DELIVERY_MODE: ${SMS_DELIVERY_MODE:-FIXED_CODE}
 
 services:
   postgres:

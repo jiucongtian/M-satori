@@ -71,10 +71,7 @@ export class SmsChallengeService {
           current.remaining < lowest.remaining ? current : lowest,
         );
         const challengeId = newId();
-        const code =
-          environment.SMS_DELIVERY_MODE === 'GATEWAY'
-            ? String(randomInt(0, 1_000_000)).padStart(6, '0')
-            : '123456';
+        const code = verificationCodeForMode(environment.SMS_DELIVERY_MODE);
         const now = Date.now();
         const expiresAt = new Date(now + policy.otpTtlSeconds * 1000);
         const resendAvailableAt = new Date(now + policy.otpResendSeconds * 1000);
@@ -163,6 +160,13 @@ export class SmsChallengeService {
       throw new BadRequestException({ code: outcome, message: 'SMS challenge could not be accepted' });
     }
   }
+}
+
+export function verificationCodeForMode(
+  deliveryMode: 'FIXED_CODE' | 'GATEWAY' | 'TENCENT_CLOUD',
+  randomInteger: (minimum: number, maximum: number) => number = randomInt,
+): string {
+  return deliveryMode === 'FIXED_CODE' ? '123456' : String(randomInteger(0, 1_000_000)).padStart(6, '0');
 }
 
 function normalizePhone(countryCode: string, nationalNumber: string): string {
