@@ -46,160 +46,7 @@ export async function executePlan(
   }
   try {
     return await drizzle(client, { schema }).transaction(async (transaction) => {
-      const database = transaction as unknown as Database;
-      await database.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended(${`miniapp-import:${plan.namespace}`}, 0))`,
-      );
-      // Lock target users in fixed order, including across different import namespaces.
-      for (const userId of [...new Set(plan.profiles.map((profile) => profile.targetUserId))].sort()) {
-        const [user] = await database
-          .select()
-          .from(schema.users)
-          .where(eq(schema.users.id, userId))
-          .for('update');
-        if (!user || user.status !== 'ACTIVE' || user.deletedAt) throw new Error('TARGET_USER_NOT_ACTIVE');
-      }
-      // Only the fields used by the existing profile services are supplied. Do not construct
-      // RuntimeInfrastructure: that would connect Redis/queues and unrelated external systems.
-      const runtime = {
-        database,
-        policy: R1_RUNTIME_POLICY,
-        environment: { CURSOR_SIGNING_SECRET: options.cursorSecret },
-      } as unknown as RuntimeInfrastructure;
-      const cipher = new FieldCipher(options.encryptionKey);
-      const [encryptedSample] = await database
-        .select({ value: schema.subjects.displayNameCiphertext })
-        .from(schema.subjects)
-        .limit(1);
-      if (encryptedSample) {
-        try {
-          cipher.decrypt(encryptedSample.value);
-        } catch {
-          throw new Error('TARGET_ENCRYPTION_KEY_MISMATCH');
-        }
-      }
-      const library = new ProfileLibraryService(runtime, cipher);
-      const catalog = new CardCatalogService(runtime);
-      await catalog.resolveGanzhi('甲子');
-      const profiles = new SelfProfileService(
-        runtime,
-        cipher,
-        catalog,
-        new LocalLocationProvider(),
-        new ReferenceBirthChartCalculator(),
-      );
-      const results: ImportResult[] = [];
-      for (const item of plan.profiles) {
-        const markerId = uuidv5(`${plan.namespace}:profile:${item.sourceProfileId}`, markerNamespace);
-        const sourceUserHash = digest([plan.namespace, item.sourceUserId]);
-        const previousOwners = await database
-          .select({ actorUserId: schema.auditLogs.actorUserId })
-          .from(schema.auditLogs)
-          .where(
-            and(
-              eq(schema.auditLogs.action, 'MINIAPP_PROFILE_IMPORTED'),
-              sql`${schema.auditLogs.metadata}->>'sourceUserHash' = ${sourceUserHash}`,
-            ),
-          );
-        if (previousOwners.some((row) => row.actorUserId !== item.targetUserId))
-          throw new Error('SOURCE_USER_ALREADY_CLAIMED');
-        const [existing] = await database
-          .select()
-          .from(schema.auditLogs)
-          .where(eq(schema.auditLogs.id, markerId));
-        if (existing) {
-          const metadata = existing.metadata as { planHash?: string; revisionId?: string };
-          if (
-            existing.action !== 'MINIAPP_PROFILE_IMPORTED' ||
-            existing.actorUserId !== item.targetUserId ||
-            metadata.planHash !== item.planHash ||
-            !existing.resourceId ||
-            !metadata.revisionId
-          ) {
-            throw new Error('IMPORT_REPLAY_CONFLICT');
-          }
-          const [live] = await database
-            .select()
-            .from(schema.lifeProfiles)
-            .where(eq(schema.lifeProfiles.id, existing.resourceId));
-          const [subject] = live
-            ? await database.select().from(schema.subjects).where(eq(schema.subjects.id, live.subjectId))
-            : [];
-          if (
-            !live ||
-            live.ownerUserId !== item.targetUserId ||
-            live.deletedAt ||
-            !subject ||
-            subject.deletedAt
-          ) {
-            throw new Error('PREVIOUS_IMPORT_REMOVED');
-          }
-          results.push({
-            sourceProfileId: item.sourceProfileId,
-            profileId: existing.resourceId,
-            revisionId: metadata.revisionId,
-            state: 'REPLAYED',
-          });
-          continue;
-        }
-        const key = `miniapp:${markerId}`;
-        const created = await library.create({
-          userId: item.targetUserId,
-          displayName: item.displayName,
-          relationshipType: 'FRIEND',
-          idempotencyKey: `${key}:create`,
-        });
-        const revision = await profiles.preview({
-          userId: item.targetUserId,
-          birthInput: item.birthInput,
-          idempotencyKey: `${key}:preview`,
-          profileId: created.profileId,
-        });
-        const confirmed = await profiles.confirm({
-          userId: item.targetUserId,
-          revisionId: revision.revisionId,
-          fingerprint: revision.inputFingerprint,
-          enhancedConfirmationAccepted: true,
-          idempotencyKey: `${key}:confirm`,
-          profileId: created.profileId,
-        });
-        // Original timestamps belong to the imported profile; the new revision keeps its actual creation time.
-        const createdAt = sourceDate(item.original.createTime)!;
-        const [imported] = await database
-          .update(schema.lifeProfiles)
-          .set({ createdAt })
-          .where(eq(schema.lifeProfiles.id, confirmed.profileId))
-          .returning();
-        await database
-          .update(schema.subjects)
-          .set({ createdAt })
-          .where(eq(schema.subjects.id, imported!.subjectId));
-        await database.insert(schema.auditLogs).values({
-          id: markerId,
-          actorUserId: item.targetUserId,
-          action: 'MINIAPP_PROFILE_IMPORTED',
-          resourceType: 'LIFE_PROFILE',
-          resourceId: confirmed.profileId,
-          metadata: {
-            migrationVersion: 1,
-            namespace: plan.namespace,
-            sourceUserHash,
-            sourceProfileHash: digest([plan.namespace, item.sourceProfileId]),
-            sourceHash: item.sourceHash,
-            archiveHash: plan.sourceHash,
-            planHash: item.planHash,
-            verificationHash: item.verificationHash,
-            revisionId: revision.revisionId,
-            changedPillars: item.changedPillars,
-          },
-        });
-        results.push({
-          sourceProfileId: item.sourceProfileId,
-          profileId: confirmed.profileId,
-          revisionId: revision.revisionId,
-          state: 'IMPORTED',
-        });
-      }
+      const results = await executePlanInTransaction(transaction, plan, options);
       if (!options.commit) throw new PreviewRollback(results);
       return { committed: true, results };
     });
@@ -207,4 +54,204 @@ export async function executePlan(
     if (error instanceof PreviewRollback) return { committed: false, results: error.results };
     throw error;
   }
+}
+
+/** Reuses the same native import inside the caller's transaction, including its durable decision. */
+export async function executePlanInTransaction(
+  database: Database,
+  plan: ImportPlan,
+  options: {
+    encryptionKey: string;
+    cursorSecret: string;
+    cipher?: FieldCipher;
+    authorizationDecisionId?: string;
+  },
+): Promise<ImportResult[]> {
+  if (plan.profiles.some((item) => item.subjectType !== 'OTHER' || item.relationshipType !== 'FRIEND')) {
+    throw new Error('ONLY_OTHER_FRIEND_PROFILES_ALLOWED');
+  }
+  await database.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`miniapp-import:${plan.namespace}`}, 0))`,
+  );
+  // Lock target users in fixed order, including across different import namespaces.
+  for (const userId of [...new Set(plan.profiles.map((profile) => profile.targetUserId))].sort()) {
+    const [user] = await database
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .for('update');
+    if (!user || user.status !== 'ACTIVE' || user.deletedAt) throw new Error('TARGET_USER_NOT_ACTIVE');
+    const [decision] = await database
+      .select({ id: schema.auditLogs.id, metadata: schema.auditLogs.metadata })
+      .from(schema.auditLogs)
+      .where(
+        and(
+          eq(schema.auditLogs.action, 'MINIAPP_IMPORT_DECIDED'),
+          eq(schema.auditLogs.resourceType, 'USER'),
+          eq(schema.auditLogs.resourceId, userId),
+        ),
+      )
+      .limit(1);
+    if (
+      decision &&
+      (decision.id !== options.authorizationDecisionId ||
+        (decision.metadata as { decision?: string }).decision !== 'ACCEPT')
+    )
+      throw new Error('MINIAPP_ONE_TIME_DECISION_ALREADY_RECORDED');
+    if (options.authorizationDecisionId && !decision) throw new Error('MINIAPP_AUTHORIZATION_REQUIRED');
+  }
+  // Only the fields used by the existing profile services are supplied. Do not construct
+  // RuntimeInfrastructure: that would connect Redis/queues and unrelated external systems.
+  const runtime = {
+    database,
+    policy: R1_RUNTIME_POLICY,
+    environment: { CURSOR_SIGNING_SECRET: options.cursorSecret },
+  } as unknown as RuntimeInfrastructure;
+  const cipher = options.cipher ?? new FieldCipher(options.encryptionKey);
+  const [encryptedSample] = await database
+    .select({ value: schema.subjects.displayNameCiphertext })
+    .from(schema.subjects)
+    .limit(1);
+  if (encryptedSample) {
+    try {
+      cipher.decrypt(encryptedSample.value);
+    } catch {
+      throw new Error('TARGET_ENCRYPTION_KEY_MISMATCH');
+    }
+  }
+  const library = new ProfileLibraryService(runtime, cipher);
+  const catalog = new CardCatalogService(runtime);
+  await catalog.resolveGanzhi('甲子');
+  const profiles = new SelfProfileService(
+    runtime,
+    cipher,
+    catalog,
+    new LocalLocationProvider(),
+    new ReferenceBirthChartCalculator(),
+  );
+  const results: ImportResult[] = [];
+  for (const item of plan.profiles) {
+    const markerId = uuidv5(`${plan.namespace}:profile:${item.sourceProfileId}`, markerNamespace);
+    const sourceUserHash = digest([plan.namespace, item.sourceUserId]);
+    const [sourceDecision] = await database
+      .select({ id: schema.auditLogs.id })
+      .from(schema.auditLogs)
+      .where(
+        and(
+          eq(schema.auditLogs.action, 'MINIAPP_IMPORT_DECIDED'),
+          sql`${schema.auditLogs.metadata}->>'sourceUserHash' = ${sourceUserHash}`,
+        ),
+      )
+      .limit(1);
+    if (sourceDecision && sourceDecision.id !== options.authorizationDecisionId)
+      throw new Error('MINIAPP_ONE_TIME_DECISION_ALREADY_RECORDED');
+    const previousOwners = await database
+      .select({ actorUserId: schema.auditLogs.actorUserId })
+      .from(schema.auditLogs)
+      .where(
+        and(
+          eq(schema.auditLogs.action, 'MINIAPP_PROFILE_IMPORTED'),
+          sql`${schema.auditLogs.metadata}->>'sourceUserHash' = ${sourceUserHash}`,
+        ),
+      );
+    if (previousOwners.some((row) => row.actorUserId !== item.targetUserId))
+      throw new Error('SOURCE_USER_ALREADY_CLAIMED');
+    const [existing] = await database
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.id, markerId));
+    if (existing) {
+      const metadata = existing.metadata as { planHash?: string; revisionId?: string };
+      if (
+        existing.action !== 'MINIAPP_PROFILE_IMPORTED' ||
+        existing.actorUserId !== item.targetUserId ||
+        metadata.planHash !== item.planHash ||
+        !existing.resourceId ||
+        !metadata.revisionId
+      ) {
+        throw new Error('IMPORT_REPLAY_CONFLICT');
+      }
+      const [live] = await database
+        .select()
+        .from(schema.lifeProfiles)
+        .where(eq(schema.lifeProfiles.id, existing.resourceId));
+      const [subject] = live
+        ? await database.select().from(schema.subjects).where(eq(schema.subjects.id, live.subjectId))
+        : [];
+      if (
+        !live ||
+        live.ownerUserId !== item.targetUserId ||
+        live.deletedAt ||
+        !subject ||
+        subject.deletedAt
+      ) {
+        throw new Error('PREVIOUS_IMPORT_REMOVED');
+      }
+      results.push({
+        sourceProfileId: item.sourceProfileId,
+        profileId: existing.resourceId,
+        revisionId: metadata.revisionId,
+        state: 'REPLAYED',
+      });
+      continue;
+    }
+    const key = `miniapp:${markerId}`;
+    const created = await library.create({
+      userId: item.targetUserId,
+      displayName: item.displayName,
+      relationshipType: 'FRIEND',
+      idempotencyKey: `${key}:create`,
+    });
+    const revision = await profiles.preview({
+      userId: item.targetUserId,
+      birthInput: item.birthInput,
+      idempotencyKey: `${key}:preview`,
+      profileId: created.profileId,
+    });
+    const confirmed = await profiles.confirm({
+      userId: item.targetUserId,
+      revisionId: revision.revisionId,
+      fingerprint: revision.inputFingerprint,
+      enhancedConfirmationAccepted: true,
+      idempotencyKey: `${key}:confirm`,
+      profileId: created.profileId,
+    });
+    // Original timestamps belong to the imported profile; the new revision keeps its actual creation time.
+    const createdAt = sourceDate(item.original.createTime)!;
+    const [imported] = await database
+      .update(schema.lifeProfiles)
+      .set({ createdAt })
+      .where(eq(schema.lifeProfiles.id, confirmed.profileId))
+      .returning();
+    await database
+      .update(schema.subjects)
+      .set({ createdAt })
+      .where(eq(schema.subjects.id, imported!.subjectId));
+    await database.insert(schema.auditLogs).values({
+      id: markerId,
+      actorUserId: item.targetUserId,
+      action: 'MINIAPP_PROFILE_IMPORTED',
+      resourceType: 'LIFE_PROFILE',
+      resourceId: confirmed.profileId,
+      metadata: {
+        migrationVersion: 1,
+        namespace: plan.namespace,
+        sourceUserHash,
+        sourceProfileHash: digest([plan.namespace, item.sourceProfileId]),
+        sourceHash: item.sourceHash,
+        archiveHash: plan.sourceHash,
+        planHash: item.planHash,
+        verificationHash: item.verificationHash,
+        revisionId: revision.revisionId,
+        changedPillars: item.changedPillars,
+      },
+    });
+    results.push({
+      sourceProfileId: item.sourceProfileId,
+      profileId: confirmed.profileId,
+      revisionId: revision.revisionId,
+      state: 'IMPORTED',
+    });
+  }
+  return results;
 }

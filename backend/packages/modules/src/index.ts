@@ -13,6 +13,7 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
 import { EntitlementModule } from './entitlement/index.js';
 import { FulfillmentModule } from './fulfillment/index.js';
 import { MembershipModule } from './membership/index.js';
+import { MiniappImportModule } from './legacy-miniapp-import/miniapp-import.module.js';
 import { OperationsModule } from './operations/operations.module.js';
 import { OrderModule } from './order/index.js';
 import { PaymentModule } from './payment/index.js';
@@ -63,6 +64,7 @@ export const R11CommerceModules: Type<unknown>[] = [
 ];
 
 export const R1DomainModules: Type<unknown>[] = [
+  MiniappImportModule,
   AnalyticsModule,
   IdentityModule,
   ProfileModule,

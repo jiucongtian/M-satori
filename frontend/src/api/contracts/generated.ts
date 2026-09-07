@@ -4,6 +4,63 @@
  */
 
 export interface paths {
+    "/me/miniapp-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check the authenticated phone identity for a one-time miniapp import offer
+         * @description No phone or target user is accepted from the client. Only uniquely matched eligible source accounts are offered. A recorded ACCEPT or DECLINE is permanent across sessions and archive updates.
+         */
+        get: operations["getMiniappImportStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/miniapp-import/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Permanently accept or decline the offered miniapp import
+         * @description The first committed choice wins. ACCEPT is saved before import; recoverable failures remain ACCEPTED and are retried by the server without asking again. Imported profiles are OTHER/FRIEND with Beijing as the default birthplace. Native revisions are recalculated; original source data remains available separately.
+         */
+        post: operations["decideMiniappImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/miniapp-import/profiles/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the immutable miniapp source of an owned, undeleted profile */
+        get: operations["getMiniappProfileSource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/card-readings/draws": {
         parameters: {
             query?: never;
@@ -1100,6 +1157,48 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        MiniappImportStatus: {
+            /** @constant */
+            status: "NONE";
+        } | {
+            /** @constant */
+            status: "OFFERED";
+            offerId: string;
+            profileCount: number;
+        } | {
+            /** @enum {string} */
+            status: "ACCEPTED" | "DECLINED" | "COMPLETED";
+            importedCount: number;
+        };
+        MiniappImportEnvelope: {
+            data: components["schemas"]["MiniappImportStatus"];
+        };
+        MiniappProfileSource: {
+            /** @constant */
+            source: "MINIAPP";
+            profileName: string;
+            birthInput: {
+                /** @enum {string} */
+                calendarType: "SOLAR" | "LUNAR";
+                date: {
+                    year: number;
+                    month: number;
+                    day: number;
+                    isLeapMonth: boolean;
+                };
+                /** @enum {string} */
+                calculationGender: "MALE" | "FEMALE";
+            };
+            originalLocalTime: string | null;
+            timeUncertain: boolean;
+            description: string;
+            pillars: {
+                year: string;
+                month: string;
+                day: string;
+                hour: string;
+            };
+        };
         CardReadingEnvelope: {
             data: components["schemas"]["CardReading"];
         };
@@ -1747,7 +1846,8 @@ export interface components {
             offeringId: string;
             offeringVersion?: string;
             businessContext?: components["schemas"]["BusinessContext"] | null;
-            useSeedPromotion?: boolean;
+            /** @default false */
+            useSeedPromotion: boolean;
         };
         CheckoutQuote: {
             quoteId: string;
@@ -2202,6 +2302,92 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getMiniappImportStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current offer or durable decision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiniappImportEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    decideMiniappImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    /** @enum {string} */
+                    decision: "ACCEPT" | "DECLINE";
+                };
+            };
+        };
+        responses: {
+            /** @description Recorded decision or replay; ACCEPTED means automatic recovery is pending */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiniappImportEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMiniappProfileSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original source or null for a native Satori profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MiniappProfileSource"] | null;
+                    };
+                };
+            };
+            /** @description Required original archive or key is unavailable; native Satori profile remains usable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createCardReadingDraw: {
         parameters: {
             query?: never;

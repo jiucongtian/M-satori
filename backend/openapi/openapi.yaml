@@ -28,6 +28,47 @@ tags:
   - name: Analytics
   - name: CardReading
 paths:
+  /me/miniapp-import:
+    get:
+      tags: [Me]
+      operationId: getMiniappImportStatus
+      summary: Check the authenticated phone identity for a one-time miniapp import offer
+      description: No phone or target user is accepted from the client. Only uniquely matched eligible source accounts are offered. A recorded ACCEPT or DECLINE is permanent across sessions and archive updates.
+      responses:
+        '200': {description: Current offer or durable decision, content: {application/json: {schema: {$ref: '#/components/schemas/MiniappImportEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/miniapp-import/decision:
+    post:
+      tags: [Me]
+      operationId: decideMiniappImport
+      summary: Permanently accept or decline the offered miniapp import
+      description: The first committed choice wins. ACCEPT is saved before import; recoverable failures remain ACCEPTED and are retried by the server without asking again. Imported profiles are OTHER/FRIEND with Beijing as the default birthplace. Native revisions are recalculated; original source data remains available separately.
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [offerId, decision]
+              properties:
+                offerId: {type: string, minLength: 64, maxLength: 64}
+                decision: {type: string, enum: [ACCEPT, DECLINE]}
+      responses:
+        '200': {description: Recorded decision or replay; ACCEPTED means automatic recovery is pending, content: {application/json: {schema: {$ref: '#/components/schemas/MiniappImportEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /me/miniapp-import/profiles/{profileId}:
+    get:
+      tags: [ProfileLibrary]
+      operationId: getMiniappProfileSource
+      summary: Read the immutable miniapp source of an owned, undeleted profile
+      parameters:
+        - {name: profileId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Original source or null for a native Satori profile, content: {application/json: {schema: {type: object, required: [data], properties: {data: {oneOf: [{$ref: '#/components/schemas/MiniappProfileSource'}, {type: 'null'}]}}}}}}
+        '503': {description: Required original archive or key is unavailable; native Satori profile remains usable, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}}
+        default: {$ref: '#/components/responses/Error'}
   /card-readings/draws:
     post:
       tags: [CardReading]
@@ -732,6 +773,47 @@ components:
       headers: {X-Request-Id: {schema: {type: string}}}
       content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
   schemas:
+    MiniappImportStatus:
+      oneOf:
+        - {type: object, required: [status], properties: {status: {const: NONE}}}
+        - {type: object, required: [status, offerId, profileCount], properties: {status: {const: OFFERED}, offerId: {type: string}, profileCount: {type: integer, minimum: 1}}}
+        - {type: object, required: [status, importedCount], properties: {status: {type: string, enum: [ACCEPTED, DECLINED, COMPLETED]}, importedCount: {type: integer, minimum: 0}}}
+    MiniappImportEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/MiniappImportStatus'}
+    MiniappProfileSource:
+      type: object
+      required: [source, profileName, birthInput, originalLocalTime, timeUncertain, description, pillars]
+      properties:
+        source: {const: MINIAPP}
+        profileName: {type: string}
+        birthInput:
+          type: object
+          required: [calendarType, date, calculationGender]
+          properties:
+            calendarType: {type: string, enum: [SOLAR, LUNAR]}
+            date:
+              type: object
+              required: [year, month, day, isLeapMonth]
+              properties:
+                year: {type: integer}
+                month: {type: integer}
+                day: {type: integer}
+                isLeapMonth: {type: boolean}
+            calculationGender: {type: string, enum: [MALE, FEMALE]}
+        originalLocalTime: {type: [string, 'null']}
+        timeUncertain: {type: boolean}
+        description: {type: string}
+        pillars:
+          type: object
+          required: [year, month, day, hour]
+          properties:
+            year: {type: string}
+            month: {type: string}
+            day: {type: string}
+            hour: {type: string}
     CardReadingEnvelope:
       type: object
       required: [data]

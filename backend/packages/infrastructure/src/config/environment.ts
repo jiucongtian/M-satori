@@ -20,6 +20,9 @@ const environmentShape = {
   DAILY_INSIGHT_CONSUMPTION_MODE: z.enum(['LEGACY', 'SHADOW', 'UNIFIED']).default('UNIFIED'),
   ANALYTICS_INGESTION_ENABLED: booleanFromString,
   AUTH_HMAC_SECRET: z.string().min(32).default('development-auth-hmac-secret-0001'),
+  MINIAPP_IMPORT_ARCHIVE_PATH: z.string().min(1).optional(),
+  MINIAPP_IMPORT_KEY_PATH: z.string().min(1).optional(),
+  MINIAPP_IMPORT_HISTORY_PATH: z.string().min(1).optional(),
   ACCESS_TOKEN_SECRET: z.string().min(32).default('development-access-token-secret-01'),
   OPERATIONS_SERVICE_TOKEN: z.string().min(32).optional(),
   OPERATIONS_SERVICE_TOKEN_PREVIOUS: z.string().min(32).optional(),
@@ -54,6 +57,13 @@ const environmentShape = {
 export const environmentVariableNames = Object.keys(environmentShape) as Array<keyof typeof environmentShape>;
 
 export const environmentSchema = z.object(environmentShape).superRefine((environment, context) => {
+  if (Boolean(environment.MINIAPP_IMPORT_ARCHIVE_PATH) !== Boolean(environment.MINIAPP_IMPORT_KEY_PATH)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['MINIAPP_IMPORT_ARCHIVE_PATH'],
+      message: 'Miniapp archive and key paths must be configured together',
+    });
+  }
   if (environment.CORS_ORIGINS.split(',').some((origin) => origin.trim() === '*')) {
     context.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'Wildcard CORS is forbidden' });
   }
