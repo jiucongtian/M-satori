@@ -7,23 +7,19 @@ import { loadArchive } from './archive.js';
 import {
   assessSource,
   digest,
+  normalizeMiniappPhone,
   object,
   type ProfileAssessment,
   type RecordData,
   type SourceData,
 } from './source.js';
 
+export { normalizeMiniappPhone } from './source.js';
+
 // Shared with the reviewed CLI: an already imported profile can never be claimed a second time.
 const markerNamespace = '3fc9fe91-b90b-4bd2-8f1b-f19aefad60df';
 export const miniappProfileMarker = (namespace: string, profileId: string) =>
   uuidv5(`${namespace}:profile:${profileId}`, markerNamespace);
-
-export function normalizeMiniappPhone(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const normalized = value.trim().replace(/[\s-]/g, '');
-  const national = normalized.replace(/^(?:\+86|0086)/, '');
-  return /^1\d{10}$/.test(national) ? `+86${national}` : null;
-}
 
 export interface MiniappCandidate {
   original: RecordData;

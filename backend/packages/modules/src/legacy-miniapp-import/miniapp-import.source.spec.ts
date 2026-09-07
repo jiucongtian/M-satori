@@ -61,6 +61,19 @@ async function provider(source: SourceData | null, historyPath?: string) {
 }
 
 describe('immutable miniapp source history', () => {
+  it('offers active profiles with stale miniapp user ids through one unique openid and one phone', async () => {
+    const original = await syntheticSource();
+    original.profiles[0]!.userId = 'stale-user-id';
+    const source = await provider(original);
+    const infrastructure = {
+      environment: { AUTH_HMAC_SECRET: 'synthetic-unit-history-hmac-secret' },
+    } as unknown as RuntimeInfrastructure;
+    const crypto = new AuthCrypto(infrastructure, new FieldCipher(key));
+    const match = source.match(crypto.hash('phone:+8613800000000'));
+    expect(match?.sourceUserId).toBe('old-user');
+    expect(match?.profiles.map((profile) => profile.original._id)).toEqual(['old-profile']);
+  });
+
   it('reads an unchanged original after unrelated archive content changes, using the imported profile hash', async () => {
     const original = await syntheticSource();
     const updated = structuredClone(original);

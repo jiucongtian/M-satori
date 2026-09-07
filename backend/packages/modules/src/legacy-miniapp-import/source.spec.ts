@@ -38,13 +38,34 @@ describe('miniapp source preservation and validation', () => {
     expect(() => parseExport('')).toThrow('EMPTY_EXPORT');
   });
 
-  it('quarantines orphan ownership even when its openid could match another user', async () => {
+  it('relinks a stale source user id through a unique openid and keeps the phone as the cross-system claim', async () => {
     const source = await syntheticSource();
     source.profiles[0]!.userId = 'missing';
     const assessed = assessSource(source).profiles[0]!;
+    expect(assessed.disposition).toBe('ELIGIBLE');
+    expect(assessed.sourceUserId).toBe('old-user');
+    expect(assessed.issues).toContain('STALE_USER_ID_RELINKED_BY_UNIQUE_OPENID');
+  });
+
+  it('discards profiles whose resolved miniapp owner has no usable phone number', async () => {
+    const source = await syntheticSource();
+    delete source.users[0]!.phoneNumber;
+    const assessed = assessSource(source).profiles[0]!;
     expect(assessed.disposition).toBe('QUARANTINED');
-    expect(assessed.issues).toContain('SOURCE_USER_NOT_FOUND');
-    expect(assessed.issues).toContain('STALE_USER_ID_POSSIBLE');
+    expect(assessed.issues).toContain('SOURCE_PHONE_MISSING_OR_INVALID');
+  });
+
+  it('discards profiles when the same normalized phone belongs to multiple miniapp users', async () => {
+    const source = await syntheticSource();
+    source.users.push({
+      ...source.users[0],
+      _id: 'second-user',
+      openid: 'second-openid',
+      phoneNumber: '+86 138-0000-0000',
+    });
+    const assessed = assessSource(source).profiles[0]!;
+    expect(assessed.disposition).toBe('QUARANTINED');
+    expect(assessed.issues).toContain('AMBIGUOUS_PHONE');
   });
 
   it('does not resurrect deleted profiles and rejects duplicate IDs or ambiguous openids', async () => {

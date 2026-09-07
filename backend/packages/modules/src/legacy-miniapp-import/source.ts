@@ -26,6 +26,13 @@ export function object(value: unknown): RecordData {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as RecordData) : {};
 }
 
+export function normalizeMiniappPhone(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().replace(/[\s-]/g, '');
+  const national = normalized.replace(/^(?:\+86|0086)/, '');
+  return /^1\d{10}$/.test(national) ? `+86${national}` : null;
+}
+
 /** CloudBase exports are normally NDJSON with Extended JSON dates. Never flatten the originals. */
 export function parseExport(text: string): RecordData[] {
   const clean = text.replace(/^\uFEFF/, '').trim();
@@ -82,28 +89,42 @@ export function assessSource(source: SourceData) {
   requireUniqueIds(source.users, 'users');
   requireUniqueIds(source.profiles, 'profiles');
   const users = new Map(source.users.map((user) => [user._id, user]));
-  const openids = new Map<string, number>();
+  const usersByOpenid = new Map<string, RecordData[]>();
   const phones = new Map<string, number>();
   for (const user of source.users) {
-    if (typeof user.openid === 'string' && user.openid)
-      openids.set(user.openid, (openids.get(user.openid) ?? 0) + 1);
-    if (typeof user.phoneNumber === 'string' && user.phoneNumber.trim()) {
-      const phone = user.phoneNumber.trim();
+    if (typeof user.openid === 'string' && user.openid) {
+      const matches = usersByOpenid.get(user.openid) ?? [];
+      matches.push(user);
+      usersByOpenid.set(user.openid, matches);
+    }
+    const phone = normalizeMiniappPhone(user.phoneNumber);
+    if (phone) {
       phones.set(phone, (phones.get(phone) ?? 0) + 1);
     }
   }
   const profiles: ProfileAssessment[] = source.profiles.map((profile) => {
     const issues: string[] = [];
     const blockers: string[] = [];
-    const user = users.get(profile.userId);
+    let user = users.get(profile.userId);
     if (!user) {
-      blockers.push('SOURCE_USER_NOT_FOUND');
-      if (typeof profile.openid === 'string' && openids.has(profile.openid))
-        issues.push('STALE_USER_ID_POSSIBLE');
-    } else {
+      const openidMatches =
+        typeof profile.openid === 'string' && profile.openid ? (usersByOpenid.get(profile.openid) ?? []) : [];
+      if (openidMatches.length === 1) {
+        user = openidMatches[0];
+        issues.push('STALE_USER_ID_RELINKED_BY_UNIQUE_OPENID');
+      } else {
+        blockers.push('SOURCE_USER_NOT_FOUND');
+        if (openidMatches.length > 0) issues.push('STALE_USER_ID_POSSIBLE');
+        if (openidMatches.length > 1) blockers.push('AMBIGUOUS_OPENID');
+      }
+    }
+    if (user) {
       if (user.isActive !== true) blockers.push('SOURCE_USER_NOT_ACTIVE');
       if (!profile.openid || profile.openid !== user.openid) blockers.push('OWNER_OPENID_MISMATCH');
-      if (openids.get(String(user.openid)) !== 1) blockers.push('AMBIGUOUS_OPENID');
+      if ((usersByOpenid.get(String(user.openid)) ?? []).length !== 1) blockers.push('AMBIGUOUS_OPENID');
+      const phone = normalizeMiniappPhone(user.phoneNumber);
+      if (!phone) blockers.push('SOURCE_PHONE_MISSING_OR_INVALID');
+      else if (phones.get(phone) !== 1) blockers.push('AMBIGUOUS_PHONE');
     }
     if (typeof profile.isActive !== 'boolean') blockers.push('ACTIVE_FLAG_INVALID');
     if (
@@ -168,7 +189,7 @@ export function assessSource(source: SourceData) {
     issues.push('LOCATION_REQUIRED', 'TIME_PRECISION_CONFIRMATION_REQUIRED', ...blockers);
     return {
       sourceProfileId: String(profile._id),
-      sourceUserId: typeof profile.userId === 'string' ? profile.userId : '',
+      sourceUserId: user && typeof user._id === 'string' ? user._id : '',
       disposition: profile.isActive === false ? 'DELETED' : blockers.length ? 'QUARANTINED' : 'ELIGIBLE',
       issues,
       birthDraft: {
@@ -200,7 +221,7 @@ export function assessSource(source: SourceData) {
       eligibleProfiles: profiles.filter((profile) => profile.disposition === 'ELIGIBLE').length,
       quarantinedProfiles: profiles.filter((profile) => profile.disposition === 'QUARANTINED').length,
       duplicatePhoneGroups: [...phones.values()].filter((count) => count > 1).length,
-      duplicateOpenidGroups: [...openids.values()].filter((count) => count > 1).length,
+      duplicateOpenidGroups: [...usersByOpenid.values()].filter((users) => users.length > 1).length,
       usersWithoutPhone: source.users.filter((user) => !user.phoneNumber).length,
       issueCounts,
     },

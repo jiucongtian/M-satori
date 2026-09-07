@@ -20,7 +20,7 @@ export async function syntheticSource(): Promise<SourceData> {
   return {
     version: 1,
     namespace: 'synthetic-miniapp',
-    users: [{ _id: 'old-user', openid: 'synthetic-openid', isActive: true, phoneNumber: 'synthetic-phone' }],
+    users: [{ _id: 'old-user', openid: 'synthetic-openid', isActive: true, phoneNumber: '13800000000' }],
     profiles: [
       {
         _id: 'old-profile',
