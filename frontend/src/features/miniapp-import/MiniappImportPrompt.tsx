@@ -193,9 +193,9 @@ export function MiniappImportPrompt() {
           <h2 id="miniapp-import-title">找到了你的小程序档案</h2>
           <p id="miniapp-import-description">
             你当前登录的手机号，在「身心游卡牌微信小程序」中有
-            {offer.profileCount ? <strong> {offer.profileCount} 份</strong> : "可导入的"}档案。是否导入到当前 Satori 账号？
+            {offer.profileCount ? <strong> {offer.profileCount} 份</strong> : "可导入的"}档案。是否导入到当前账号？
           </p>
-          <p className="miniapp-import-details">原档案会保留在生命智慧档案库，关系统一为「朋友」，出生地默认为「北京」，导入后可修改。小程序原始资料和旧卡牌会保留，Satori 卡牌按现行规则生成。</p>
+          <p className="miniapp-import-details">原档案会保留在生命智慧档案库，关系统一为「朋友」，出生地默认为「北京」，导入后可修改。小程序原始资料和旧卡牌会保留，导入后的卡牌按现行规则生成。</p>
           <div className="miniapp-import-notice">
             <strong>仅此一次，请确认后选择</strong>
             <p>这个导入提醒只会有一次。无论选择导入或不导入，之后都不会再次提醒，也不会再有导入机会。</p>
