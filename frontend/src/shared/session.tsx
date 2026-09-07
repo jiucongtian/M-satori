@@ -7,6 +7,7 @@ import { clearAllFlowDrafts } from "@/src/shared/storage";
 import { consentPath, ROUTES, safeNextPath } from "./routes";
 import { routeDiagnostic } from "./diagnostics";
 import { clearQueryCache, queryOnce } from "./query";
+import { MiniappImportPrompt } from "@/src/features/miniapp-import/MiniappImportPrompt";
 
 export type SessionStatus = "unknown" | "anonymous" | "authenticated" | "consent-required";
 
@@ -89,7 +90,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
   }), [me, pathname, resolve, router, status]);
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return <SessionContext.Provider value={value}>
+    {children}
+    {status === "authenticated" && me && !me.requiresConsent && <MiniappImportPrompt key={me.userId} />}
+  </SessionContext.Provider>;
 }
 
 export function useSession() {

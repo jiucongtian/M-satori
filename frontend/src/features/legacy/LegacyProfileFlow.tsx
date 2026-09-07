@@ -6,7 +6,9 @@ import { LifeWisdomCardRow } from "@/src/components/LifeWisdomCard";
 import { BackButton, FreshButton } from "@/src/components/FreshPrimitives";
 import { api, ApiError } from "@/src/api/client";
 import { AppBottomNav, type AppTab } from "@/src/shared/AppBottomNav";
-import type { BirthInput, DailyInsight, HomeOverview, LifeProfile, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
+import type { BirthInput, DailyInsight, HomeOverview, LifeProfile, MiniappProfileSource, ProfileFirstLook, ProfileRevision, WisdomSeedAccount, WisdomSeedTransaction } from "@/src/api/client";
+import { MiniappSourceDetails } from "./MiniappProfileSource";
+import { MiniappBirthLocationEditor } from "./MiniappBirthLocationEditor";
 import { ReadingHeader } from "../reading/ReadingShell";
 import { ReadingShuffle, ReadingDraw, ReadingReveal, ReadingFailure } from "../reading/ReadingScreens";
 import { ReadingQuestion, ReadingConfirm, ReadingSafety, ReadingSpread, ReadingConfig, ReadingPayment, ReadingFeedback, ReadingInsufficient, ReadingMessageReturn, ReadingShareOptions, ReadingShareGenerating, ReadingShareSuccess, ReadingNetworkError, ReadingGenerate, ReadingReport } from "./ReadingPrototypeScreens";
@@ -72,6 +74,9 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
   const [profiles, setProfiles] = useState<LifeProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<LifeProfile | null>(null);
   const [otherRevision, setOtherRevision] = useState<ProfileRevision | null>(null);
+  const [otherSource, setOtherSource] = useState<{ profileId: string; data: MiniappProfileSource | null; error?: string } | null>(null);
+  const [otherSourceAttempt, setOtherSourceAttempt] = useState(0);
+  const otherRevisionRequestRef = useRef(0);
   const [otherFirstLook, setOtherFirstLook] = useState<ProfileFirstLook | null>(null);
   const [otherFirstLookLoading, setOtherFirstLookLoading] = useState(false);
   const [editingOther, setEditingOther] = useState(false);
@@ -195,8 +200,24 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
 
   useEffect(() => {
     if (step !== 111) return;
-    api.profiles().then(setProfiles).catch((error) => setApiError(apiMessage(error)));
+    let active = true;
+    const refreshProfiles = () => api.profiles().then((value) => { if (active) setProfiles(value); }).catch((error) => { if (active) setApiError(apiMessage(error)); });
+    void refreshProfiles();
+    window.addEventListener("satori:miniapp-import-completed", refreshProfiles);
+    return () => { active = false; window.removeEventListener("satori:miniapp-import-completed", refreshProfiles); };
   }, [step]);
+
+  useEffect(() => {
+    const profileId = selectedProfile?.profileId;
+    if (!profileId) return;
+    let active = true;
+    api.miniappProfileSource(profileId).then((source) => {
+      if (active) setOtherSource({ profileId, data: source });
+    }).catch((error) => {
+      if (active) setOtherSource({ profileId, data: null, error: apiMessage(error) });
+    });
+    return () => { active = false; };
+  }, [selectedProfile?.profileId, otherSourceAttempt]);
 
   useEffect(() => {
     if (!taskId || step !== 13) return;
@@ -384,10 +405,16 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
   }
 
   function openOtherProfile(profile: LifeProfile) {
+    const request = ++otherRevisionRequestRef.current;
     setSelectedProfile(profile);
+    setOtherRevision(null);
     setOtherFirstLook(null);
     setEditingOther(false);
-    if (profile.currentRevisionId) api.profileRevision(profile.currentRevisionId).then(setOtherRevision).catch(() => undefined);
+    setOtherSource(null);
+    setOtherSourceAttempt((attempt) => attempt + 1);
+    if (profile.currentRevisionId) api.profileRevision(profile.currentRevisionId).then((value) => {
+      if (otherRevisionRequestRef.current === request) setOtherRevision(value);
+    }).catch((error) => { if (otherRevisionRequestRef.current === request) setApiError(apiMessage(error)); });
     setStep(115);
   }
 
@@ -404,7 +431,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       lunarMonth: birth.date.month,
       lunarDay: birth.date.day,
       isLeapMonth: birth.date.isLeapMonth,
-      time: birth.time.localTime || "08:30",
+      time: timeFromBirthInput(birth),
       accuracy: birth.timePrecision === "DATE_ONLY" ? "完全不知道" : "准确到分钟",
       locationId: birth.locationId,
       gender: birth.calculationGender,
@@ -421,12 +448,14 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       const month = otherData.calendarType === "LUNAR" ? otherData.lunarMonth : solarMonth;
       const day = otherData.calendarType === "LUNAR" ? otherData.lunarDay : solarDay;
       const exact = otherData.accuracy === "准确到分钟";
+      const previousBirth = otherRevision?.originalInput;
+      const keepHourRange = exact && previousBirth?.timePrecision === "HOUR_RANGE" && otherData.time === timeFromBirthInput(previousBirth);
       const updatedProfile = await api.updateProfile(selectedProfile.profileId, otherData.name.trim(), otherData.relationshipType);
       const preview = await api.previewOtherProfile(selectedProfile.profileId, {
         calendarType: otherData.calendarType,
         date: { year, month, day, isLeapMonth: otherData.calendarType === "LUNAR" && otherData.isLeapMonth },
-        timePrecision: exact ? "EXACT_MINUTE" : "DATE_ONLY",
-        time: { localTime: exact ? otherData.time : null, hourBranchCode: null },
+        timePrecision: keepHourRange ? "HOUR_RANGE" : exact ? "EXACT_MINUTE" : "DATE_ONLY",
+        time: keepHourRange ? previousBirth.time : { localTime: exact ? otherData.time : null, hourBranchCode: null },
         locationId: otherData.locationId,
         calculationGender: otherData.gender,
       });
@@ -580,7 +609,7 @@ export function LegacyProfileFlow({ onExit, onLogout, onNavigateRoute, initialSt
       {id === "MY-10" && <NewPersonArchive data={otherData} busy={apiBusy} onChange={setOtherData} onBack={() => setStep(111)} onNext={createOtherProfile} />}
       {id === "MY-11" && <ArchiveConfirm data={otherData} revision={otherRevision} busy={apiBusy} onBack={back} onNext={confirmOtherProfile} />}
       {id === "MY-12" && <ArchiveGenerating name={selectedProfile?.displayName || otherData.name} onBack={() => setStep(111)} onNext={next} />}
-      {id === "MY-13" && <PersonArchive profile={selectedProfile} revision={otherRevision} firstLook={otherFirstLook} firstLookLoading={otherFirstLookLoading} editing={editingOther} editData={otherData} busy={apiBusy} onEditData={setOtherData} onBack={() => editingOther ? setEditingOther(false) : setStep(111)} onFirstLook={() => void openOtherFirstLook()} onEdit={openOtherEditor} onSave={() => void saveOtherProfile()} onDelete={() => void deleteOtherProfile()} />}
+      {id === "MY-13" && <PersonArchive key={selectedProfile?.profileId} profile={selectedProfile} revision={otherRevision} source={otherSource?.profileId === selectedProfile?.profileId ? otherSource?.data || null : null} sourceLoading={otherSource?.profileId !== selectedProfile?.profileId} sourceError={otherSource?.profileId === selectedProfile?.profileId ? otherSource?.error || "" : ""} onRetrySource={() => { setOtherSource(null); setOtherSourceAttempt((attempt) => attempt + 1); }} firstLook={otherFirstLook} firstLookLoading={otherFirstLookLoading} editing={editingOther} editData={otherData} busy={apiBusy} onEditData={setOtherData} onBack={() => editingOther ? setEditingOther(false) : setStep(111)} onFirstLook={() => void openOtherFirstLook()} onEdit={openOtherEditor} onSave={() => void saveOtherProfile()} onDelete={() => void deleteOtherProfile()} />}
       {id === "MY-15" && <ArchivePicker onBack={() => setStep(111)} onAdd={() => setStep(112)} onNext={() => setStep(44)} />}
       {id === "MY-16" && <ArchiveDeleteImpact name={selectedProfile?.displayName || "这份人物档案"} busy={apiBusy} onBack={() => setStep(116)} onDone={deleteOtherProfile} />}
       {id === "MY-17" && <EditSelfProfile data={data} revision={revision} busy={apiBusy} onChange={setData} onBack={() => {setEditingSelf(false);setStep(22);}} onNext={previewProfile} />}
@@ -1013,15 +1042,29 @@ function ArchiveConfirm({data,revision,busy,onBack,onNext}:{data:ProfileData;rev
 
 function ArchiveGenerating({name,onBack,onNext}:{name:string;onBack:()=>void;onNext:()=>void}){return <section className="my-page archive-page generating-archive"><MyHeader title="档案生成完成" onBack={onBack}/><div className="archive-grow"><span>{name.slice(0,1)}</span><i/><i/><b/><b/></div><p className="eyebrow">WISDOM IS READY</p><h1>四张关系卡牌<br/>已经生成</h1><p>{name}的档案已由后端确认并保存到生命智慧档案库。</p><div className="life-progress"><i><b style={{width:"100%"}}/></i><span>生成完成 · 100%</span></div><button className="primary" onClick={onNext}>查看生成后的档案 <span>→</span></button></section>}
 
-function PersonArchive({profile,revision,firstLook,firstLookLoading,editing,editData,busy,onEditData,onBack,onFirstLook,onEdit,onSave,onDelete}:{profile:LifeProfile|null;revision:ProfileRevision|null;firstLook:ProfileFirstLook|null;firstLookLoading:boolean;editing:boolean;editData:ProfileData;busy:boolean;onEditData:(data:ProfileData)=>void;onBack:()=>void;onFirstLook:()=>void;onEdit:()=>void;onSave:()=>void;onDelete:()=>void}){
+function PersonArchive({profile,revision,source,sourceLoading,sourceError,onRetrySource,firstLook,firstLookLoading,editing,editData,busy,onEditData,onBack,onFirstLook,onEdit,onSave,onDelete}:{profile:LifeProfile|null;revision:ProfileRevision|null;source:MiniappProfileSource|null;sourceLoading:boolean;sourceError:string;onRetrySource:()=>void;firstLook:ProfileFirstLook|null;firstLookLoading:boolean;editing:boolean;editData:ProfileData;busy:boolean;onEditData:(data:ProfileData)=>void;onBack:()=>void;onFirstLook:()=>void;onEdit:()=>void;onSave:()=>void;onDelete:()=>void}){
   const [confirmingDelete,setConfirmingDelete]=useState(false);
   const birth=revision?.originalInput;
   const date=birth?`${birth.date.year}-${String(birth.date.month).padStart(2,"0")}-${String(birth.date.day).padStart(2,"0")}`:"未提供";
-  const precision=birth?.timePrecision==="EXACT_MINUTE"?"准确到分钟":birth?.timePrecision==="APPROXIMATE"?"大致时间":"未提供具体时间";
+  const precision=birth?.timePrecision==="EXACT_MINUTE"?"准确到分钟":birth?.timePrecision==="HOUR_RANGE"?"时辰范围":birth?.timePrecision==="APPROXIMATE"?"大致时间":"未提供具体时间";
+  const rangeStart=birth?.timePrecision==="HOUR_RANGE"&&birth.time.hourBranchCode?hourBranchTimes[birth.time.hourBranchCode]:null;
+  const displayedTime=rangeStart?`${rangeStart}–${String((Number(rangeStart.slice(0,2))+2)%24).padStart(2,"0")}:00`:birth?.time.localTime||"未提供";
   const content=firstLook?.status==="READY"?firstLook.content:null;
   const firstLookPending=firstLookLoading||firstLook?.status==="GENERATING";
-  if(editing)return <section className="my-page archive-page other-profile-editor"><MyHeader title="编辑生命智慧档案" onBack={onBack}/><UnifiedProfileForm data={editData} busy={busy} variant="other" mode="edit" onChange={onEditData} onNext={onSave}/></section>;
-  return <section className="my-page archive-page person-archive-detail"><MyHeader title="生命智慧档案" onBack={onBack}/><div className="profile-owner"><span>{(profile?.displayName||"人").slice(0,1)}</span><div><h1>{profile?.displayName||"人物档案"}</h1><p>{profile?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</p></div></div><LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/><button className="first-look-entry" type="button" onClick={onFirstLook} disabled={firstLookPending}><i>初</i><span><small>生命智慧初识</small><strong>{firstLookPending?"正在整理生命底色…":content?"查看生命底色与四个短画像":"生成并查看这份档案的初识"}</strong></span><b>›</b></button>{content&&<section className="other-first-look"><small>{content.profileSummary.keywords.join(" · ")}</small><h2>{content.profileSummary.title}</h2><p>{content.profileSummary.description}</p><div>{content.cards.map(card=><article key={card.position}><strong>{card.title}</strong><span>{card.summary}</span></article>)}</div></section>}<section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{date} · {birth?.calendarType==="LUNAR"?"农历":"公历"}</strong></p><p><span>出生时间</span><strong>{birth?.time.localTime||"未提供"} · {precision}</strong></p></section><div className="person-archive-actions"><button className="outline-button" type="button" onClick={onEdit} disabled={!revision}>编辑生命智慧档案</button><button className="danger-action" type="button" onClick={()=>setConfirmingDelete(true)}>删除这份人物档案</button></div>{confirmingDelete&&<div className="confirm-backdrop" role="presentation" onClick={()=>setConfirmingDelete(false)}><section className="logout-confirm person-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="person-delete-title" onClick={event=>event.stopPropagation()}><span>删</span><h2 id="person-delete-title">确认删除这份档案？</h2><p>“{profile?.displayName||"人物"}”的出生资料与四张卡牌会被移除，删除后无法恢复。</p><button className="danger-primary" type="button" disabled={busy} onClick={onDelete}>{busy?"正在删除…":"确认删除"}</button><button className="outline-button" type="button" onClick={()=>setConfirmingDelete(false)}>暂不删除</button></section></div>}</section>
+  if(editing)return <section className="my-page archive-page other-profile-editor"><MyHeader title="编辑生命智慧档案" onBack={onBack}/>{source&&<MiniappBirthLocationEditor locationId={editData.locationId} busy={busy} onSelect={(location) => onEditData({ ...editData, locationId: location.locationId, place: location.displayName })}/>} {rangeStart&&<p className="miniapp-source-explanation">这份档案的出生时间按 {displayedTime} 的时辰范围保存，表单暂显示该范围起点。保持时间不变将保留原时辰；如知道更准确的出生时间，可直接修改。</p>}<UnifiedProfileForm data={editData} busy={busy} variant="other" mode="edit" onChange={onEditData} onNext={onSave}/></section>;
+  return <section className="my-page archive-page person-archive-detail">
+    <MyHeader title="生命智慧档案" onBack={onBack}/>
+    <div className="profile-owner"><span>{(profile?.displayName||"人").slice(0,1)}</span><div><h1>{profile?.displayName||"人物档案"}</h1><p>{profile?.state==="ACTIVE"?"四张关系卡牌已点亮":"档案待完善"}</p></div></div>
+    <LifeWisdomCardRow cards={revision?.cards||[]} size="medium"/>
+    {sourceLoading&&<p className="miniapp-source-explanation" role="status">正在检查原小程序资料…</p>}
+    {sourceError&&<div className="miniapp-source-retry" role="alert"><p>原小程序资料暂时加载失败。{sourceError}</p><button className="outline-button" type="button" onClick={onRetrySource}>重新加载原资料</button></div>}
+    {source&&<MiniappSourceDetails source={source} expanded={!revision}/>}
+    <button className="first-look-entry" type="button" onClick={onFirstLook} disabled={firstLookPending||!revision}><i>初</i><span><small>生命智慧初识</small><strong>{firstLookPending?"正在整理生命底色…":content?"查看生命底色与四个短画像":"生成并查看这份档案的初识"}</strong></span><b>›</b></button>
+    {content&&<section className="other-first-look"><small>{content.profileSummary.keywords.join(" · ")}</small><h2>{content.profileSummary.title}</h2><p>{content.profileSummary.description}</p><div>{content.cards.map(card=><article key={card.position}><strong>{card.title}</strong><span>{card.summary}</span></article>)}</div></section>}
+    <section className="detail-section"><h2>档案信息</h2><p><span>出生日期</span><strong>{date} · {birth?.calendarType==="LUNAR"?"农历":"公历"}</strong></p><p><span>出生时间</span><strong>{displayedTime} · {precision}</strong></p></section>
+    <div className="person-archive-actions"><button className="outline-button" type="button" onClick={onEdit} disabled={!revision}>编辑生命智慧档案</button><button className="danger-action" type="button" onClick={()=>setConfirmingDelete(true)}>删除这份人物档案</button></div>
+    {confirmingDelete&&<div className="confirm-backdrop" role="presentation" onClick={()=>setConfirmingDelete(false)}><section className="logout-confirm person-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="person-delete-title" onClick={event=>event.stopPropagation()}><span>删</span><h2 id="person-delete-title">确认删除这份档案？</h2><p>“{profile?.displayName||"人物"}”的出生资料与四张卡牌会被移除，删除后无法恢复。</p><button className="danger-primary" type="button" disabled={busy} onClick={onDelete}>{busy?"正在删除…":"确认删除"}</button><button className="outline-button" type="button" onClick={()=>setConfirmingDelete(false)}>暂不删除</button></section></div>}
+  </section>;
 }
 
 function ArchivePicker({onBack,onAdd,onNext}:{onBack:()=>void;onAdd:()=>void;onNext:()=>void}){const [picked,setPicked]=useState(["小满"]);const people=[["小","小满","我的主档案"],["妈","妈妈","家人 · 已授权"],["言","周言","朋友 · 私人记录"],["林","林远","同事 · 待完善"]];return <section className="my-page archive-page"><MyHeader title="选择关系中的两个人" onBack={onBack}/><p className="eyebrow">TWO PEOPLE, ONE RELATIONSHIP</p><h1>从生命智慧档案库<br/>选择想理解的两个人</h1><div className="picker-slots"><span className={picked[0]?"filled":""}><i>{picked[0]?.slice(0,1)||"A"}</i><small>{picked[0]||"人物 A"}</small></span><b>∞</b><span className={picked[1]?"filled":""}><i>{picked[1]?.slice(0,1)||"B"}</i><small>{picked[1]||"人物 B"}</small></span></div><label className="picker-search">⌕<input placeholder="搜索档案"/></label><div className="picker-list">{people.map(x=><button key={x[1]} className={picked.includes(x[1])?"active":""} onClick={()=>setPicked(p=>p.includes(x[1])?p.filter(v=>v!==x[1]):p.length<2?[...p,x[1]]:[p[0],x[1]])}><span>{x[0]}</span><p><strong>{x[1]}</strong><small>{x[2]}</small></p><i>{picked.includes(x[1])?"✓":""}</i></button>)}</div><button className="archive-add-inline" onClick={onAdd}>＋ 新建一个人物档案</button><div className="task-rule">私人记录可用于你自己的关系理解；涉及对方查看、互动或共享时，会单独发起授权。</div><button className="primary" disabled={picked.length<2} onClick={onNext}>选择匹配类型 <span>→</span></button></section>}

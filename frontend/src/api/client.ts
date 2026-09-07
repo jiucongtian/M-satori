@@ -36,6 +36,13 @@ type BusinessContext = Schemas["BusinessContext"];
 export type CardReadingCard = Schemas["CardReadingCard"];
 export type CardReadingReport = Schemas["CardReadingReport"];
 export type CardReading = Schemas["CardReading"];
+export type MiniappImportStatus = Schemas["MiniappImportStatus"] & {
+  offerId?: string;
+  profileCount?: number;
+  importedCount?: number;
+};
+export type MiniappImportDecision = "ACCEPT" | "DECLINE";
+export type MiniappProfileSource = Schemas["MiniappProfileSource"];
 
 export type {
   Bootstrap,
@@ -296,6 +303,21 @@ class SatoriApiClient {
   }
 
   me() { return PROTOTYPE_MODE ? prototypeResult(prototypeMe) : this.request<Schemas["MeEnvelope"]>("/me").then((x) => x.data); }
+  miniappImportStatus() {
+    if (PROTOTYPE_MODE) return prototypeResult<MiniappImportStatus>({ status: "NONE" });
+    return this.request<{ data: MiniappImportStatus }>("/me/miniapp-import").then((x) => x.data);
+  }
+  decideMiniappImport(offerId: string, decision: MiniappImportDecision, requestKey: string) {
+    return this.command<{ data: MiniappImportStatus }>("/me/miniapp-import/decision", {
+      method: "POST",
+      headers: { "Idempotency-Key": requestKey },
+      body: JSON.stringify({ offerId, decision }),
+    }).then((x) => x.data);
+  }
+  miniappProfileSource(profileId: string) {
+    if (PROTOTYPE_MODE) return prototypeResult<MiniappProfileSource | null>(null);
+    return this.request<{ data: MiniappProfileSource | null }>(`/me/miniapp-import/profiles/${encodeURIComponent(profileId)}`).then((x) => x.data);
+  }
   home() { return PROTOTYPE_MODE?Promise.resolve(prototypeHome):this.request<Schemas["HomeOverviewEnvelope"]>("/me/home-overview").then((x) => x.data); }
   selfProfile() { return PROTOTYPE_MODE ? prototypeResult(prototypeProfiles[0]) : this.request<Schemas["LifeProfileEnvelope"]>("/me/life-profile").then((x) => x.data); }
   updateSelfProfile(displayName: string) {

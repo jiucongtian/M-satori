@@ -1,0 +1,45 @@
+.miniapp-import-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  color: #283b34;
+  background: #fcfaf5;
+  border: 1px solid #e2e6dc;
+  border-radius: 24px;
+  box-shadow: 0 24px 80px #1d302d40;
+}
+.miniapp-import-dialog::backdrop { background: #172d29a6; }
+.miniapp-import-content { padding: 28px 26px 24px; }
+.miniapp-import-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  margin-bottom: 18px;
+  color: #517567;
+  background: #eaf0e6;
+  border-radius: 14px;
+  font-size: 20px;
+}
+.miniapp-import-eyebrow { margin: 0 0 8px; color: #728779; font-size: 12px; letter-spacing: .12em; }
+.miniapp-import-content h2 { margin: 0 0 14px; font-size: 23px; line-height: 1.4; font-weight: 600; }
+.miniapp-import-content p { font-size: 14px; line-height: 1.8; }
+.miniapp-import-content #miniapp-import-description { margin: 0; }
+.miniapp-import-details { margin: 12px 0 18px; color: #64746b; }
+.miniapp-import-notice { padding: 14px 16px; background: #f3ead8; border-radius: 14px; color: #795b28; }
+.miniapp-import-notice strong { font-size: 14px; }
+.miniapp-import-notice p { margin: 5px 0 0; font-size: 13px; line-height: 1.8; }
+.miniapp-import-actions { display: grid; gap: 10px; margin-top: 22px; }
+.miniapp-import-actions button { min-height: 46px; padding: 12px 16px; border-radius: 13px; font: inherit; font-size: 14px; cursor: pointer; }
+.miniapp-import-primary { border: 1px solid #436a59; color: white; background: #436a59; }
+.miniapp-import-secondary { border: 1px solid #d4dcd1; color: #526557; background: transparent; }
+.miniapp-import-actions button:disabled { cursor: wait; opacity: .65; }
+.miniapp-import-actions button:focus-visible { outline: 3px solid #b49354; outline-offset: 3px; }
+.miniapp-import-content .miniapp-import-error { margin: 15px 0 0; color: #a44036; font-size: 13px; }
+@media (max-width: 360px) {
+  .miniapp-import-content { padding: 22px 20px 20px; }
+  .miniapp-import-content h2 { font-size: 21px; }
+  .miniapp-import-mark { margin-bottom: 12px; }
+}
