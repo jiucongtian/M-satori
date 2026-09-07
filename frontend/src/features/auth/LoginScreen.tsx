@@ -144,7 +144,7 @@ export default function LoginScreen() {
           <button type="button" className="send-code" onClick={() => void sendCode()} disabled={sendingCode || submitting || resendSeconds > 0 || PROTOTYPE_MODE}>{sendLabel}</button>
         </div>
         <label className="consent-row"><input type="checkbox" checked={agreed} onChange={(event) => { setAgreed(event.target.checked); setMessage(""); }} /><span className="checkmark" aria-hidden="true">✓</span><span>我已阅读并同意 <a href={legalHref(bootstrap, "TERMS_OF_SERVICE")} target="_blank">用户协议</a>、<a href={legalHref(bootstrap, "PRIVACY_POLICY")} target="_blank">隐私政策</a>，并知晓相关资料的用途</span></label>
-        <LiveMessage success={message.startsWith("登录成功")}>{message || (PROTOTYPE_MODE ? "当前为本地原型验证，可直接点击登录 / 注册" : "验证码仅用于身份验证，我们不会用它向你营销")}</LiveMessage>
+        <LiveMessage success={message.startsWith("登录成功")}>{message || (PROTOTYPE_MODE ? "当前为本地原型验证，可直接点击登录 / 注册" : "")}</LiveMessage>
         <button className="primary login-submit" type="submit" disabled={!PROTOTYPE_MODE && (!phoneReady || !codeReady || !agreed || sendingCode || submitting)}>{submitting ? "登录中…" : "登录 / 注册"} <span>→</span></button>
       </form>
       <div className="login-footer"><span className="lock" aria-hidden="true" />账号与生命智慧档案会安全绑定，不会公开展示手机号</div>

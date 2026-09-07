@@ -68,6 +68,7 @@ test("AUTH-03 短信发送与登录状态隔离，并展示服务端重发冷却
   assert.match(login, /秒后重发/);
   assert.match(login, /message \|\| \(PROTOTYPE_MODE \?/);
   assert.match(client, /AbortSignal\.timeout\(AUTH_REQUEST_TIMEOUT_MS\)/);
+  assert.doesNotMatch(login, /验证码仅用于身份验证，我们不会用它向你营销/);
 });
 test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async () => {
   const login = await readFile(new URL("../src/features/auth/LoginScreen.tsx", import.meta.url), "utf8");
