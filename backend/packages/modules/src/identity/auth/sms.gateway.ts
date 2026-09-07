@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RuntimeInfrastructure } from '@satori/infrastructure';
 import { sms } from 'tencentcloud-sdk-nodejs-sms';
 
@@ -56,6 +56,7 @@ export interface TencentCloudSmsClient {
 
 export class TencentCloudSmsGateway implements SmsGateway {
   private readonly client: TencentCloudSmsClient;
+  private readonly logger = new Logger(TencentCloudSmsGateway.name);
 
   constructor(
     private readonly infrastructure: RuntimeInfrastructure,
@@ -101,18 +102,39 @@ export class TencentCloudSmsGateway implements SmsGateway {
       environment.TENCENT_SMS_TEMPLATE_PARAM_MODE === 'CODE_ONLY'
         ? [input.code]
         : [input.code, String(Math.ceil(input.expiresInSeconds / 60))];
-    const response = await this.client.SendSms({
-      PhoneNumberSet: [input.phone],
-      SmsSdkAppId: environment.TENCENT_SMS_SDK_APP_ID,
-      SignName: environment.TENCENT_SMS_SIGN_NAME,
-      TemplateId: environment.TENCENT_SMS_TEMPLATE_ID,
-      TemplateParamSet: templateParameters,
-    });
+    let response: Awaited<ReturnType<TencentCloudSmsClient['SendSms']>>;
+    try {
+      response = await this.client.SendSms({
+        PhoneNumberSet: [input.phone],
+        SmsSdkAppId: environment.TENCENT_SMS_SDK_APP_ID,
+        SignName: environment.TENCENT_SMS_SIGN_NAME,
+        TemplateId: environment.TENCENT_SMS_TEMPLATE_ID,
+        TemplateParamSet: templateParameters,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `tencent_sms_api_failed providerCode=${safeProviderField(error, 'code')} providerRequestId=${safeProviderField(error, 'requestId')}`,
+      );
+      throw error;
+    }
     const status = response.SendStatusSet?.[0];
     if (response.SendStatusSet?.length !== 1 || status?.Code !== 'Ok') {
+      this.logger.warn(
+        `tencent_sms_send_rejected providerCode=${safeProviderValue(status?.Code)} providerRequestId=${safeProviderValue(response.RequestId)}`,
+      );
       throw new Error(
         `Tencent Cloud SMS delivery failed (${status?.Code ?? 'UNKNOWN'}, request ${response.RequestId ?? 'unknown'})`,
       );
     }
   }
+}
+
+function safeProviderField(error: unknown, field: 'code' | 'requestId'): string {
+  if (!error || typeof error !== 'object' || !(field in error)) return 'UNKNOWN';
+  return safeProviderValue((error as Record<string, unknown>)[field]);
+}
+
+function safeProviderValue(value: unknown): string {
+  if (typeof value !== 'string') return 'UNKNOWN';
+  return value.replace(/[^A-Za-z0-9_.:-]/g, '').slice(0, 128) || 'UNKNOWN';
 }

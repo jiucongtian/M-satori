@@ -81,4 +81,36 @@ describe('TencentCloudSmsGateway', () => {
       }),
     ).rejects.toThrow('FailedOperation.TemplateIncorrectOrUnapproved');
   });
+
+  it('does not include a phone number or verification code in provider errors', async () => {
+    const infrastructure = {
+      environment: {
+        TENCENTCLOUD_SECRET_ID: 'test-secret-id',
+        TENCENTCLOUD_SECRET_KEY: 'test-secret-key-safe-length',
+        TENCENT_SMS_SDK_APP_ID: '1400000000',
+        TENCENT_SMS_SIGN_NAME: '测试签名',
+        TENCENT_SMS_TEMPLATE_ID: '1234567',
+        TENCENT_SMS_REGION: 'ap-guangzhou',
+        TENCENT_SMS_TEMPLATE_PARAM_MODE: 'CODE_ONLY',
+        SMS_GATEWAY_TIMEOUT_MS: 5000,
+      },
+    } as RuntimeInfrastructure;
+    const client: TencentCloudSmsClient = {
+      SendSms: vi.fn().mockResolvedValue({
+        SendStatusSet: [{ Code: 'LimitExceeded.PhoneNumberOneHourLimit' }],
+        RequestId: 'request-limited',
+      }),
+    };
+
+    const error = await new TencentCloudSmsGateway(infrastructure, client)
+      .sendVerificationCode({
+        phone: '+8613800000000',
+        code: '654321',
+        expiresInSeconds: 300,
+      })
+      .catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).not.toContain('+8613800000000');
+    expect((error as Error).message).not.toContain('654321');
+  });
 });

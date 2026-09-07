@@ -106,7 +106,7 @@ export class SmsChallengeService {
             await this.infrastructure.database.delete(smsChallenges).where(eq(smsChallenges.id, challengeId));
             throw new ServiceUnavailableException({
               code: 'SMS_PROVIDER_UNAVAILABLE',
-              message: 'SMS provider is temporarily unavailable',
+              message: '短信服务暂时不可用，请稍后重试',
             });
           }
           return {
