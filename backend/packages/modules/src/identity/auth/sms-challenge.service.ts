@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { IdempotencyService, type IdempotentResult } from '@satori/application';
 import {
   newId,
@@ -62,57 +68,64 @@ export class SmsChallengeService {
         const ipHash = this.crypto.hash(`ip:${command.ip}`);
         const environment = this.infrastructure.environment;
         const policy = this.infrastructure.policy.auth;
-        const snapshots = await Promise.all([
-          this.limiter.consume('phone', phoneHash, policy.rateLimitsPerHour.phone),
-          this.limiter.consume('device', deviceHash, policy.rateLimitsPerHour.device),
-          this.limiter.consume('ip', ipHash, policy.rateLimitsPerHour.ip),
-        ]);
-        const rateLimit = snapshots.reduce((lowest, current) =>
-          current.remaining < lowest.remaining ? current : lowest,
-        );
-        const challengeId = newId();
-        const code = verificationCodeForMode(environment.SMS_DELIVERY_MODE);
-        const now = Date.now();
-        const expiresAt = new Date(now + policy.otpTtlSeconds * 1000);
-        const resendAvailableAt = new Date(now + policy.otpResendSeconds * 1000);
-        const phoneMasked = maskPhone(command.countryCode, command.nationalNumber);
-        await this.infrastructure.database.insert(smsChallenges).values({
-          id: challengeId,
-          phoneHash,
-          phoneCiphertext: this.crypto.encrypt(phone),
-          phoneMasked,
-          deviceHash,
-          ipHash,
-          purpose: command.purpose,
-          codeHash: this.crypto.hashVerificationCode(challengeId, code),
-          maxAttempts: policy.otpMaxAttempts,
-          expiresAt,
-        });
+        const cooldown = await this.limiter.acquireCooldown(phoneHash, policy.otpResendSeconds);
         try {
-          await this.gateway.sendVerificationCode({
-            phone,
-            code,
-            expiresInSeconds: policy.otpTtlSeconds,
+          const snapshots = await Promise.all([
+            this.limiter.consume('phone', phoneHash, policy.rateLimitsPerHour.phone),
+            this.limiter.consume('device', deviceHash, policy.rateLimitsPerHour.device),
+            this.limiter.consume('ip', ipHash, policy.rateLimitsPerHour.ip),
+          ]);
+          const rateLimit = snapshots.reduce((lowest, current) =>
+            current.remaining < lowest.remaining ? current : lowest,
+          );
+          const challengeId = newId();
+          const code = verificationCodeForMode(environment.SMS_DELIVERY_MODE);
+          const now = Date.now();
+          const expiresAt = new Date(now + policy.otpTtlSeconds * 1000);
+          const resendAvailableAt = new Date(now + policy.otpResendSeconds * 1000);
+          const phoneMasked = maskPhone(command.countryCode, command.nationalNumber);
+          await this.infrastructure.database.insert(smsChallenges).values({
+            id: challengeId,
+            phoneHash,
+            phoneCiphertext: this.crypto.encrypt(phone),
+            phoneMasked,
+            deviceHash,
+            ipHash,
+            purpose: command.purpose,
+            codeHash: this.crypto.hashVerificationCode(challengeId, code),
+            maxAttempts: policy.otpMaxAttempts,
+            expiresAt,
           });
-        } catch {
-          await this.infrastructure.database.delete(smsChallenges).where(eq(smsChallenges.id, challengeId));
-          throw new ServiceUnavailableException({
-            code: 'SMS_PROVIDER_UNAVAILABLE',
-            message: 'SMS provider is temporarily unavailable',
-          });
-        }
-        return {
-          status: 202,
-          body: {
-            data: {
-              challengeId,
-              expiresAt: expiresAt.toISOString(),
-              resendAvailableAt: resendAvailableAt.toISOString(),
-              phoneMasked,
+          try {
+            await this.gateway.sendVerificationCode({
+              phone,
+              code,
+              expiresInSeconds: policy.otpTtlSeconds,
+            });
+          } catch {
+            await this.infrastructure.database.delete(smsChallenges).where(eq(smsChallenges.id, challengeId));
+            throw new ServiceUnavailableException({
+              code: 'SMS_PROVIDER_UNAVAILABLE',
+              message: 'SMS provider is temporarily unavailable',
+            });
+          }
+          return {
+            status: 202,
+            body: {
+              data: {
+                challengeId,
+                expiresAt: expiresAt.toISOString(),
+                resendAvailableAt: resendAvailableAt.toISOString(),
+                phoneMasked,
+              },
+              rateLimit,
             },
-            rateLimit,
-          },
-        };
+          };
+        } catch (error) {
+          if (error instanceof HttpException && error.getStatus() === 429) throw error;
+          await cooldown.release().catch(() => undefined);
+          throw error;
+        }
       },
     );
   }

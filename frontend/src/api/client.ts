@@ -90,6 +90,7 @@ export class ApiError extends Error {
 }
 
 const API_BASE = "/api/v1";
+const AUTH_REQUEST_TIMEOUT_MS = 12_000;
 const prototypeNow = "2026-08-28T10:00:00.000Z";
 const prototypeMe = {
   userId: "prototype-user",
@@ -265,6 +266,7 @@ class SatoriApiClient {
     if (PROTOTYPE_MODE) return prototypeResult({ ...prototypeChallenge, phoneMasked: `${phone.slice(0, 3)}****${phone.slice(-4)}` });
     return this.command<Schemas["SmsChallengeEnvelope"]>("/auth/sms-challenges", {
       method: "POST",
+      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
         phone: { countryCode: "+86", nationalNumber: phone },
         purpose: "LOGIN",
@@ -287,6 +289,7 @@ class SatoriApiClient {
     }
     return this.command<Schemas["SessionEnvelope"]>("/auth/sessions", {
       method: "POST",
+      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       body: JSON.stringify({ challengeId, verificationCode, consentAcceptances, device: getDevice() }),
     }).then(({ data }) => {
       this.setAccessToken(data.accessToken);

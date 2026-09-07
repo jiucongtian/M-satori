@@ -8,7 +8,7 @@ import { R1_CARD_READING_SEED_COST_RULE } from '@satori/domain';
  */
 export const R1_RUNTIME_POLICY = {
   /** 对外暴露的配置版本；客户端和运维可用它确认当前规则版本。 */
-  version: 'r1.0-2026-08-26.1',
+  version: 'r1.0-2026-09-07.1',
 
   auth: {
     /** Access Token 有效期（秒）；影响新签发 Token 的过期时间。 */

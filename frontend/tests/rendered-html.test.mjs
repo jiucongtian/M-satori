@@ -58,6 +58,17 @@ test("AUTH-04 使用统一资料用途文案且不展示内部协议规则编号
   assert.match(login, /并知晓相关资料的用途/);
   assert.doesNotMatch(login, /并知晓出生资料的用途|AUTH-05 · 协议与隐私确认/);
 });
+test("AUTH-03 短信发送与登录状态隔离，并展示服务端重发冷却倒计时", async () => {
+  const login = await readFile(new URL("../src/features/auth/LoginScreen.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(login, /const \[sendingCode, setSendingCode\]/);
+  assert.match(login, /const \[submitting, setSubmitting\]/);
+  assert.match(login, /sendingLock\.current/);
+  assert.match(login, /challenge\.resendAvailableAt/);
+  assert.match(login, /秒后重发/);
+  assert.match(login, /message \|\| \(PROTOTYPE_MODE \?/);
+  assert.match(client, /AbortSignal\.timeout\(AUTH_REQUEST_TIMEOUT_MS\)/);
+});
 test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async () => {
   const login = await readFile(new URL("../src/features/auth/LoginScreen.tsx", import.meta.url), "utf8");
   assert.match(login, /<header className="brand-row login-header"><Brand \/><\/header>/);
@@ -433,9 +444,9 @@ test("手机号登录后按档案状态分流，老用户及新用户建档完�
   const routes = await readFile(new URL("../src/shared/routes.ts", import.meta.url), "utf8");
   const guard = await readFile(new URL("../src/shared/guards.tsx", import.meta.url), "utf8");
   const profileCreate = await readFile(new URL("../src/features/profile/ProfileCreateScreen.tsx", import.meta.url), "utf8");
-  assert.match(login, /session=await api\.createSession\(challengeId,code,acceptances\)/);
-  assert.match(login, /session\.user\.requiresConsent\|\|session\.nextAction==="ACCEPT_CONSENTS"/);
-  assert.match(login, /const current=await api\.me\(\)/);
+  assert.match(login, /session\s*=\s*await api\.createSession\(challengeId,\s*code,\s*acceptances\)/);
+  assert.match(login, /session\.user\.requiresConsent\s*\|\|\s*session\.nextAction\s*===\s*"ACCEPT_CONSENTS"/);
+  assert.match(login, /const current\s*=\s*await api\.me\(\)/);
   assert.match(login, /authenticatedEntryPath\(current\.nextAction\)/);
   assert.doesNotMatch(login, /URLSearchParams|requested|safeNextPath/);
   assert.match(routes, /CREATE_PROFILE: ROUTES\.profileCreate/);
@@ -461,7 +472,7 @@ test("R1 核心页面调用真实后端能力", async () => {
   const session = await readFile(new URL("../src/shared/session.tsx", import.meta.url), "utf8");
   const combined = page + session;
   for (const call of ["api.sendSms","api.createSession","api.logout","api.previewProfile","api.confirmProfile","api.generateProfileFirstLook","api.profileFirstLook","api.claimRegistrationReward","api.createTodayInsight","api.generationTask","api.createProfile","api.previewOtherProfile","api.confirmOtherProfile","api.deleteProfile"]) assert.match(combined,new RegExp(call.replace(".","\\.")));
-  assert.match(page, /api\.createSession\(challengeId,code,acceptances\)/);
+  assert.match(page, /api\.createSession\(challengeId,\s*code,\s*acceptances\)/);
   assert.doesNotMatch(page, /验证码已发送，原型中|原型中直接查看结果/);
 });
 test("Session 恢复不阻塞匿名欢迎页首屏", async () => {
@@ -474,10 +485,10 @@ test("Session 恢复不阻塞匿名欢迎页首屏", async () => {
 test("协议版本更新时阻止空接受列表并为新旧 Session 完成补充确认", async () => {
   const page = await readPageSources();
   const client = await readFile(new URL("../src/api/client.ts", import.meta.url), "utf8");
-  assert.match(page, /const current=await api\.bootstrap\(\)/);
+  assert.match(page, /const current\s*=\s*await api\.bootstrap\(\)/);
   assert.match(page, /requiredConsentAcceptances\(current\)/);
-  assert.match(page, /error\.code!=="LEGAL_DOCUMENT_VERSION_INVALID"/);
-  assert.match(page, /if\(acceptances\.length>0\)await api\.acceptConsents\(acceptances\)/);
+  assert.match(page, /error\.code\s*!==\s*"LEGAL_DOCUMENT_VERSION_INVALID"/);
+  assert.match(page, /acceptances\.length\s*>\s*0[\s\S]*await api\.acceptConsents\(acceptances\)/);
   assert.match(client, /acceptConsents\(acceptances:[\s\S]*?"\/me\/consents"/);
 });
 test("任意受保护接口返回 CONSENT_REQUIRED 时全局进入协议确认页", async () => {
@@ -798,8 +809,8 @@ test("AUTH-02 移除重复协议文案但 AUTH-04 保留正式协议确认", asy
   const login = await readFile(new URL("../src/features/auth/LoginScreen.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(welcome, /继续即表示你已阅读并同意/);
   assert.match(login, /我已阅读并同意/);
-  assert.match(login, /legalHref\(bootstrap,"TERMS_OF_SERVICE"\)/);
-  assert.match(login, /legalHref\(bootstrap,"PRIVACY_POLICY"\)/);
+  assert.match(login, /legalHref\(bootstrap,\s*"TERMS_OF_SERVICE"\)/);
+  assert.match(login, /legalHref\(bootstrap,\s*"PRIVACY_POLICY"\)/);
 });
 test("HOME-01 生命动画提高枝叶与金色线条可见度", async () => {
   const css = await readCssSources();

@@ -248,6 +248,7 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
 .code-title-row .field-label { margin-bottom: 9px; }
 .sent-hint { margin-bottom: 8px; color: #8c978f; font: 9px/1 var(--font-ui); }
 .send-code { flex: none; padding: 7px 0 7px 14px; border: 0; border-left: 1px solid #d7dcd6; background: transparent; color: var(--sage); font-size: 12px; cursor: pointer; }
+.send-code:disabled { color: #9ba49e; cursor: not-allowed; }
 .consent-row { position: relative; display: flex; gap: 9px; align-items: flex-start; margin: 17px 2px 0; color: #838c86; font: 10px/1.65 var(--font-ui); cursor: pointer; }
 .consent-row input { position: absolute; opacity: 0; pointer-events: none; }
 .checkmark { flex: none; width: 17px; height: 17px; display: grid; place-items: center; margin-top: 1px; border: 1px solid #aeb7b1; border-radius: 6px; color: transparent; font-size: 11px; transition: .18s; }
