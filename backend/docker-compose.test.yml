@@ -66,6 +66,9 @@ services:
     command: ['node', 'dist/apps/api/src/main.js']
     ports:
       - '127.0.0.1:3200:3000'
+    # Encrypted miniapp source archives remain on the host and are exposed read-only.
+    volumes:
+      - /opt/satori-test/miniapp-archive:/opt/satori-test/miniapp-archive:ro
     depends_on:
       seed:
         condition: service_completed_successfully
