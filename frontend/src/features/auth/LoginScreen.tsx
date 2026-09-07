@@ -10,7 +10,18 @@ import { PROTOTYPE_MODE } from "@/src/shared/prototype";
 import { apiMessage, Brand, legalHref, LiveMessage, PageDebugLabel, requiredConsentAcceptances } from "@/src/shared/ui";
 
 function authMessage(error: unknown) {
-  if (error instanceof ApiError && error.code === "SMS_RATE_LIMITED") return "请求过于频繁，请稍后再试";
+  if (error instanceof ApiError) {
+    const messages: Record<string, string> = {
+      PHONE_INVALID: "请输入正确的 11 位手机号码",
+      SMS_CHALLENGE_NOT_FOUND: "验证码已失效，请重新获取",
+      SMS_CODE_EXPIRED: "验证码已过期，请重新获取",
+      SMS_CODE_ATTEMPTS_EXCEEDED: "验证码错误次数过多，请重新获取",
+      SMS_CODE_INVALID: "验证码错误，请重新输入",
+      SMS_RATE_LIMITED: "请求过于频繁，请稍后再试",
+      SMS_PROVIDER_UNAVAILABLE: "短信服务暂时不可用，请稍后重试",
+    };
+    if (messages[error.code]) return messages[error.code];
+  }
   if (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")) {
     return "请求超时，请检查网络后重试";
   }
@@ -103,6 +114,15 @@ export default function LoginScreen() {
       setMessage("登录成功");
       router.replace(authenticatedEntryPath(current.nextAction));
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        ["SMS_CHALLENGE_NOT_FOUND", "SMS_CODE_EXPIRED", "SMS_CODE_ATTEMPTS_EXCEEDED"].includes(error.code)
+      ) {
+        setChallengeId("");
+        setCode("");
+        setCodeSent(false);
+        setResendSeconds(0);
+      }
       setMessage(authMessage(error));
     } finally {
       setSubmitting(false);
