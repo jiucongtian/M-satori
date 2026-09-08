@@ -1,3 +1,5 @@
+import { SEED_ENTRY_PROJECTION_SQL } from './seed-entry-projection.js';
+import { LEGACY_REGISTRATION_COVERAGE_SQL } from './legacy-registration-coverage.js';
 import { Inject, Injectable } from '@nestjs/common';
 import type { BenefitCandidate, SeedEligibilityPort } from '@satori/application';
 import type { BusinessContext, ServiceRequirement, ServiceType } from '@satori/domain';
@@ -602,7 +604,11 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
           row.reserved_quantity === legacy.reserved &&
           Number(row.total_granted) === Number(legacy.total_earned) &&
           Number(row.total_consumed) === Number(legacy.total_spent);
-        if (!emptyLegacy && !matching)
+        const coverage = await client.query<{ covered: boolean }>(
+          `select (${LEGACY_REGISTRATION_COVERAGE_SQL}) covered from seed_accounts a where a.user_id=$1`,
+          [ownerUserId],
+        );
+        if (!emptyLegacy && !matching && !coverage.rows[0]?.covered)
           throw new ComplimentarySeedError(
             'SEED_MIGRATION_AMBIGUOUS',
             'Existing batches do not prove that all legacy balance was migrated',
@@ -719,13 +725,10 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
        ) g on true
        left join lateral (
          select count(*) mismatches from complimentary_seed_grants grant_row
-         left join lateral (
-           select available_after,reserved_after from complimentary_seed_entries
-           where grant_id=grant_row.id order by created_at desc,id desc limit 1
-         ) latest on true
+         left join lateral (${SEED_ENTRY_PROJECTION_SQL}) replay on true
          where grant_row.owner_user_id=p.owner_user_id
-           and (latest.available_after is distinct from grant_row.available_quantity
-             or latest.reserved_after is distinct from grant_row.reserved_quantity)
+           and (replay.entry_count=0 or replay.available is distinct from grant_row.available_quantity
+             or replay.reserved is distinct from grant_row.reserved_quantity)
        ) e on true
        where p.owner_user_id=$1`,
       [ownerUserId],

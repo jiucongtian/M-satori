@@ -57,8 +57,8 @@ describe.skipIf(!runDatabaseTests)('consumption orchestration', () => {
         {
           ownerUserId: userId,
           businessSpace: 'SATORI',
-          serviceType: 'CARD_READING',
-          unit: 'READING_CREDIT',
+          serviceType: 'DAILY_INSIGHT',
+          unit: 'DAILY_INSIGHT_CREDIT',
           quantity: 1,
           ...source,
           effectiveAt: new Date(Date.now() - 60_000),
@@ -75,7 +75,7 @@ describe.skipIf(!runDatabaseTests)('consumption orchestration', () => {
         businessSpace: 'SATORI',
         sourceType: 'ACTIVITY',
         sourceId: 'consumption-seeds',
-        applicableServices: ['CARD_READING'],
+        applicableServices: ['DAILY_INSIGHT'],
         quantity: 20,
         effectiveAt: new Date(Date.now() - 60_000),
         expiresAt: new Date('2027-01-01T00:00:00.000Z'),
@@ -199,7 +199,12 @@ describe.skipIf(!runDatabaseTests)('consumption orchestration', () => {
       seeds,
       consumptionRepository,
       new SystemClock(),
-      { getOutcome: (context) => Promise.resolve(context.id === requirement('reconciliation-reading').businessContext.id ? 'SUCCEEDED' : 'UNKNOWN') },
+      {
+        getOutcome: (context) =>
+          Promise.resolve(
+            context.id === requirement('reconciliation-reading').businessContext.id ? 'SUCCEEDED' : 'UNKNOWN',
+          ),
+      },
     );
 
     await expect(reconciler.reconcile()).resolves.toMatchObject({ committed: 1 });
@@ -231,11 +236,11 @@ describe.skipIf(!runDatabaseTests)('consumption orchestration', () => {
     return {
       userId,
       businessSpace: 'SATORI' as const,
-      serviceType: 'CARD_READING' as const,
+      serviceType: 'DAILY_INSIGHT' as const,
       quantity: 1,
-      unit: 'READING_CREDIT' as const,
+      unit: 'DAILY_INSIGHT_CREDIT' as const,
       businessContext: { type: 'READING_INTENT', id: contextId },
-      attributes: { seedQuantity, cardCount: 3 },
+      attributes: { seedQuantity },
     };
   }
 });

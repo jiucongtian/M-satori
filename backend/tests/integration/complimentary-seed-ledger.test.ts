@@ -232,7 +232,7 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
     const reservation = await repository.reserve({
       ownerUserId: migrationReplayUserId,
       businessSpace: 'SATORI',
-      serviceType: 'CARD_READING',
+      serviceType: 'DAILY_INSIGHT',
       quantity: 2,
       businessKey: `migration-replay:${randomUUID()}`,
       businessContext: context,
@@ -295,6 +295,60 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
     expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
   });
 
+  it('recognizes proven registration dual-writes without replenishing consumed seeds', async () => {
+    const oldEntryId = randomUUID();
+    await pool.query(
+      `insert into seed_entries(id,account_id,type,amount,available_after,reserved_after,business_key,business_type)
+      select $1,id,'GRANT',3,3,0,'registration-mirror-fixture','REGISTRATION_REWARD' from seed_accounts where user_id=$2`,
+      [oldEntryId, registrationUserId],
+    );
+    await pool.query('update seed_accounts set available=3,total_earned=3 where user_id=$1', [
+      registrationUserId,
+    ]);
+    await pool.query('update registration_rewards set seed_entry_id=$1 where user_id=$2', [
+      oldEntryId,
+      registrationUserId,
+    ]);
+    expect(await repository.migrateLegacyAccount(registrationUserId, randomUUID())).toMatchObject({
+      state: 'REPLAYED',
+      consistent: true,
+    });
+    expect(await repository.migrateLegacyAccount(registrationUserId, randomUUID())).toMatchObject({
+      state: 'REPLAYED',
+    });
+    expect(await repository.getAccount(registrationUserId)).toMatchObject({
+      available: 2,
+      totalEarned: 3,
+      totalSpent: 1,
+    });
+    expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
+  });
+
+  it('reconciles all entry facts when historical timestamps are out of order', async () => {
+    const grants = await repository.listGrants(registrationUserId);
+    const grantId = grants[0]!.id;
+    await pool.query(
+      "update complimentary_seed_entries set created_at=created_at+interval '1 day' where grant_id=$1 and entry_type='GRANT'",
+      [grantId],
+    );
+    expect(await repository.reconcile(registrationUserId)).toMatchObject({
+      consistent: true,
+      entryProjectionMismatches: 0,
+    });
+    await pool.query(
+      'update complimentary_seed_grants set available_quantity=available_quantity+1 where id=$1',
+      [grantId],
+    );
+    expect(await repository.reconcile(registrationUserId)).toMatchObject({
+      consistent: false,
+      entryProjectionMismatches: 1,
+    });
+    await pool.query(
+      'update complimentary_seed_grants set available_quantity=available_quantity-1 where id=$1',
+      [grantId],
+    );
+  });
+
   it('does not silently accept an unrelated batch as migrated legacy balance', async () => {
     await pool.query('update seed_accounts set available=8,total_earned=8 where user_id=$1', [
       registrationUserId,
@@ -304,7 +358,7 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
     });
     expect(await repository.getAccount(registrationUserId)).toMatchObject({ available: 2 });
     expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
-    await pool.query('update seed_accounts set available=0,total_earned=0 where user_id=$1', [
+    await pool.query('update seed_accounts set available=3,total_earned=3 where user_id=$1', [
       registrationUserId,
     ]);
   });

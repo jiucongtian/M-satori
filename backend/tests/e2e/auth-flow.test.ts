@@ -1,3 +1,4 @@
+import { SmsRateLimiter } from '../../packages/modules/src/identity/auth/sms-rate-limiter.js';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { DAILY_INSIGHT_GENERATOR, PROFILE_FIRST_LOOK_GENERATOR } from '@satori/application';
@@ -97,6 +98,14 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({ imports: [ApiModule] })
+      // Workflow fixtures intentionally issue concurrent/repeated challenges. Cooldown and
+      // hourly limits have dedicated limiter tests; they must not invalidate later billing fixtures.
+      .overrideProvider(SmsRateLimiter)
+      .useValue({
+        acquireCooldown: () => Promise.resolve({ release: () => Promise.resolve() }),
+        consume: (_dimension: string, _subject: string, limit: number) =>
+          Promise.resolve({ limit, remaining: limit, resetAt: Math.floor(Date.now() / 1000) + 3600 }),
+      })
       .overrideProvider(PROFILE_FIRST_LOOK_GENERATOR)
       .useValue({ generate: generateProfileFirstLook })
       .overrideProvider(DAILY_INSIGHT_GENERATOR)
