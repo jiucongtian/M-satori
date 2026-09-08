@@ -28,7 +28,6 @@ services:
       SMS_DELIVERY_MODE: FIXED_CODE
       AQUA_BASE_URL: https://aqua.example.com
       AQUA_SERVICE_KEY: isolated-validation-key-0001
-      DAILY_INSIGHT_CONSUMPTION_MODE: LEGACY
       PAYMENT_PROVIDER_MODE: FAKE
     depends_on:
       postgres: { condition: service_healthy }

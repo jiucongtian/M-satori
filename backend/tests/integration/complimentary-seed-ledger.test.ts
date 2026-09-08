@@ -190,18 +190,23 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
        values($1,$2,'GRANT',20,20,0,'legacy-registration','REGISTRATION_REWARD',$3)`,
       [legacyEntryId, legacyAccountId, JSON.stringify({ title: '新用户注册赠送' })],
     );
+    await expect(repository.migrateLegacyAccount(migrationUserId, randomUUID())).rejects.toMatchObject({
+      code: 'SEED_MIGRATION_BLOCKED',
+    });
+    expect(await repository.getAccount(migrationUserId)).toBeNull();
+    expect(await repository.listGrants(migrationUserId)).toHaveLength(0);
+    await pool.query('update seed_accounts set available=9,reserved=0 where user_id=$1', [migrationUserId]);
     const first = await repository.migrateLegacyAccount(migrationUserId, randomUUID());
     const replay = await repository.migrateLegacyAccount(migrationUserId, randomUUID());
     expect(first).toMatchObject({
-      state: 'BLOCKED',
+      state: 'MIGRATED',
       consistent: true,
-      legacy: { available: 7, reserved: 2 },
-      batch: { available: 7, reserved: 2 },
+      batch: { available: 9, reserved: 0 },
     });
     expect(replay.grantId).toBe(first.grantId);
     expect(await repository.getAccount(migrationUserId)).toMatchObject({
-      available: 7,
-      reserved: 2,
+      available: 9,
+      reserved: 0,
       totalEarned: 20,
       totalSpent: 11,
     });
@@ -254,7 +259,7 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
       `insert into registration_rewards(id,user_id,reward_type,amount) values($1,$2,'NEW_USER_ONBOARDING',3)`,
       [randomUUID(), registrationUserId],
     );
-    const ledger = new SeedLedgerService({ ...infrastructure, environment } as never);
+    const ledger = new SeedLedgerService({ ...infrastructure, environment } as never, repository);
 
     await ledger.claimRegistrationReward(registrationUserId);
     await ledger.claimRegistrationReward(registrationUserId);
@@ -288,6 +293,20 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
     });
     expect(migration).toMatchObject({ state: 'REPLAYED', consistent: true });
     expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
+  });
+
+  it('does not silently accept an unrelated batch as migrated legacy balance', async () => {
+    await pool.query('update seed_accounts set available=8,total_earned=8 where user_id=$1', [
+      registrationUserId,
+    ]);
+    await expect(repository.migrateLegacyAccount(registrationUserId, randomUUID())).rejects.toMatchObject({
+      code: 'SEED_MIGRATION_AMBIGUOUS',
+    });
+    expect(await repository.getAccount(registrationUserId)).toMatchObject({ available: 2 });
+    expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
+    await pool.query('update seed_accounts set available=0,total_earned=0 where user_id=$1', [
+      registrationUserId,
+    ]);
   });
 
   it('replays an identical adjustment but rejects a changed payload', async () => {

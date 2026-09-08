@@ -12,7 +12,6 @@ import {
   preferences,
   registrationRewards,
   RuntimeInfrastructure,
-  seedAccounts,
   sessions,
   smsChallenges,
   users,
@@ -300,8 +299,6 @@ export class SessionService {
           timezone: command.timezone,
           locale: command.locale ?? 'zh-CN',
         });
-        const seedAccountId = newId();
-        await tx.insert(seedAccounts).values({ id: seedAccountId, userId });
         await tx.insert(complimentarySeedAccountProjections).values({
           ownerUserId: userId,
           businessSpace: 'SATORI',

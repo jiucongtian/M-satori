@@ -12,7 +12,7 @@ import {
   outbox,
   PostgresIdempotencyStore,
   RuntimeInfrastructure,
-  seedAccounts,
+  complimentarySeedAccountProjections,
   sessions,
   subjects,
   users,
@@ -78,8 +78,8 @@ export class AccountDeletionService {
             .where(eq(dailyInsights.ownerUserId, input.userId));
           const [account] = await tx
             .select()
-            .from(seedAccounts)
-            .where(eq(seedAccounts.userId, input.userId))
+            .from(complimentarySeedAccountProjections)
+            .where(eq(complimentarySeedAccountProjections.ownerUserId, input.userId))
             .limit(1);
           const profileCount = profileRows[0]?.profileCount ?? 0;
           const insightCount = insightRows[0]?.insightCount ?? 0;
@@ -102,7 +102,7 @@ export class AccountDeletionService {
                 ledgerRetained: true,
                 auditRetained: true,
                 seedAccount: account
-                  ? { totalEarned: account.totalEarned, totalSpent: account.totalSpent }
+                  ? { totalEarned: account.totalGranted, totalSpent: account.totalConsumed }
                   : null,
               },
             })

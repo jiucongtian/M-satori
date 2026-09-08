@@ -13,7 +13,7 @@ const batchAccount = {
 
 describe('SeedLedgerService batch read compatibility', () => {
   it('returns the batch account through the R1.0 account shape after cutover', async () => {
-    const service = createService('BATCH', null, {
+    const service = createService({
       getAccount: vi.fn().mockResolvedValue(batchAccount),
       listTransactions: vi.fn(),
     });
@@ -21,20 +21,11 @@ describe('SeedLedgerService batch read compatibility', () => {
     await expect(service.getAccount('user-1')).resolves.toEqual(batchAccount);
   });
 
-  it('keeps legacy reads authoritative in shadow mode and reports a projection mismatch', async () => {
-    const legacy = legacyAccount({ available: 9, reserved: 1 });
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const service = createService('SHADOW', legacy, {
-      getAccount: vi.fn().mockResolvedValue(batchAccount),
-      listTransactions: vi.fn(),
+  it('does not fall back to an old balance when the new account is missing', async () => {
+    const service = createService({ getAccount: vi.fn().mockResolvedValue(null), listTransactions: vi.fn() });
+    await expect(service.getAccount('user-1')).rejects.toMatchObject({
+      response: { code: 'SEED_ACCOUNT_NOT_FOUND' },
     });
-
-    await expect(service.getAccount('user-1')).resolves.toMatchObject({ available: 9, reserved: 1 });
-    expect(error).toHaveBeenCalledWith(
-      'seed_batch_shadow_mismatch',
-      expect.objectContaining({ userId: 'user-1' }),
-    );
-    error.mockRestore();
   });
 
   it('preserves the R1.0 transaction envelope and stable cursor in batch mode', async () => {
@@ -54,7 +45,7 @@ describe('SeedLedgerService batch read compatibility', () => {
       ],
       hasMore: true,
     });
-    const service = createService('BATCH', null, {
+    const service = createService({
       getAccount: vi.fn(),
       listTransactions,
     });
@@ -68,39 +59,75 @@ describe('SeedLedgerService batch read compatibility', () => {
   });
 });
 
-function createService(
-  mode: 'LEGACY' | 'SHADOW' | 'BATCH',
-  account: ReturnType<typeof legacyAccount> | null,
-  projection: SeedBatchProjectionQueryPort,
-) {
-  const database = {
-    select: () => ({
-      from: () => ({
-        where: () => ({ limit: () => Promise.resolve(account ? [account] : []) }),
-      }),
-    }),
-  };
+function createService(projection: SeedBatchProjectionQueryPort) {
   return new SeedLedgerService(
     {
-      database,
-      environment: {
-        CURSOR_SIGNING_SECRET: 'test-cursor-secret',
-        SEED_BATCH_READ_MODE: mode,
+      database: {
+        select: () => {
+          throw new Error('Legacy reads are forbidden');
+        },
       },
+      environment: { CURSOR_SIGNING_SECRET: 'test-cursor-secret' },
     } as never,
     projection,
   );
 }
 
-function legacyAccount(overrides: { available: number; reserved: number }) {
-  return {
-    id: 'legacy-account-1',
-    userId: 'user-1',
-    available: overrides.available,
-    reserved: overrides.reserved,
-    totalEarned: 20,
-    totalSpent: 10,
-    version: 1,
-    updatedAt: new Date('2026-08-28T00:00:00.000Z'),
-  };
-}
+describe('registration reward replay after cutover', () => {
+  it('returns the migrated balance without granting an already claimed historical reward again', async () => {
+    const now = new Date();
+    const results = [
+      [
+        {
+          id: 'reward',
+          userId: 'user',
+          amount: 18,
+          status: 'CLAIMED',
+          seedEntryId: 'old-entry',
+          claimedAt: now,
+        },
+      ],
+      [{ availableQuantity: 2, reservedQuantity: 0, totalGranted: 18, totalConsumed: 16, updatedAt: now }],
+      [],
+      [
+        {
+          id: 'old-entry',
+          type: 'GRANT',
+          amount: 18,
+          availableAfter: 18,
+          businessType: 'REGISTRATION_REWARD',
+          resourceId: 'reward',
+          originalEntryId: null,
+          metadata: {},
+          createdAt: now,
+        },
+      ],
+    ];
+    const write = vi.fn(() => {
+      throw new Error('Historical reward must not write either ledger');
+    });
+    const tx = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            for: () => ({ limit: () => Promise.resolve(results.shift()) }),
+            limit: () => Promise.resolve(results.shift()),
+          }),
+        }),
+      }),
+      insert: write,
+      update: write,
+    };
+    const service = new SeedLedgerService(
+      {
+        environment: { CURSOR_SIGNING_SECRET: 'test-cursor-secret' },
+        database: { transaction: (work: (value: typeof tx) => Promise<unknown>) => work(tx) },
+      } as never,
+      {} as never,
+    );
+    const result = await service.claimRegistrationReward('user');
+    expect(result.account).toMatchObject({ available: 2, totalSpent: 16 });
+    expect(result.transaction.transactionId).toBe('old-entry');
+    expect(write).not.toHaveBeenCalled();
+  });
+});

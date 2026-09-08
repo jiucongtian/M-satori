@@ -1,12 +1,14 @@
-import { seedAccounts } from '@satori/infrastructure';
+import { complimentarySeedAccountProjections } from '@satori/infrastructure';
 import { RuntimeInfrastructure } from '../packages/infrastructure/src/runtime.module.js';
-import { SeedLedgerService } from '../packages/modules/src/seed-ledger/seed-ledger.service.js';
+import { PostgresComplimentarySeedRepository } from '../packages/modules/src/complimentary-seed/repository-adapter/index.js';
 
 const infrastructure = new RuntimeInfrastructure();
-const ledger = new SeedLedgerService(infrastructure);
+const ledger = new PostgresComplimentarySeedRepository(infrastructure);
 
 try {
-  const accounts = await infrastructure.database.select({ userId: seedAccounts.userId }).from(seedAccounts);
+  const accounts = await infrastructure.database
+    .select({ userId: complimentarySeedAccountProjections.ownerUserId })
+    .from(complimentarySeedAccountProjections);
   let mismatches = 0;
   for (const account of accounts) {
     const result = await ledger.reconcile(account.userId);

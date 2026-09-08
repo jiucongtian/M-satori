@@ -4,13 +4,12 @@ import { DAILY_INSIGHT_GENERATOR, PROFILE_FIRST_LOOK_GENERATOR } from '@satori/a
 import {
   dailyInsights,
   deletionRequests,
-  entitlementResolutions,
   generationTasks,
   newId,
   outbox,
   RuntimeInfrastructure,
   revisions,
-  seedEntries,
+  complimentarySeedEntries,
   sessions,
   subjects,
   users,
@@ -653,7 +652,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(selfDelete.json<{ error: { code: string } }>().error.code).toBe('SELF_PROFILE_DELETE_NOT_ALLOWED');
   });
 
-  it('claims the registration reward exactly once and settles an immutable seed ledger', async () => {
+  it('claims the registration reward exactly once and uses the batch ledger', async () => {
     const available = await app.inject({
       method: 'GET',
       url: '/api/v1/me/registration-reward',
@@ -662,7 +661,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(available.statusCode).toBe(200);
     expect(available.json<{ data: { status: string; wisdomSeedAmount: number } }>().data).toMatchObject({
       status: 'AVAILABLE',
-      wisdomSeedAmount: 18,
+      wisdomSeedAmount: 3,
     });
 
     const [firstClaim, concurrentClaim] = await Promise.all([
@@ -688,122 +687,36 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       data: { transaction: { transactionId: string }; account: { available: number } };
     }>().data;
     expect(concurrentData.transaction.transactionId).toBe(firstData.transaction.transactionId);
-    expect(firstData.account.available).toBe(18);
+    expect(firstData.account.available).toBe(3);
 
     const userId = decodeJwtSubject(accessToken);
-    const ledger = app.get(SeedLedgerService);
-    const reservation = await ledger.reserve({
-      userId,
-      amount: 1,
-      businessKey: 'daily:reserve:01',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-    });
-    const reserveReplay = await ledger.reserve({
-      userId,
-      amount: 1,
-      businessKey: 'daily:reserve:01',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-    });
-    expect(reserveReplay.transaction.transactionId).toBe(reservation.transaction.transactionId);
-    const consumed = await ledger.consume({
-      userId,
-      amount: 1,
-      businessKey: 'daily:consume:01',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-      originalEntryId: reservation.transaction.transactionId,
-    });
-    const consumeReplay = await ledger.consume({
-      userId,
-      amount: 1,
-      businessKey: 'daily:consume:01',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-      originalEntryId: reservation.transaction.transactionId,
-    });
-    expect(consumeReplay.transaction.transactionId).toBe(consumed.transaction.transactionId);
-    await expect(
-      ledger.release({
-        userId,
-        amount: 1,
-        businessKey: 'daily:release:invalid',
-        businessType: 'DAILY_INSIGHT',
-        resourceId: null,
-        originalEntryId: reservation.transaction.transactionId,
-      }),
-    ).rejects.toMatchObject({ response: { code: 'SEED_RESERVATION_ALREADY_SETTLED' } });
-    const refunded = await ledger.refund({
-      userId,
-      amount: 1,
-      businessKey: 'daily:refund:01',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-      originalEntryId: consumed.transaction.transactionId,
-    });
-    const refundReplay = await ledger.refund({
-      userId,
-      amount: 1,
-      businessKey: 'daily:refund:01',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-      originalEntryId: consumed.transaction.transactionId,
-    });
-    expect(refundReplay.transaction.transactionId).toBe(refunded.transaction.transactionId);
-
-    const competing = await Promise.allSettled([
-      ledger.reserve({
-        userId,
-        amount: 17,
-        businessKey: 'daily:reserve:02',
-        businessType: 'DAILY_INSIGHT',
-        resourceId: null,
-      }),
-      ledger.reserve({
-        userId,
-        amount: 17,
-        businessKey: 'daily:reserve:03',
-        businessType: 'DAILY_INSIGHT',
-        resourceId: null,
-      }),
-    ]);
-    expect(competing.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(competing.filter((result) => result.status === 'rejected')).toHaveLength(1);
-    const successful = competing.find((result) => result.status === 'fulfilled');
-    if (!successful || successful.status !== 'fulfilled') throw new Error('Expected one reservation');
-    await ledger.release({
-      userId,
-      amount: 17,
-      businessKey: 'daily:release:02',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-      originalEntryId: successful.value.transaction.transactionId,
-    });
-    expect((await ledger.reconcile(userId)).consistent).toBe(true);
-    await expect(
-      ledger.adjustment({
-        userId,
-        amount: -19,
-        businessKey: 'admin:invalid-negative',
-        businessType: 'DAILY_INSIGHT',
-        resourceId: null,
-      }),
-    ).rejects.toMatchObject({ response: { code: 'INSUFFICIENT_WISDOM_SEEDS' } });
-    await ledger.adjustment({
-      userId,
-      amount: -15,
-      businessKey: 'e2e:normalize-daily-budget',
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-    });
+    const seeds = app.get(ComplimentarySeedApplicationService);
+    const command = {
+      ownerUserId: userId,
+      businessSpace: 'SATORI' as const,
+      serviceType: 'DAILY_INSIGHT' as const,
+      quantity: 1,
+      businessKey: `claim-check:${suffix}`,
+      businessContext: { type: 'CLAIM_CHECK', id: userId },
+      requestId: newId(),
+    };
+    const reservation = await seeds.reservePromotion(command);
+    const replay = await seeds.reservePromotion(command);
+    expect(replay.reservationId).toBe(reservation.reservationId);
     const infrastructure = app.get(RuntimeInfrastructure);
-    await expect(
-      infrastructure.database
-        .update(seedEntries)
-        .set({ amount: 99 })
-        .where(eq(seedEntries.id, firstData.transaction.transactionId)),
-    ).rejects.toThrow('Failed query: update "seed_entries"');
+    expect(
+      (await infrastructure.pool.query('select * from seed_accounts where user_id=$1', [userId])).rows,
+    ).toHaveLength(0);
+    const repeatClaim = await app.inject({
+      method: 'POST',
+      url: '/api/v1/me/registration-reward/claim',
+      headers: authHeaders('registration-claim-after-reserve'),
+      payload: {},
+    });
+    expect(repeatClaim.json<{ data: { account: { available: number } } }>().data.account.available).toBe(2);
+    await seeds.releasePromotion(reservation.reservationId, command.businessContext, newId());
+    await seeds.releasePromotion(reservation.reservationId, command.businessContext, newId());
+    expect(await seeds.reconcile(userId)).toMatchObject({ consistent: true });
 
     const account = await app.inject({
       method: 'GET',
@@ -814,7 +727,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       account.json<{
         data: { available: number; reserved: number; totalEarned: number; totalSpent: number };
       }>().data,
-    ).toEqual(expect.objectContaining({ available: 3, reserved: 0, totalEarned: 18, totalSpent: 15 }));
+    ).toEqual(expect.objectContaining({ available: 3, reserved: 0, totalEarned: 3, totalSpent: 0 }));
     const transactions = await app.inject({
       method: 'GET',
       url: '/api/v1/me/wisdom-seed-transactions?limit=2',
@@ -912,7 +825,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       { dailyInsight: { state: 'READY' }, nextAction: 'VIEW_HOME' },
     );
     const account = await app.get(SeedLedgerService).getAccount(decodeJwtSubject(accessToken));
-    expect(account).toMatchObject({ available: 2, reserved: 0, totalSpent: 16 });
+    expect(account).toMatchObject({ available: 2, reserved: 0, totalSpent: 1 });
 
     const infrastructure = app.get(RuntimeInfrastructure);
     const firstHistoricalDate = shiftLocalDate(firstData.dailyInsight.localDate, -2);
@@ -957,15 +870,17 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     await daily.generate(thirdData.task.taskId, thirdData.dailyInsight.dailyInsightId);
     await tasks.succeed(thirdData.task.taskId);
 
-    const entriesBeforeReplay = await infrastructure.database.select().from(seedEntries);
+    const entriesBeforeReplay = await infrastructure.database.select().from(complimentarySeedEntries);
     const dailyConsumesBefore = entriesBeforeReplay.filter(
-      (entry) => entry.type === 'CONSUME' && entry.resourceId !== null,
+      (entry) => entry.entryType === 'CONSUME' && entry.consumptionIntentId !== null,
     ).length;
     await daily.generate(thirdData.task.taskId, thirdData.dailyInsight.dailyInsightId);
     await tasks.succeed(thirdData.task.taskId);
-    const entriesAfterReplay = await infrastructure.database.select().from(seedEntries);
+    const entriesAfterReplay = await infrastructure.database.select().from(complimentarySeedEntries);
     expect(
-      entriesAfterReplay.filter((entry) => entry.type === 'CONSUME' && entry.resourceId !== null),
+      entriesAfterReplay.filter(
+        (entry) => entry.entryType === 'CONSUME' && entry.consumptionIntentId !== null,
+      ),
     ).toHaveLength(dailyConsumesBefore);
 
     await infrastructure.database
@@ -975,7 +890,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const beforeInsufficient = {
       insights: (await infrastructure.database.select().from(dailyInsights)).length,
       tasks: (await infrastructure.database.select().from(generationTasks)).length,
-      entries: (await infrastructure.database.select().from(seedEntries)).length,
+      entries: (await infrastructure.database.select().from(complimentarySeedEntries)).length,
     };
     const insufficient = await app.inject({
       method: 'POST',
@@ -984,11 +899,11 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       payload: {},
     });
     expect(insufficient.statusCode).toBe(409);
-    expect(insufficient.json<{ error: { code: string } }>().error.code).toBe('INSUFFICIENT_WISDOM_SEEDS');
+    expect(insufficient.json<{ error: { code: string } }>().error.code).toBe('PURCHASE_REQUIRED');
     expect({
       insights: (await infrastructure.database.select().from(dailyInsights)).length,
       tasks: (await infrastructure.database.select().from(generationTasks)).length,
-      entries: (await infrastructure.database.select().from(seedEntries)).length,
+      entries: (await infrastructure.database.select().from(complimentarySeedEntries)).length,
     }).toEqual(beforeInsufficient);
     await infrastructure.database
       .update(dailyInsights)
@@ -1012,7 +927,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     expect(await app.get(SeedLedgerService).getAccount(decodeJwtSubject(accessToken))).toMatchObject({
       available: 0,
       reserved: 0,
-      totalSpent: 18,
+      totalSpent: 3,
     });
   });
 
@@ -1051,8 +966,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       },
       `daily-unified:${suffix}:grant`,
     );
-    Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'UNIFIED' });
-    try {
+    {
       const created = await app.inject({
         method: 'POST',
         url: '/api/v1/daily-insights/today',
@@ -1102,93 +1016,6 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       ).toMatchObject({
         status: 'COMMITTED',
       });
-    } finally {
-      Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'LEGACY' });
-    }
-  });
-
-  it('records one shadow resolution while legacy settlement remains authoritative', async () => {
-    const infrastructure = app.get(RuntimeInfrastructure);
-    const userId = decodeJwtSubject(accessToken);
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Shanghai',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-    await infrastructure.database
-      .update(dailyInsights)
-      .set({ localDate: shiftLocalDate(today, -11) })
-      .where(and(eq(dailyInsights.ownerUserId, userId), eq(dailyInsights.localDate, today)));
-    await app.get(SeedLedgerService).adjustment({
-      userId,
-      amount: 1,
-      businessKey: `daily-shadow:${suffix}:fixture`,
-      businessType: 'DAILY_INSIGHT',
-      resourceId: null,
-    });
-    Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'SHADOW' });
-    try {
-      const created = await app.inject({
-        method: 'POST',
-        url: '/api/v1/daily-insights/today',
-        headers: authHeaders('daily-shadow-create'),
-        payload: {},
-      });
-      expect(created.statusCode).toBe(202);
-      const data = created.json<{
-        data: { dailyInsight: { dailyInsightId: string }; task: { taskId: string } };
-      }>().data;
-      const [row] = await infrastructure.database
-        .select()
-        .from(dailyInsights)
-        .where(eq(dailyInsights.id, data.dailyInsight.dailyInsightId))
-        .limit(1);
-      expect(row).toMatchObject({ consumptionIntentId: null });
-      expect(typeof row!.seedReservationEntryId).toBe('string');
-
-      const resolutions = await infrastructure.database
-        .select()
-        .from(entitlementResolutions)
-        .where(
-          and(
-            eq(entitlementResolutions.businessContextType, 'DAILY_INSIGHT_SHADOW'),
-            eq(entitlementResolutions.businessContextId, data.dailyInsight.dailyInsightId),
-          ),
-        );
-      expect(resolutions).toHaveLength(1);
-      expect(resolutions[0]).toMatchObject({
-        selectedSourceType: 'COMPLIMENTARY_SEED',
-        quantity: 1,
-      });
-
-      const replay = await app.inject({
-        method: 'POST',
-        url: '/api/v1/daily-insights/today',
-        headers: authHeaders('daily-shadow-replay'),
-        payload: {},
-      });
-      expect(replay.statusCode).toBe(202);
-      expect(
-        await infrastructure.database
-          .select()
-          .from(entitlementResolutions)
-          .where(
-            and(
-              eq(entitlementResolutions.businessContextType, 'DAILY_INSIGHT_SHADOW'),
-              eq(entitlementResolutions.businessContextId, data.dailyInsight.dailyInsightId),
-            ),
-          ),
-      ).toHaveLength(1);
-
-      const daily = app.get(DailyInsightService);
-      const tasks = app.get(GenerationTaskService);
-      await tasks.claim(data.task.taskId);
-      await daily.generate(data.task.taskId, data.dailyInsight.dailyInsightId);
-      await tasks.succeed(data.task.taskId);
-      expect(await app.get(SeedLedgerService).getAccount(userId)).toMatchObject({ available: 0 });
-    } finally {
-      Object.assign(infrastructure.environment, { DAILY_INSIGHT_CONSUMPTION_MODE: 'LEGACY' });
     }
   });
 
@@ -1532,11 +1359,11 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
       'ACCOUNT_DELETION_NOT_CANCELLABLE',
     );
 
-    const ledgerCount = (await infrastructure.database.select().from(seedEntries)).length;
+    const ledgerCount = (await infrastructure.database.select().from(complimentarySeedEntries)).length;
     const deletion = app.get(AccountDeletionService);
     await deletion.process(secondRequestId);
     await deletion.process(secondRequestId);
-    expect((await infrastructure.database.select().from(seedEntries)).length).toBe(ledgerCount);
+    expect((await infrastructure.database.select().from(complimentarySeedEntries)).length).toBe(ledgerCount);
     const [deletedUser] = await infrastructure.database
       .select()
       .from(users)

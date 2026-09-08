@@ -574,6 +574,11 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
       const legacy = legacyResult.rows[0];
       if (!legacy)
         throw new ComplimentarySeedError('SEED_ACCOUNT_NOT_FOUND', 'Legacy seed account was not found');
+      if (legacy.reserved > 0)
+        throw new ComplimentarySeedError(
+          'SEED_MIGRATION_BLOCKED',
+          'Settle legacy reservations before migration',
+        );
       const sourceId = `legacy-account:${legacy.id}`;
       const existing = await client.query<GrantRow>(
         `select * from complimentary_seed_grants where owner_user_id=$1 and source_type='MIGRATION' and source_id=$2`,
@@ -583,9 +588,29 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
         `select exists(select 1 from complimentary_seed_grants where owner_user_id=$1)`,
         [ownerUserId],
       );
+      if (!existing.rows[0] && batchActivity.rows[0]!.exists) {
+        const projection = await client.query<AccountRow>(
+          'select * from complimentary_seed_account_projections where owner_user_id=$1',
+          [ownerUserId],
+        );
+        const row = projection.rows[0];
+        const emptyLegacy =
+          legacy.available === 0 && Number(legacy.total_earned) === 0 && Number(legacy.total_spent) === 0;
+        const matching =
+          row &&
+          row.available_quantity === legacy.available &&
+          row.reserved_quantity === legacy.reserved &&
+          Number(row.total_granted) === Number(legacy.total_earned) &&
+          Number(row.total_consumed) === Number(legacy.total_spent);
+        if (!emptyLegacy && !matching)
+          throw new ComplimentarySeedError(
+            'SEED_MIGRATION_AMBIGUOUS',
+            'Existing batches do not prove that all legacy balance was migrated',
+          );
+      }
       let grantId = existing.rows[0]?.id ?? null;
       let createdMigrationGrant = false;
-      let state: SeedMigrationReport['state'] = legacy.reserved > 0 ? 'BLOCKED' : 'REPLAYED';
+      let state: SeedMigrationReport['state'] = 'REPLAYED';
       if (!grantId && !batchActivity.rows[0]!.exists && legacy.available + legacy.reserved > 0) {
         grantId = randomUUID();
         createdMigrationGrant = true;
@@ -616,24 +641,9 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
           context: { type: 'LEGACY_SEED_ACCOUNT', id: legacy.id },
           metadata: { migrationVersion: 'legacy-seed-opening-v1' },
         });
-        if (legacy.reserved > 0)
-          await append(client, {
-            grantId,
-            ownerUserId,
-            businessSpace: 'SATORI',
-            entryType: 'RESERVE',
-            quantity: legacy.reserved,
-            availableAfter: legacy.available,
-            reservedAfter: legacy.reserved,
-            businessKey: `${sourceId}:RESERVED_OPENING`,
-            reservationId: randomUUID(),
-            requestId,
-            context: { type: 'LEGACY_SEED_ACCOUNT', id: legacy.id },
-            metadata: { migrationVersion: 'legacy-seed-opening-v1', openingReservation: true },
-          });
-        state = legacy.reserved > 0 ? 'BLOCKED' : 'MIGRATED';
+        state = 'MIGRATED';
       }
-      if (createdMigrationGrant) {
+      if (createdMigrationGrant || (!grantId && !batchActivity.rows[0]!.exists)) {
         await client.query(
           `insert into complimentary_seed_account_projections (owner_user_id,business_space,available_quantity,reserved_quantity,total_granted,total_consumed,version) values($1,'SATORI',$2,$3,$4,$5,1) on conflict(owner_user_id) do update set available_quantity=excluded.available_quantity,reserved_quantity=excluded.reserved_quantity,total_granted=excluded.total_granted,total_consumed=excluded.total_consumed,version=complimentary_seed_account_projections.version+1,updated_at=now()`,
           [

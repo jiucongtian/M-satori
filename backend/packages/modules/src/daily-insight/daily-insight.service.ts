@@ -1,11 +1,4 @@
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  Optional,
-  type OnModuleInit,
-} from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
 import {
   CONSUMPTION_PORT,
   CursorCodec,
@@ -44,7 +37,7 @@ export class DailyInsightService implements OnModuleInit {
     private readonly tasks: GenerationTaskService,
     private readonly runner: GenerationTaskRunner,
     @Inject(DAILY_INSIGHT_GENERATOR) private readonly generator: DailyInsightGenerator,
-    @Optional() @Inject(CONSUMPTION_PORT) private readonly consumption?: ConsumptionPort,
+    @Inject(CONSUMPTION_PORT) private readonly consumption: ConsumptionPort,
   ) {
     this.cursors = new CursorCodec(infrastructure.environment.CURSOR_SIGNING_SECRET);
   }
@@ -58,7 +51,6 @@ export class DailyInsightService implements OnModuleInit {
 
   async createToday(userId: string) {
     const unifiedReservation: { intentId: string | null } = { intentId: null };
-    const shadowComparison: { insightId: string | null } = { insightId: null };
     try {
       const result = await this.infrastructure.database.transaction(async (tx) => {
         await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${userId}, 8))`);
@@ -121,7 +113,6 @@ export class DailyInsightService implements OnModuleInit {
             },
           };
         const insightId = newId();
-        shadowComparison.insightId = insightId;
         await tx.insert(dailyInsights).values({
           id: insightId,
           ownerUserId: userId,
@@ -132,25 +123,14 @@ export class DailyInsightService implements OnModuleInit {
           contentPolicyVersion: 'r1.0',
           status: 'PENDING',
         });
-        const mode = this.infrastructure.environment.DAILY_INSIGHT_CONSUMPTION_MODE;
-        const unified = mode === 'UNIFIED' ? await this.reserveUnified(userId, insightId, 'initial') : null;
-        unifiedReservation.intentId = unified?.intentId ?? null;
-        const reserved = unified
-          ? null
-          : await this.ledger.reserveInTransaction(tx, {
-              userId,
-              amount: this.infrastructure.policy.dailyInsight.price,
-              businessKey: `daily:${insightId}:reserve`,
-              businessType: 'DAILY_INSIGHT',
-              resourceId: insightId,
-              title: '每日指引预留',
-            });
+        const unified = await this.reserveUnified(userId, insightId, 'initial');
+        unifiedReservation.intentId = unified.intentId;
         const [generating] = await tx
           .update(dailyInsights)
           .set({
             status: 'GENERATING',
-            seedReservationEntryId: reserved?.transaction.transactionId ?? null,
-            consumptionIntentId: unified?.intentId ?? null,
+            seedReservationEntryId: null,
+            consumptionIntentId: unified.intentId,
             updatedAt: new Date(),
           })
           .where(eq(dailyInsights.id, insightId))
@@ -162,12 +142,6 @@ export class DailyInsightService implements OnModuleInit {
         });
         return { status: 202, body: { dailyInsight: await this.toDto(generating!), task } };
       });
-      if (
-        this.infrastructure.environment.DAILY_INSIGHT_CONSUMPTION_MODE === 'SHADOW' &&
-        shadowComparison.insightId
-      ) {
-        await this.compareShadowResolution(userId, shadowComparison.insightId);
-      }
       return result;
     } catch (error) {
       if (unifiedReservation.intentId && this.consumption) {
@@ -311,7 +285,7 @@ export class DailyInsightService implements OnModuleInit {
       .where(eq(dailyInsights.id, insightId))
       .limit(1);
     if (!insight || insight.status === 'READY') return;
-    if (insight.status === 'FAILED' && insight.consumptionIntentId) {
+    if (insight.status === 'FAILED') {
       const [task] = await this.infrastructure.database
         .select({ attempt: generationTasks.currentAttempt })
         .from(generationTasks)
@@ -327,38 +301,14 @@ export class DailyInsightService implements OnModuleInit {
         .set({
           status: 'GENERATING',
           consumptionIntentId: intent.intentId,
+          seedReservationEntryId: null,
           seedSettlementEntryId: null,
           updatedAt: new Date(),
         })
         .where(eq(dailyInsights.id, insight.id));
       insight = { ...insight, status: 'GENERATING', consumptionIntentId: intent.intentId };
-    } else if (insight.status === 'FAILED' && insight.seedSettlementEntryId) {
-      const retryInsight = insight;
-      await this.infrastructure.database.transaction(async (tx) => {
-        const [task] = await tx
-          .select({ attempt: generationTasks.currentAttempt })
-          .from(generationTasks)
-          .where(eq(generationTasks.id, taskId))
-          .limit(1);
-        const reserved = await this.ledger.reserveInTransaction(tx, {
-          userId: retryInsight.ownerUserId,
-          amount: this.infrastructure.policy.dailyInsight.price,
-          businessKey: `daily:${retryInsight.id}:reserve:retry:${task?.attempt ?? 0}`,
-          businessType: 'DAILY_INSIGHT',
-          resourceId: retryInsight.id,
-          title: '每日指引重试预留',
-        });
-        await tx
-          .update(dailyInsights)
-          .set({
-            status: 'GENERATING',
-            seedReservationEntryId: reserved.transaction.transactionId,
-            seedSettlementEntryId: null,
-            updatedAt: new Date(),
-          })
-          .where(eq(dailyInsights.id, retryInsight.id));
-      });
     }
+    if (!insight.consumptionIntentId) throw new Error('Daily insight consumption migration required');
     const [revision] = await this.infrastructure.database
       .select({ astrologySnapshotId: revisions.astrologySnapshotId })
       .from(revisions)
@@ -386,7 +336,6 @@ export class DailyInsightService implements OnModuleInit {
     );
     await this.tasks.heartbeat(taskId, 'VALIDATING_CONTENT');
     if (insight.consumptionIntentId) {
-      if (!this.consumption) throw new Error('Consumption port is unavailable');
       await this.consumption.commit(insight.consumptionIntentId, `${insight.consumptionIntentId}:COMMIT`);
     }
     await this.infrastructure.database.transaction(async (tx) => {
@@ -397,26 +346,14 @@ export class DailyInsightService implements OnModuleInit {
         .for('update')
         .limit(1);
       if (!locked || locked.status === 'READY') return;
-      if (!locked.seedReservationEntryId && !locked.consumptionIntentId)
-        throw new Error('Daily insight reservation missing');
-      const consumed = locked.consumptionIntentId
-        ? null
-        : await this.ledger.consumeInTransaction(tx, {
-            userId: locked.ownerUserId,
-            amount: this.infrastructure.policy.dailyInsight.price,
-            businessKey: `daily:${locked.id}:consume:${locked.seedReservationEntryId!}`,
-            businessType: 'DAILY_INSIGHT',
-            resourceId: locked.id,
-            originalEntryId: locked.seedReservationEntryId!,
-            title: '每日指引核销',
-          });
+      if (!locked.consumptionIntentId) throw new Error('Daily insight consumption intent missing');
       await tx
         .update(dailyInsights)
         .set({
           status: 'READY',
           content: result.content,
           generationManifest: result.manifest,
-          seedSettlementEntryId: consumed?.transaction.transactionId ?? null,
+          seedSettlementEntryId: null,
           publishedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -431,68 +368,13 @@ export class DailyInsightService implements OnModuleInit {
       .from(dailyInsights)
       .where(eq(dailyInsights.id, insightId))
       .limit(1);
-    if (unified?.consumptionIntentId) {
-      if (!this.consumption) throw new Error('Consumption port is unavailable');
-      await this.consumption.release(unified.consumptionIntentId, `${unified.consumptionIntentId}:RELEASE`);
-      await this.infrastructure.database
-        .update(dailyInsights)
-        .set({ status: 'FAILED', updatedAt: new Date() })
-        .where(eq(dailyInsights.id, insightId));
-      return;
-    }
-    await this.infrastructure.database.transaction(async (tx) => {
-      const [insight] = await tx
-        .select()
-        .from(dailyInsights)
-        .where(eq(dailyInsights.id, insightId))
-        .for('update')
-        .limit(1);
-      if (!insight) return;
-      if (insight.seedSettlementEntryId) {
-        const [entry] = await tx
-          .select()
-          .from(seedEntries)
-          .where(eq(seedEntries.id, insight.seedSettlementEntryId))
-          .limit(1);
-        if (entry?.type === 'CONSUME') {
-          const refund = await this.ledger.refundInTransaction(tx, {
-            userId: insight.ownerUserId,
-            amount: this.infrastructure.policy.dailyInsight.price,
-            businessKey: `daily:${insight.id}:refund`,
-            businessType: 'DAILY_INSIGHT',
-            resourceId: insight.id,
-            originalEntryId: entry.id,
-            title: '每日指引退款',
-          });
-          await tx
-            .update(dailyInsights)
-            .set({
-              status: 'FAILED',
-              seedSettlementEntryId: refund.transaction.transactionId,
-              updatedAt: new Date(),
-            })
-            .where(eq(dailyInsights.id, insight.id));
-        }
-      } else if (insight.seedReservationEntryId) {
-        const release = await this.ledger.releaseInTransaction(tx, {
-          userId: insight.ownerUserId,
-          amount: this.infrastructure.policy.dailyInsight.price,
-          businessKey: `daily:${insight.id}:release`,
-          businessType: 'DAILY_INSIGHT',
-          resourceId: insight.id,
-          originalEntryId: insight.seedReservationEntryId,
-          title: '每日指引释放',
-        });
-        await tx
-          .update(dailyInsights)
-          .set({
-            status: 'FAILED',
-            seedSettlementEntryId: release.transaction.transactionId,
-            updatedAt: new Date(),
-          })
-          .where(eq(dailyInsights.id, insight.id));
-      }
-    });
+    if (!unified || unified.status === 'READY') return;
+    if (!unified.consumptionIntentId) throw new Error('Daily insight consumption migration required');
+    await this.consumption.release(unified.consumptionIntentId, `${unified.consumptionIntentId}:RELEASE`);
+    await this.infrastructure.database
+      .update(dailyInsights)
+      .set({ status: 'FAILED', updatedAt: new Date() })
+      .where(eq(dailyInsights.id, insightId));
   }
 
   private async taskFor(insightId: string) {
@@ -505,7 +387,6 @@ export class DailyInsightService implements OnModuleInit {
   }
 
   private async reserveUnified(userId: string, insightId: string, attempt: string) {
-    if (!this.consumption) throw new Error('Consumption port is unavailable');
     const intent = await this.consumption.reserve(
       {
         userId,
@@ -522,30 +403,6 @@ export class DailyInsightService implements OnModuleInit {
     return intent;
   }
 
-  private async compareShadowResolution(userId: string, insightId: string) {
-    if (!this.consumption) return;
-    const resolution = await this.consumption.resolve({
-      userId,
-      businessSpace: 'SATORI',
-      serviceType: 'DAILY_INSIGHT',
-      quantity: 1,
-      unit: 'DAILY_INSIGHT_CREDIT',
-      businessContext: { type: 'DAILY_INSIGHT_SHADOW', id: insightId },
-      attributes: { seedQuantity: this.infrastructure.policy.dailyInsight.price },
-    });
-    const selected = resolution.selectedCandidate;
-    if (
-      selected?.sourceType !== 'COMPLIMENTARY_SEED' ||
-      selected.requiredQuantity !== this.infrastructure.policy.dailyInsight.price
-    ) {
-      console.error('daily_insight_consumption_shadow_mismatch', {
-        insightId,
-        legacy: { sourceType: 'COMPLIMENTARY_SEED', quantity: this.infrastructure.policy.dailyInsight.price },
-        unified: selected ? { sourceType: selected.sourceType, quantity: selected.requiredQuantity } : null,
-        ruleVersion: resolution.ruleVersion,
-      });
-    }
-  }
   private async toDto(row: typeof dailyInsights.$inferSelect) {
     const entryId = row.seedSettlementEntryId ?? row.seedReservationEntryId;
     const [entry] = entryId

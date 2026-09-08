@@ -18,7 +18,8 @@ describe('runtime baseline', () => {
     expect(environment).not.toHaveProperty('DAILY_INSIGHT_PRICE');
     expect(environment).not.toHaveProperty('FEATURE_DAILY_INSIGHT');
     expect(environment.FAKE_PAYMENT_RESULT).toBe('PENDING');
-    expect(environment.DAILY_INSIGHT_CONSUMPTION_MODE).toBe('UNIFIED');
+    expect(environment).not.toHaveProperty('DAILY_INSIGHT_CONSUMPTION_MODE');
+    expect(environment).not.toHaveProperty('SEED_BATCH_READ_MODE');
   });
 
   it('rejects invalid configuration', () => {

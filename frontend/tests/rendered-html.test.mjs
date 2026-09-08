@@ -764,7 +764,7 @@ test("R1.1 每日能量由服务端按固定顺序选择会员、权益包或智
   assert.match(daily, /<SeedPayment[^>]*unified/);
   assert.match(legacy, /会员 → 权益包 → 智慧种子/);
   assert.match(legacy, /成功核销，失败自动释放/);
-  assert.match(environment, /DAILY_INSIGHT_CONSUMPTION_MODE:[\s\S]*default\('UNIFIED'\)/);
+  assert.doesNotMatch(environment, /DAILY_INSIGHT_CONSUMPTION_MODE|SEED_BATCH_READ_MODE/);
 });
 
 test("R1.1 内部入口统一进入新版商城与会员中心", async () => {
