@@ -78,7 +78,7 @@ test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async 
   assert.match(login, /<header className="brand-row login-header"><Brand \/><\/header>/);
   assert.doesNotMatch(login, /back-button|返回欢迎页|login-brand|Brand compact/);
 });
-test("R1.1 研发与测试默认显示页面编号，正式构建显式关闭", async () => {
+test("R1.1 常规构建隐藏页面编号，专用调试构建显式开启", async () => {
   const page = await readPageSources();
   const component = await readFile(new URL("../src/shared/ui.tsx", import.meta.url), "utf8");
   assert.match(component, /process\.env\.NEXT_PUBLIC_SHOW_PAGE_LABELS !== "false"/);
@@ -86,9 +86,9 @@ test("R1.1 研发与测试默认显示页面编号，正式构建显式关闭", 
   assert.equal((component.match(/className="screen-id"/g) || []).length, 1);
   assert.ok((page.match(/<PageDebugLabel>/g) || []).length >= 2);
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.match(packageJson.scripts.dev, /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
-  assert.doesNotMatch(packageJson.scripts["build:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
-  assert.match(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
+  assert.match(packageJson.scripts.dev, /NEXT_PUBLIC_SHOW_PAGE_LABELS=false/);
+  assert.match(packageJson.scripts["build:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=false/);
+  assert.match(packageJson.scripts["build:test:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=false/);
   assert.match(packageJson.scripts["build:debug:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=true/);
   assert.match(packageJson.scripts["build:production:static"], /NEXT_PUBLIC_SHOW_PAGE_LABELS=false/);
 });
