@@ -16,6 +16,7 @@ export class RuntimeInfrastructure implements OnApplicationShutdown {
   readonly database: Database;
   readonly redis: Redis;
   readonly generationQueue: Queue;
+  readonly commerceQueue: Queue;
 
   constructor() {
     this.environment = validateEnvironment(process.env);
@@ -26,10 +27,11 @@ export class RuntimeInfrastructure implements OnApplicationShutdown {
     this.database = databaseInfrastructure.database;
     this.redis = queueInfrastructure.redis;
     this.generationQueue = queueInfrastructure.generationQueue;
+    this.commerceQueue = queueInfrastructure.commerceQueue;
   }
 
   async onApplicationShutdown(): Promise<void> {
-    await closeQueueInfrastructure(this.redis, this.generationQueue);
+    await closeQueueInfrastructure(this.redis, this.generationQueue, this.commerceQueue);
     await this.pool.end();
   }
 }

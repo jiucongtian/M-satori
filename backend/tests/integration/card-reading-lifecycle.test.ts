@@ -43,7 +43,7 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
     readings = new CardReadingService(infrastructure, { execute } as unknown as CardReadingWorkflowService, consumption, tasks, runner);
     readings.onModuleInit();
   });
-  afterAll(async () => { if (infrastructure) { await closeQueueInfrastructure(infrastructure.redis, infrastructure.generationQueue); await infrastructure.pool.end(); } });
+  afterAll(async () => { if (infrastructure) { await closeQueueInfrastructure(infrastructure.redis, infrastructure.generationQueue, infrastructure.commerceQueue); await infrastructure.pool.end(); } });
 
   async function user(quantity = 5) {
     const ownerUserId = randomUUID();
@@ -152,7 +152,7 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('persistent reading l
     const draw = await readings.createDraw(command, randomUUID());
     await readings.complete(command.ownerUserId, draw.readingId);
     const taskId = await taskFor(draw.readingId);
-    const worker = new GenerationTaskWorker(infrastructure, tasks, runner, {} as never, {} as never, {} as never, {} as never);
+    const worker = new GenerationTaskWorker(infrastructure, tasks, runner, {} as never);
     worker.onModuleInit();
     try {
       await infrastructure.generationQueue.add('generation.task.requested', { taskId });

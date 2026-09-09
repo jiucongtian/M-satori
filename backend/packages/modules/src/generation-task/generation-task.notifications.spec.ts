@@ -28,6 +28,9 @@ describe('shared Redis task notifications', () => {
     expect(client.disconnect).not.toHaveBeenCalled();
     stopC();
     expect(client.disconnect).toHaveBeenCalledOnce();
+    expect(() => client.emit('error', new Error('ready check interrupted'))).not.toThrow();
+    expect(client.listenerCount('pmessage')).toBe(0);
+    expect(client.listenerCount('ready')).toBe(0);
   });
 
   it('resubscribes and reconciles after Redis reconnects', async () => {

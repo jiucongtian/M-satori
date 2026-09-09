@@ -1,5 +1,5 @@
 import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import { outbox, RuntimeInfrastructure } from '@satori/infrastructure';
+import { isCommerceEvent, outbox, RuntimeInfrastructure } from '@satori/infrastructure';
 import { and, asc, eq, isNull, lte, sql } from 'drizzle-orm';
 
 @Injectable()
@@ -32,7 +32,10 @@ export class OutboxPublisher implements OnModuleInit, OnApplicationShutdown {
       let published = 0;
       for (const event of events) {
         try {
-          await this.infrastructure.generationQueue.add(event.eventType, event.payload, { jobId: event.id });
+          const queue = isCommerceEvent(event.eventType)
+            ? this.infrastructure.commerceQueue
+            : this.infrastructure.generationQueue;
+          await queue.add(event.eventType, event.payload, { jobId: event.id });
           await this.infrastructure.database
             .update(outbox)
             .set({ publishedAt: new Date(), attempts: sql`${outbox.attempts} + 1` })

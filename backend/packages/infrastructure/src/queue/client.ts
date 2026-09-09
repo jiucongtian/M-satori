@@ -4,6 +4,11 @@ import type { Environment } from '../config/environment.js';
 import type { RuntimePolicy } from '../config/runtime-policy.js';
 
 export const GENERATION_QUEUE = 'generation';
+export const COMMERCE_QUEUE = 'commerce';
+
+export function isCommerceEvent(eventType: string): boolean {
+  return eventType.startsWith('commerce.');
+}
 
 export interface QueueExecutionPolicy {
   concurrency: number;
@@ -20,6 +25,7 @@ export function createQueueInfrastructure(
 ): {
   redis: Redis;
   generationQueue: Queue;
+  commerceQueue: Queue;
 } {
   const redis = new Redis(environment.REDIS_URL, { maxRetriesPerRequest: null, enableReadyCheck: true });
   const generationQueue = new Queue(GENERATION_QUEUE, {
@@ -32,10 +38,20 @@ export function createQueueInfrastructure(
       removeOnFail: 5000,
     },
   });
-  return { redis, generationQueue };
+  const commerceQueue = new Queue(COMMERCE_QUEUE, {
+    connection: redis,
+    prefix: environment.QUEUE_PREFIX,
+    defaultJobOptions: {
+      attempts: policy.queue.maxAttempts,
+      backoff: { type: 'exponential', delay: policy.queue.backoffMs },
+      removeOnComplete: 1000,
+      removeOnFail: 5000,
+    },
+  });
+  return { redis, generationQueue, commerceQueue };
 }
 
-export async function closeQueueInfrastructure(redis: Redis, queue: Queue): Promise<void> {
-  await queue.close();
+export async function closeQueueInfrastructure(redis: Redis, ...queues: Queue[]): Promise<void> {
+  await Promise.all(queues.map((queue) => queue.close()));
   await redis.quit();
 }

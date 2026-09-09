@@ -52,7 +52,10 @@ export class GenerationTaskNotifications implements OnModuleDestroy {
   private disconnect() {
     const subscriber = this.subscriber;
     this.subscriber = undefined;
-    subscriber?.removeAllListeners();
+    subscriber?.removeAllListeners('pmessage');
+    subscriber?.removeAllListeners('ready');
+    // A connection/ready-check already in flight can still emit an error after
+    // disconnect(). Keep its no-op error handler until the client is collected.
     subscriber?.disconnect();
   }
 }

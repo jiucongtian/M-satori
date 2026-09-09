@@ -13,6 +13,7 @@ const environmentShape = {
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   QUEUE_PREFIX: z.string().min(1).default('satori'),
   QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
+  COMMERCE_QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
   QUEUE_JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(360_000),
   CORS_ORIGINS: z.string().default('http://localhost:3001'),
   CURSOR_SIGNING_SECRET: z.string().min(16).default('development-cursor-secret'),

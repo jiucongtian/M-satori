@@ -25,9 +25,9 @@ describe('generation event stream', () => {
     status = 'GENERATING';
     rows = [{ id: 'e1', eventType: 'generation.stage_changed', payload: { stage: 'START' } }];
     tasks.getOwned.mockResolvedValue({});
-    tasks.currentSnapshot.mockImplementation(async () => ({ status }));
-    tasks.listEvents.mockImplementation(async (_user, _task, cursor?: string) =>
-      rows.slice(cursor ? rows.findIndex((row) => row.id === cursor) + 1 : 0));
+    tasks.currentSnapshot.mockImplementation(() => Promise.resolve({ status }));
+    tasks.listEvents.mockImplementation((_user, _task, cursor?: string) =>
+      Promise.resolve(rows.slice(cursor ? rows.findIndex((row) => row.id === cursor) + 1 : 0)));
     notifications.watch.mockImplementation((_id: string, fn: () => void) => { notify = fn; return unwatch; });
   });
   afterEach(() => { vi.useRealTimers(); });
@@ -76,7 +76,7 @@ describe('generation event stream', () => {
     const complete = vi.fn();
     stream.events('user', 'task').subscribe({ next: (m) => messages.push(m), complete });
     await tick();
-    rows.push({ id: 'e2', eventType: 'generation.completed', payload: { status: 'READY' } });
+    rows.push({ id: 'e2', eventType: 'generation.ready', payload: { status: 'READY' } });
     status = 'READY';
     await vi.advanceTimersByTimeAsync(15_000);
     expect(messages.at(-1)?.id).toBe('e2');
@@ -86,7 +86,7 @@ describe('generation event stream', () => {
   });
 
   it('replays events after Last-Event-ID, including a completed task', async () => {
-    rows.push({ id: 'e2', eventType: 'generation.completed', payload: {} });
+    rows.push({ id: 'e2', eventType: 'generation.ready', payload: {} });
     status = 'READY';
     const messages: MessageEvent[] = [];
     const complete = vi.fn();
@@ -132,9 +132,9 @@ describe('generation event stream', () => {
     const messages: MessageEvent[] = [];
     stream.events('user', 'task').subscribe((m) => messages.push(m));
     await tick();
-    tasks.currentSnapshot.mockImplementationOnce(async () => {
-      rows.push({ id: 'e2', eventType: 'generation.completed', payload: {} });
-      return { status: 'READY' };
+    tasks.currentSnapshot.mockImplementationOnce(() => {
+      rows.push({ id: 'e2', eventType: 'generation.ready', payload: {} });
+      return Promise.resolve({ status: 'READY' });
     });
     notify();
     await tick();
