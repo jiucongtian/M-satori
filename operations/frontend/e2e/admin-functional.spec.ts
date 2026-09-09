@@ -68,8 +68,8 @@ test("@smoke ADMIN-BENEFIT-001 权益中心只展示接口返回记录", async (
 test("@smoke ADMIN-PRODUCT-001 三类商品可筛选、配置和预览", async ({ page }) => {
   await page.getByRole("button", { name: "品 商品中心" }).click();
   await expect(page.getByRole("columnheader", { name: "运营状态" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "用户端展示" })).toBeVisible();
-  await expect(page.getByText("正在展示", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "发布状态" })).toBeVisible();
+  await expect(page.getByText("已发布", { exact: true }).first()).toBeVisible();
   for (const category of ["单次产品", "服务包", "会员计划"]) {
     await page.getByRole("button", { name: new RegExp(`^${category}`) }).click();
     await expect(page.getByRole("heading", { name: new RegExp(`${category} · 商品与版本`) })).toBeVisible();
