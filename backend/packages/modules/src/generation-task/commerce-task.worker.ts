@@ -7,7 +7,7 @@ import {
   type RefundCommandPort,
   type SeedPromotionLifecyclePort,
 } from '@satori/application';
-import { COMMERCE_QUEUE, RuntimeInfrastructure } from '@satori/infrastructure';
+import { observeJob, observeWorker, COMMERCE_QUEUE, RuntimeInfrastructure } from '@satori/infrastructure';
 import { Worker, type Job } from 'bullmq';
 
 @Injectable()
@@ -22,11 +22,16 @@ export class CommerceTaskWorker implements OnModuleInit, OnApplicationShutdown {
   ) {}
 
   onModuleInit() {
-    this.worker = new Worker(COMMERCE_QUEUE, (job) => this.process(job), {
-      connection: this.infrastructure.redis,
-      prefix: this.infrastructure.environment.QUEUE_PREFIX,
-      concurrency: this.infrastructure.environment.COMMERCE_QUEUE_CONCURRENCY,
-    });
+    this.worker = new Worker(
+      COMMERCE_QUEUE,
+      (job) => observeJob(COMMERCE_QUEUE, job, () => this.process(job)),
+      {
+        connection: this.infrastructure.redis,
+        prefix: this.infrastructure.environment.QUEUE_PREFIX,
+        concurrency: this.infrastructure.environment.COMMERCE_QUEUE_CONCURRENCY,
+      },
+    );
+    observeWorker(this.worker, COMMERCE_QUEUE);
   }
 
   async onApplicationShutdown() {

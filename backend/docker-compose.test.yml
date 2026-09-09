@@ -1,6 +1,13 @@
 name: satori-test
 
+x-app-logging: &app-logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
 x-app-environment: &app-environment
+  APP_ENV: test
   HOST: 0.0.0.0
   PORT: 3000
   DATABASE_URL: postgresql://satori:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/satori
@@ -55,10 +62,13 @@ services:
     networks: [backend]
 
   api:
+    logging: *app-logging
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
+      args:
+        RELEASE_SHA: ${RELEASE_SHA:-unknown}
     image: satori-backend:test
     restart: unless-stopped
     env_file: .env.production
@@ -89,6 +99,7 @@ services:
     networks: [backend]
 
   worker:
+    logging: *app-logging
     image: satori-backend:test
     restart: unless-stopped
     env_file: .env.production

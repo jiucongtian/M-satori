@@ -17,6 +17,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 FROM node:22-alpine AS runtime
 
+ARG RELEASE_SHA=unknown
+ENV RELEASE_SHA=$RELEASE_SHA
+
 WORKDIR /app
 
 COPY --from=build /app/package.json /app/package-lock.json ./

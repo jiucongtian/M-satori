@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  closeQueueInfrastructure, createDatabase, createQueueInfrastructure, FieldCipher,
+  correlation, closeQueueInfrastructure, createDatabase, createQueueInfrastructure, FieldCipher,
   outbox, R1_RUNTIME_POLICY, RuntimeInfrastructure, validateEnvironment,
 } from '@satori/infrastructure';
 import { GenerationTaskService } from '../../packages/modules/src/generation-task/generation-task.service.js';
@@ -87,7 +87,30 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')('Redis generation del
     } finally { subscription.unsubscribe(); }
   });
 
-  it('routes Outbox commerce commands separately and keeps event identity on replay', async () => {
+  it('persists a generation request ID and carries it into a real Redis job', async () => {
+      const userId = randomUUID();
+      const requestId = randomUUID();
+      await infrastructure.pool.query('insert into users(id) values($1)', [userId]);
+      const task = await correlation.run({ requestId }, () =>
+        tasks.create({ ownerUserId: userId, targetType: 'DAILY_INSIGHT', targetId: randomUUID() }),
+      );
+      const event = await infrastructure.pool.query<{ id: string; request_id: string }>(
+        'select id, request_id from outbox where aggregate_id=$1',
+        [task.taskId],
+      );
+      expect(event.rows[0]!.request_id).toBe(requestId);
+      const publisher = new OutboxPublisher(infrastructure);
+      await vi.waitFor(async () => {
+        await publisher.publishBatch(1000);
+        const job = await infrastructure.generationQueue.getJob(event.rows[0]!.id);
+        expect(job?.data as unknown).toMatchObject({
+          taskId: task.taskId,
+          _telemetry: { requestId, traceId: requestId, outboxId: event.rows[0]!.id },
+        });
+      });
+    });
+
+    it('routes Outbox commerce commands separately and keeps event identity on replay', async () => {
     const publisher = new OutboxPublisher(infrastructure);
     const commerceId = randomUUID(); const generationId = randomUUID();
     await infrastructure.database.insert(outbox).values([

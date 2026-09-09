@@ -1,6 +1,10 @@
 import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ApiEnvelopeInterceptor, ApiExceptionFilter, CommerceObservabilityInterceptor } from '@satori/contracts';
+import {
+  ApiEnvelopeInterceptor,
+  ApiExceptionFilter,
+  CommerceObservabilityInterceptor,
+} from '@satori/contracts';
 import { newId, type Environment } from '@satori/infrastructure';
 import fastifyCookie from '@fastify/cookie';
 import type { IncomingMessage } from 'node:http';

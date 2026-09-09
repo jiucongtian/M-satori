@@ -1,6 +1,10 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { IdempotencyService } from '@satori/application';
 import {
+  correlation,
+  errorFields,
+  logEvent,
+  metrics,
   FieldCipher,
   generationAttempts,
   generationTasks,
@@ -130,7 +134,8 @@ export class GenerationTaskService {
         .where(eq(generationTasks.id, taskId))
         .for('update')
         .limit(1);
-      if (!task || task.status === 'SUCCEEDED' || task.status === 'CANCELLED' || task.status === 'FAILED') return null;
+      if (!task || task.status === 'SUCCEEDED' || task.status === 'CANCELLED' || task.status === 'FAILED')
+        return null;
       if (
         task.status === 'RUNNING' &&
         task.heartbeatAt &&
@@ -325,8 +330,9 @@ export class GenerationTaskService {
       .returning();
     try {
       await this.infrastructure.redis.publish(`generation-task:${taskId}`, event!.id);
-    } catch {
-      /* PostgreSQL polling remains authoritative. */
+    } catch (error) {
+      metrics.increment('sse_publish_error');
+      logEvent('sse_publish_failed', { taskId, ...errorFields(error) }, 'warn');
     }
     return event!;
   }
@@ -337,6 +343,7 @@ export class GenerationTaskService {
       aggregateType: 'GENERATION_TASK',
       aggregateId: taskId,
       eventType,
+      requestId: correlation.getStore()?.requestId ?? null,
       payload: { taskId },
     });
   }

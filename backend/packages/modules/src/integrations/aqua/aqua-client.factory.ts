@@ -1,3 +1,4 @@
+import { observedAquaFetch, observeAquaWorkflows } from './aqua-observability.js';
 import { Injectable } from '@nestjs/common';
 import { AquaAIClient } from '@aqua-ai/sdk';
 import { RuntimeInfrastructure } from '@satori/infrastructure';
@@ -21,10 +22,12 @@ export class AquaClientFactory {
 
     const environment = this.infrastructure.environment;
     const client = new AquaAIClient({
+      fetch: observedAquaFetch,
       baseUrl: environment.AQUA_BASE_URL,
       auth: { type: 'serviceKey', serviceKey: environment.AQUA_SERVICE_KEY },
       ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
     });
+    observeAquaWorkflows(client);
     this.clients.set(cacheKey, client);
     return client;
   }

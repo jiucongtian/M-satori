@@ -11,7 +11,7 @@ import { FieldCipher } from './security/field-cipher.js';
 
 @Injectable()
 export class RuntimeInfrastructure implements OnApplicationShutdown, OnModuleInit {
-  private stopTelemetry?: () => void;
+  private stopTelemetry?: () => Promise<void>;
   readonly environment: Environment;
   readonly policy: RuntimePolicy;
   readonly pool: Pool;
@@ -37,7 +37,7 @@ export class RuntimeInfrastructure implements OnApplicationShutdown, OnModuleIni
   }
 
   async onApplicationShutdown(): Promise<void> {
-    this.stopTelemetry?.();
+    await this.stopTelemetry?.();
     await closeQueueInfrastructure(this.redis, this.generationQueue, this.commerceQueue);
     await this.pool.end();
   }

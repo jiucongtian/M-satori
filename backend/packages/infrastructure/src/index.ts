@@ -18,3 +18,4 @@ export * from './runtime.module.js';
 export * from './security/field-cipher.js';
 
 export * from './observability/telemetry.js';
+export * from './observability/queue.js';

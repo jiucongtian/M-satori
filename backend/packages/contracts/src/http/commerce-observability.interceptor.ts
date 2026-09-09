@@ -41,7 +41,11 @@ export class CommerceObservabilityInterceptor implements NestInterceptor<unknown
     const request = http.getRequest<FastifyRequest>();
     const path = new URL(request.url, 'http://satori.local').pathname;
     if (!COMMERCE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix))) return next.handle();
-    return next.handle().pipe(tap((body) => { request.observabilityIds = commerceIdentifiers(body); }));
+    return next.handle().pipe(
+      tap((body) => {
+        request.observabilityIds = commerceIdentifiers(body);
+      }),
+    );
   }
 }
 
@@ -59,7 +63,15 @@ function visit(value: unknown, found: Record<string, string>, depth: number) {
   }
   for (const [key, candidate] of Object.entries(value)) {
     if (IDENTIFIER_KEYS.has(key) && typeof candidate === 'string' && candidate.length <= 128) {
-      found[key === 'fulfillmentJobId' ? 'fulfillmentId' : key === 'entitlementId' ? 'grantId' : key === 'intentId' ? 'consumptionIntentId' : key] = candidate;
+      found[
+        key === 'fulfillmentJobId'
+          ? 'fulfillmentId'
+          : key === 'entitlementId'
+            ? 'grantId'
+            : key === 'intentId'
+              ? 'consumptionIntentId'
+              : key
+      ] = candidate;
       continue;
     }
     if (typeof candidate === 'object') visit(candidate, found, depth + 1);

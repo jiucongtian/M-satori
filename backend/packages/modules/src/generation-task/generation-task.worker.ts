@@ -1,5 +1,12 @@
 import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import { GENERATION_QUEUE, isCommerceEvent, queueExecutionPolicy, RuntimeInfrastructure } from '@satori/infrastructure';
+import {
+  observeJob,
+  observeWorker,
+  GENERATION_QUEUE,
+  isCommerceEvent,
+  queueExecutionPolicy,
+  RuntimeInfrastructure,
+} from '@satori/infrastructure';
 import { Worker, type Job } from 'bullmq';
 import { GenerationTaskRunner } from './generation-task.runner.js';
 import { GenerationTaskService } from './generation-task.service.js';
@@ -21,13 +28,14 @@ export class GenerationTaskWorker implements OnModuleInit, OnApplicationShutdown
     const policy = queueExecutionPolicy(this.infrastructure.environment);
     this.worker = new Worker<{ taskId?: string; requestId?: string }>(
       GENERATION_QUEUE,
-      (job) => this.process(job, policy.jobTimeoutMs),
+      (job) => observeJob(GENERATION_QUEUE, job, () => this.process(job, policy.jobTimeoutMs)),
       {
         connection: this.infrastructure.redis,
         prefix: this.infrastructure.environment.QUEUE_PREFIX,
         concurrency: policy.concurrency,
       },
     );
+    observeWorker(this.worker, GENERATION_QUEUE);
     this.recoveryTimer = setInterval(
       () => void this.tasks.recoverStaleTasks(),
       Math.max(5_000, policy.jobTimeoutMs / 2),
