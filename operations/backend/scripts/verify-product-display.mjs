@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { SignJWT } from 'jose';
 import pg from 'pg';
-if (process.env.OPERATIONS_ANALYTICS_ENV !== 'test') throw new Error('Test environment required');
+const testOrigin = (process.env.OPERATIONS_CORS_ORIGIN ?? '').split(',').some(origin => new URL(origin).hostname === 'operations.test.shenxinyou.com');
+if ((process.env.OPERATIONS_ANALYTICS_ENV ?? 'test') !== 'test' || !testOrigin) throw new Error('Test environment required');
 const pool = new pg.Pool({connectionString:process.env.DATABASE_URL});
 const token = await new SignJWT({name:'商品入口测试',bootstrap:true,roles:['SUPER_ADMIN']})
   .setProtectedHeader({alg:'HS256'}).setSubject('product-display-test').setAudience('fresh-operations')
