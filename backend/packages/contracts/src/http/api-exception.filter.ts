@@ -92,20 +92,13 @@ export class ApiExceptionFilter implements ExceptionFilter {
                     ? HttpStatus.SERVICE_UNAVAILABLE
                     : HttpStatus.INTERNAL_SERVER_ERROR;
     const status = exception instanceof HttpException ? exception.getStatus() : domainStatus;
-    if (status === 500) {
-      console.error('unhandled_api_exception', {
-        requestId: request.id,
-        method: request.method,
-        url: request.url,
-        error: exception instanceof Error ? exception.message : String(exception),
-      });
-    }
     const normalized =
       exception instanceof HttpException
         ? normalizeHttpException(exception)
         : domainCode && domainStatus !== HttpStatus.INTERNAL_SERVER_ERROR
           ? { code: domainCode, message: exception instanceof Error ? exception.message : domainCode }
           : { code: 'INTERNAL_ERROR', message: 'Internal server error' };
+    request.observabilityError = { code: normalized.code };
     const body: ApiErrorEnvelope = {
       error: { ...normalized, requestId: request.id },
     };

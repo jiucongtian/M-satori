@@ -1,7 +1,7 @@
 import { Injectable, type CallHandler, type ExecutionContext, type NestInterceptor } from '@nestjs/common';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import type { Observable } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { tap } from 'rxjs/operators';
 
 const COMMERCE_PATH_PREFIXES = [
   '/api/v1/service-offerings',
@@ -39,33 +39,9 @@ export class CommerceObservabilityInterceptor implements NestInterceptor<unknown
   intercept(context: ExecutionContext, next: CallHandler<unknown>): Observable<unknown> {
     const http = context.switchToHttp();
     const request = http.getRequest<FastifyRequest>();
-    const response = http.getResponse<FastifyReply>();
     const path = new URL(request.url, 'http://satori.local').pathname;
     if (!COMMERCE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix))) return next.handle();
-    const startedAt = performance.now();
-    return next.handle().pipe(
-      tap((body) => {
-        console.info('commerce_api_completed', {
-          requestId: request.id,
-          method: request.method,
-          path,
-          statusCode: response.statusCode,
-          durationMs: Math.round(performance.now() - startedAt),
-          ...commerceIdentifiers(body),
-        });
-      }),
-      catchError((error: unknown) => {
-        console.warn('commerce_api_failed', {
-          requestId: request.id,
-          method: request.method,
-          path,
-          statusCode: response.statusCode,
-          durationMs: Math.round(performance.now() - startedAt),
-          code: errorCode(error),
-        });
-        throw error;
-      }),
-    );
+    return next.handle().pipe(tap((body) => { request.observabilityIds = commerceIdentifiers(body); }));
   }
 }
 
@@ -90,7 +66,10 @@ function visit(value: unknown, found: Record<string, string>, depth: number) {
   }
 }
 
-function errorCode(error: unknown) {
-  if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') return error.code;
-  return 'INTERNAL_ERROR';
+// Metadata only. Fastify logs once after the actual response status is finalized.
+declare module 'fastify' {
+  interface FastifyRequest {
+    observabilityIds?: Record<string, string>;
+    observabilityError?: Record<string, string>;
+  }
 }

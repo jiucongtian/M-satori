@@ -16,3 +16,5 @@ export * from './health.js';
 export * from './queue/client.js';
 export * from './runtime.module.js';
 export * from './security/field-cipher.js';
+
+export * from './observability/telemetry.js';

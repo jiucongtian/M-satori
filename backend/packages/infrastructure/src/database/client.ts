@@ -1,12 +1,14 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolClient } from 'pg';
 import type { Environment } from '../config/environment.js';
+import { instrumentDatabase } from '../observability/database.js';
 import * as schema from './schema.js';
 
 export type Database = NodePgDatabase<typeof schema>;
 
 export function createDatabase(environment: Environment): { pool: Pool; database: Database } {
   const pool = new Pool({ connectionString: environment.DATABASE_URL, max: environment.DATABASE_POOL_MAX });
+  instrumentDatabase(pool);
   return { pool, database: drizzle(pool, { schema }) };
 }
 

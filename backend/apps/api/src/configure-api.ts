@@ -4,6 +4,7 @@ import { ApiEnvelopeInterceptor, ApiExceptionFilter, CommerceObservabilityInterc
 import { newId, type Environment } from '@satori/infrastructure';
 import fastifyCookie from '@fastify/cookie';
 import type { IncomingMessage } from 'node:http';
+import { registerRequestObservability } from './request-observability.js';
 import { Readable } from 'node:stream';
 import { validate as validateUuid } from 'uuid';
 
@@ -21,6 +22,7 @@ export function createFastifyAdapter(): FastifyAdapter {
       return candidate && validateUuid(candidate) ? candidate : newId();
     },
   });
+  registerRequestObservability(adapter.getInstance());
   adapter.getInstance().addHook('onRequest', (request, reply, done) => {
     void reply.header('X-Request-Id', request.id);
     done();
