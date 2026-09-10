@@ -30,14 +30,6 @@ export const taskStatus = pgEnum('generation_task_status', [
   'FAILED',
   'CANCELLED',
 ]);
-export const seedEntryType = pgEnum('seed_entry_type', [
-  'GRANT',
-  'RESERVE',
-  'CONSUME',
-  'RELEASE',
-  'REFUND',
-  'ADJUSTMENT',
-]);
 export const dailyInsightStatus = pgEnum('daily_insight_status', [
   'PENDING',
   'GENERATING',
@@ -436,53 +428,6 @@ export const cardCatalog = pgTable(
   ],
 );
 
-export const seedAccounts = pgTable(
-  'seed_accounts',
-  {
-    id: id(),
-    userId: uuid('user_id')
-      .notNull()
-      .unique()
-      .references(() => users.id),
-    available: integer('available').notNull().default(0),
-    reserved: integer('reserved').notNull().default(0),
-    totalEarned: bigint('total_earned', { mode: 'number' }).notNull().default(0),
-    totalSpent: bigint('total_spent', { mode: 'number' }).notNull().default(0),
-    version: integer('version').notNull().default(0),
-    updatedAt: updatedAt(),
-  },
-  (table) => [check('seed_accounts_nonnegative', sql`${table.available} >= 0 and ${table.reserved} >= 0`)],
-);
-
-export const seedEntries = pgTable(
-  'seed_entries',
-  {
-    id: id(),
-    accountId: uuid('account_id')
-      .notNull()
-      .references(() => seedAccounts.id),
-    type: seedEntryType('type').notNull(),
-    amount: integer('amount').notNull(),
-    availableAfter: integer('available_after').notNull(),
-    reservedAfter: integer('reserved_after').notNull(),
-    businessKey: varchar('business_key', { length: 160 }).notNull(),
-    businessType: varchar('business_type', { length: 64 }).notNull(),
-    resourceId: uuid('resource_id'),
-    originalEntryId: uuid('original_entry_id').references((): AnyPgColumn => seedEntries.id),
-    metadata: jsonb('metadata').notNull().default({}),
-    createdAt: createdAt(),
-  },
-  (table) => [
-    uniqueIndex('seed_entries_business_uq').on(table.accountId, table.type, table.businessKey),
-    index('seed_entries_account_cursor_idx').on(table.accountId, table.createdAt, table.id),
-    check('seed_entries_amount_nonzero', sql`${table.amount} <> 0`),
-    check(
-      'seed_entries_snapshots_nonnegative',
-      sql`${table.availableAfter} >= 0 and ${table.reservedAfter} >= 0`,
-    ),
-  ],
-);
-
 export const registrationRewards = pgTable(
   'registration_rewards',
   {
@@ -493,7 +438,6 @@ export const registrationRewards = pgTable(
     rewardType: varchar('reward_type', { length: 64 }).notNull(),
     amount: integer('amount').notNull(),
     status: varchar('status', { length: 24 }).notNull().default('AVAILABLE'),
-    seedEntryId: uuid('seed_entry_id').references(() => seedEntries.id),
     claimedAt: timestamp('claimed_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
@@ -519,8 +463,6 @@ export const dailyInsights = pgTable(
     status: dailyInsightStatus('status').notNull().default('PENDING'),
     content: jsonb('content'),
     generationManifest: jsonb('generation_manifest'),
-    seedReservationEntryId: uuid('seed_reservation_entry_id').references(() => seedEntries.id),
-    seedSettlementEntryId: uuid('seed_settlement_entry_id').references(() => seedEntries.id),
     consumptionIntentId: uuid('consumption_intent_id'),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: createdAt(),

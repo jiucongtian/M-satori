@@ -17,9 +17,7 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
   let infrastructure: ReturnType<typeof createDatabase>;
   let environment: ReturnType<typeof validateEnvironment>;
   const userId = randomUUID();
-  const migrationUserId = randomUUID();
   const concurrencyUserId = randomUUID();
-  const migrationReplayUserId = randomUUID();
   const registrationUserId = randomUUID();
 
   beforeAll(async () => {
@@ -32,11 +30,9 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
     infrastructure = createDatabase(environment);
     pool = infrastructure.pool;
     await migrate(infrastructure.database, { migrationsFolder: './drizzle' });
-    await pool.query(`insert into users(id) values($1),($2),($3),($4),($5)`, [
+    await pool.query(`insert into users(id) values($1),($2),($3)`, [
       userId,
-      migrationUserId,
       concurrencyUserId,
-      migrationReplayUserId,
       registrationUserId,
     ]);
     repository = new PostgresComplimentarySeedRepository({ pool } as never);
@@ -44,31 +40,15 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
   });
 
   afterAll(async () => {
-    await pool.query(`alter table seed_entries disable trigger seed_entries_append_only`);
-    try {
-      for (const owner of [
-        userId,
-        migrationUserId,
-        concurrencyUserId,
-        migrationReplayUserId,
-        registrationUserId,
-      ]) {
-        await pool.query(`delete from registration_rewards where user_id=$1`, [owner]);
-        await pool.query(`delete from complimentary_seed_entries where owner_user_id=$1`, [owner]);
-        await pool.query(`delete from complimentary_seed_allocations where owner_user_id=$1`, [owner]);
-        await pool.query(`delete from complimentary_seed_grants where owner_user_id=$1`, [owner]);
-        await pool.query(`delete from complimentary_seed_account_projections where owner_user_id=$1`, [
-          owner,
-        ]);
-        await pool.query(
-          `delete from seed_entries where account_id in (select id from seed_accounts where user_id=$1)`,
-          [owner],
-        );
-        await pool.query(`delete from seed_accounts where user_id=$1`, [owner]);
-        await pool.query(`delete from users where id=$1`, [owner]);
-      }
-    } finally {
-      await pool.query(`alter table seed_entries enable trigger seed_entries_append_only`);
+    for (const owner of [userId, concurrencyUserId, registrationUserId]) {
+      await pool.query(`delete from registration_rewards where user_id=$1`, [owner]);
+      await pool.query(`delete from complimentary_seed_entries where owner_user_id=$1`, [owner]);
+      await pool.query(`delete from complimentary_seed_allocations where owner_user_id=$1`, [owner]);
+      await pool.query(`delete from complimentary_seed_grants where owner_user_id=$1`, [owner]);
+      await pool.query(`delete from complimentary_seed_account_projections where owner_user_id=$1`, [
+        owner,
+      ]);
+      await pool.query(`delete from users where id=$1`, [owner]);
     }
     await pool.end();
   });
@@ -177,84 +157,7 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
     expect(await repository.getAccount(userId)).toMatchObject({ available: 15, reserved: 0, totalSpent: 3 });
   });
 
-  it('migrates legacy totals idempotently and blocks cutover while legacy reservations remain', async () => {
-    const legacyAccountId = randomUUID();
-    await pool.query(
-      `insert into seed_accounts(id,user_id,available,reserved,total_earned,total_spent) values($1,$2,7,2,20,11)`,
-      [legacyAccountId, migrationUserId],
-    );
-    const legacyEntryId = randomUUID();
-    await pool.query(
-      `insert into seed_entries
-       (id,account_id,type,amount,available_after,reserved_after,business_key,business_type,metadata)
-       values($1,$2,'GRANT',20,20,0,'legacy-registration','REGISTRATION_REWARD',$3)`,
-      [legacyEntryId, legacyAccountId, JSON.stringify({ title: '新用户注册赠送' })],
-    );
-    await expect(repository.migrateLegacyAccount(migrationUserId, randomUUID())).rejects.toMatchObject({
-      code: 'SEED_MIGRATION_BLOCKED',
-    });
-    expect(await repository.getAccount(migrationUserId)).toBeNull();
-    expect(await repository.listGrants(migrationUserId)).toHaveLength(0);
-    await pool.query('update seed_accounts set available=9,reserved=0 where user_id=$1', [migrationUserId]);
-    const first = await repository.migrateLegacyAccount(migrationUserId, randomUUID());
-    const replay = await repository.migrateLegacyAccount(migrationUserId, randomUUID());
-    expect(first).toMatchObject({
-      state: 'MIGRATED',
-      consistent: true,
-      batch: { available: 9, reserved: 0 },
-    });
-    expect(replay.grantId).toBe(first.grantId);
-    expect(await repository.getAccount(migrationUserId)).toMatchObject({
-      available: 9,
-      reserved: 0,
-      totalEarned: 20,
-      totalSpent: 11,
-    });
-    const transactions = await repository.listTransactions(migrationUserId, null, 20);
-    expect(transactions.rows).toEqual([
-      expect.objectContaining({
-        transactionId: legacyEntryId,
-        type: 'GRANT',
-        amount: 20,
-        title: '新用户注册赠送',
-      }),
-    ]);
-    expect(await repository.reconcile(migrationUserId)).toMatchObject({ consistent: true });
-  });
-
-  it('does not overwrite batch consumption when the deployment migration replays', async () => {
-    await pool.query(
-      `insert into seed_accounts(id,user_id,available,reserved,total_earned,total_spent) values($1,$2,18,0,18,0)`,
-      [randomUUID(), migrationReplayUserId],
-    );
-    await repository.migrateLegacyAccount(migrationReplayUserId, randomUUID());
-    const context = { type: 'READING', id: randomUUID() };
-    const reservation = await repository.reserve({
-      ownerUserId: migrationReplayUserId,
-      businessSpace: 'SATORI',
-      serviceType: 'DAILY_INSIGHT',
-      quantity: 2,
-      businessKey: `migration-replay:${randomUUID()}`,
-      businessContext: context,
-      requestId: randomUUID(),
-    });
-    await repository.settle(reservation.reservationId, 'CONSUME', context, randomUUID());
-
-    const replay = await repository.migrateLegacyAccount(migrationReplayUserId, randomUUID());
-
-    expect(await repository.getAccount(migrationReplayUserId)).toMatchObject({
-      available: 16,
-      totalSpent: 2,
-    });
-    expect(replay).toMatchObject({ state: 'REPLAYED', consistent: true });
-    expect(await repository.reconcile(migrationReplayUserId)).toMatchObject({ consistent: true });
-  });
-
   it('makes a claimed registration reward immediately eligible for unified consumption', async () => {
-    await pool.query(
-      `insert into seed_accounts(id,user_id,available,reserved,total_earned,total_spent) values($1,$2,0,0,0,0)`,
-      [randomUUID(), registrationUserId],
-    );
     await pool.query(
       `insert into registration_rewards(id,user_id,reward_type,amount) values($1,$2,'NEW_USER_ONBOARDING',3)`,
       [randomUUID(), registrationUserId],
@@ -274,8 +177,6 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
       requestId: randomUUID(),
     });
     await repository.settle(reservation.reservationId, 'CONSUME', context, randomUUID());
-    const migration = await repository.migrateLegacyAccount(registrationUserId, randomUUID());
-
     const candidates = await repository.listCandidates({
       userId: registrationUserId,
       businessSpace: 'SATORI',
@@ -286,36 +187,6 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
     });
     expect(candidates).toHaveLength(1);
     expect(candidates[0]).toMatchObject({ availableQuantity: 2 });
-    expect(await repository.getAccount(registrationUserId)).toMatchObject({
-      available: 2,
-      totalEarned: 3,
-      totalSpent: 1,
-    });
-    expect(migration).toMatchObject({ state: 'REPLAYED', consistent: true });
-    expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
-  });
-
-  it('recognizes proven registration dual-writes without replenishing consumed seeds', async () => {
-    const oldEntryId = randomUUID();
-    await pool.query(
-      `insert into seed_entries(id,account_id,type,amount,available_after,reserved_after,business_key,business_type)
-      select $1,id,'GRANT',3,3,0,'registration-mirror-fixture','REGISTRATION_REWARD' from seed_accounts where user_id=$2`,
-      [oldEntryId, registrationUserId],
-    );
-    await pool.query('update seed_accounts set available=3,total_earned=3 where user_id=$1', [
-      registrationUserId,
-    ]);
-    await pool.query('update registration_rewards set seed_entry_id=$1 where user_id=$2', [
-      oldEntryId,
-      registrationUserId,
-    ]);
-    expect(await repository.migrateLegacyAccount(registrationUserId, randomUUID())).toMatchObject({
-      state: 'REPLAYED',
-      consistent: true,
-    });
-    expect(await repository.migrateLegacyAccount(registrationUserId, randomUUID())).toMatchObject({
-      state: 'REPLAYED',
-    });
     expect(await repository.getAccount(registrationUserId)).toMatchObject({
       available: 2,
       totalEarned: 3,
@@ -347,20 +218,6 @@ describe.skipIf(!runDatabaseTests)('complimentary seed batch ledger', () => {
       'update complimentary_seed_grants set available_quantity=available_quantity-1 where id=$1',
       [grantId],
     );
-  });
-
-  it('does not silently accept an unrelated batch as migrated legacy balance', async () => {
-    await pool.query('update seed_accounts set available=8,total_earned=8 where user_id=$1', [
-      registrationUserId,
-    ]);
-    await expect(repository.migrateLegacyAccount(registrationUserId, randomUUID())).rejects.toMatchObject({
-      code: 'SEED_MIGRATION_AMBIGUOUS',
-    });
-    expect(await repository.getAccount(registrationUserId)).toMatchObject({ available: 2 });
-    expect(await repository.listGrants(registrationUserId)).toHaveLength(1);
-    await pool.query('update seed_accounts set available=3,total_earned=3 where user_id=$1', [
-      registrationUserId,
-    ]);
   });
 
   it('replays an identical adjustment but rejects a changed payload', async () => {

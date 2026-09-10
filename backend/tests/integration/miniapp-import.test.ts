@@ -97,8 +97,6 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
       'idempotency_records',
       'generation_tasks',
       'outbox',
-      'seed_accounts',
-      'seed_entries',
       'money_orders',
     ];
     const result: Record<string, number> = {};
@@ -157,8 +155,6 @@ describe.skipIf(!connectionString)('miniapp import in an isolated PostgreSQL dat
       'identities',
       'generation_tasks',
       'outbox',
-      'seed_accounts',
-      'seed_entries',
       'money_orders',
     ])
       expect(after[table]).toBe(before[table]);

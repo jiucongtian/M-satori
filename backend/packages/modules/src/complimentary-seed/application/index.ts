@@ -11,7 +11,6 @@ import type { BusinessContext, ServiceRequirement, ServiceType } from '@satori/d
 import type { ComplimentarySeedGrantView, ComplimentarySeedSourceType } from '../domain/index.js';
 
 export const COMPLIMENTARY_SEED_REPOSITORY = Symbol('COMPLIMENTARY_SEED_REPOSITORY');
-export const SEED_BATCH_MIGRATION_VERSION = 'legacy-seed-opening-v1';
 
 export interface GrantComplimentarySeedsCommand {
   readonly ownerUserId: string;
@@ -46,25 +45,6 @@ export interface SeedReservationView {
   readonly expiresAt: Date | null;
 }
 
-export interface SeedMigrationReport {
-  readonly ownerUserId: string;
-  readonly state: 'MIGRATED' | 'REPLAYED' | 'BLOCKED';
-  readonly legacy: {
-    available: number;
-    reserved: number;
-    totalEarned: number;
-    totalSpent: number;
-  };
-  readonly batch: {
-    available: number;
-    reserved: number;
-    totalEarned: number;
-    totalSpent: number;
-  };
-  readonly consistent: boolean;
-  readonly grantId: string | null;
-}
-
 export interface SeedReconciliationReport {
   readonly ownerUserId: string;
   readonly consistent: boolean;
@@ -97,7 +77,6 @@ export interface ComplimentarySeedRepository extends SeedBatchProjectionQueryPor
     reasonCode: string,
     requestId: string,
   ): Promise<void>;
-  migrateLegacyAccount(ownerUserId: string, requestId: string): Promise<SeedMigrationReport>;
   reconcile(ownerUserId: string): Promise<SeedReconciliationReport>;
   listGrants(ownerUserId: string): Promise<readonly ComplimentarySeedGrantView[]>;
 }
@@ -189,10 +168,6 @@ export class ComplimentarySeedApplicationService
 
   listTransactions(ownerUserId: string, cursor: { createdAt: Date; id: string } | null, limit: number) {
     return this.repository.listTransactions(ownerUserId, cursor, limit);
-  }
-
-  migrateLegacyAccount(ownerUserId: string, requestId: string) {
-    return this.repository.migrateLegacyAccount(ownerUserId, requestId);
   }
 
   expireDue(now = new Date(), requestId = crypto.randomUUID()) {

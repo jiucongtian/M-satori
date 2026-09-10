@@ -1,5 +1,4 @@
 import { SEED_ENTRY_PROJECTION_SQL } from './seed-entry-projection.js';
-import { LEGACY_REGISTRATION_COVERAGE_SQL } from './legacy-registration-coverage.js';
 import { Inject, Injectable } from '@nestjs/common';
 import type { BenefitCandidate, SeedEligibilityPort } from '@satori/application';
 import type { BusinessContext, ServiceRequirement, ServiceType } from '@satori/domain';
@@ -9,7 +8,6 @@ import type { PoolClient } from 'pg';
 import type {
   ComplimentarySeedRepository,
   GrantComplimentarySeedsCommand,
-  SeedMigrationReport,
   SeedReservationCommand,
   SeedReservationView,
 } from '../application/index.js';
@@ -565,153 +563,6 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
       })),
       hasMore: result.rows.length > limit,
     };
-  }
-
-  async migrateLegacyAccount(ownerUserId: string, requestId: string): Promise<SeedMigrationReport> {
-    return this.transaction(async (client) => {
-      await advisoryLock(client, `seed-migration:${ownerUserId}`);
-      const legacyResult = await client.query<{
-        id: string;
-        available: number;
-        reserved: number;
-        total_earned: string;
-        total_spent: string;
-      }>(
-        `select id,available,reserved,total_earned::text,total_spent::text from seed_accounts where user_id=$1 for update`,
-        [ownerUserId],
-      );
-      const legacy = legacyResult.rows[0];
-      if (!legacy)
-        throw new ComplimentarySeedError('SEED_ACCOUNT_NOT_FOUND', 'Legacy seed account was not found');
-      if (legacy.reserved > 0)
-        throw new ComplimentarySeedError(
-          'SEED_MIGRATION_BLOCKED',
-          'Settle legacy reservations before migration',
-        );
-      const sourceId = `legacy-account:${legacy.id}`;
-      const existing = await client.query<GrantRow>(
-        `select * from complimentary_seed_grants where owner_user_id=$1 and source_type='MIGRATION' and source_id=$2`,
-        [ownerUserId, sourceId],
-      );
-      const batchActivity = await client.query<{ exists: boolean }>(
-        `select exists(select 1 from complimentary_seed_grants where owner_user_id=$1)`,
-        [ownerUserId],
-      );
-      if (!existing.rows[0] && batchActivity.rows[0]!.exists) {
-        const projection = await client.query<AccountRow>(
-          'select * from complimentary_seed_account_projections where owner_user_id=$1',
-          [ownerUserId],
-        );
-        const row = projection.rows[0];
-        const emptyLegacy =
-          legacy.available === 0 && Number(legacy.total_earned) === 0 && Number(legacy.total_spent) === 0;
-        const matching =
-          row &&
-          row.available_quantity === legacy.available &&
-          row.reserved_quantity === legacy.reserved &&
-          Number(row.total_granted) === Number(legacy.total_earned) &&
-          Number(row.total_consumed) === Number(legacy.total_spent);
-        const coverage = await client.query<{ covered: boolean }>(
-          `select (${LEGACY_REGISTRATION_COVERAGE_SQL}) covered from seed_accounts a where a.user_id=$1`,
-          [ownerUserId],
-        );
-        if (!emptyLegacy && !matching && !coverage.rows[0]?.covered)
-          throw new ComplimentarySeedError(
-            'SEED_MIGRATION_AMBIGUOUS',
-            'Existing batches do not prove that all legacy balance was migrated',
-          );
-      }
-      let grantId = existing.rows[0]?.id ?? null;
-      let createdMigrationGrant = false;
-      let state: SeedMigrationReport['state'] = 'REPLAYED';
-      if (!grantId && !batchActivity.rows[0]!.exists && legacy.available + legacy.reserved > 0) {
-        grantId = randomUUID();
-        createdMigrationGrant = true;
-        const total = legacy.available + legacy.reserved;
-        await client.query(
-          `insert into complimentary_seed_grants (id,owner_user_id,business_space,source_type,source_id,applicable_services,total_quantity,available_quantity,reserved_quantity,status,effective_at,expires_at,granted_at,expiry_timezone,rule_version,migration_version,request_id) values($1,$2,'SATORI','MIGRATION',$3,$4,$5,$6,$7,case when $6>0 then 'ACTIVE' else 'EXHAUSTED' end,now(),null,now(),null,'legacy-opening-v1','legacy-seed-opening-v1',$8)`,
-          [
-            grantId,
-            ownerUserId,
-            sourceId,
-            JSON.stringify(['DAILY_INSIGHT']),
-            total,
-            legacy.available,
-            legacy.reserved,
-            requestId,
-          ],
-        );
-        await append(client, {
-          grantId,
-          ownerUserId,
-          businessSpace: 'SATORI',
-          entryType: 'GRANT',
-          quantity: total,
-          availableAfter: total,
-          reservedAfter: 0,
-          businessKey: `${sourceId}:GRANT`,
-          requestId,
-          context: { type: 'LEGACY_SEED_ACCOUNT', id: legacy.id },
-          metadata: { migrationVersion: 'legacy-seed-opening-v1' },
-        });
-        state = 'MIGRATED';
-      }
-      if (createdMigrationGrant || (!grantId && !batchActivity.rows[0]!.exists)) {
-        await client.query(
-          `insert into complimentary_seed_account_projections (owner_user_id,business_space,available_quantity,reserved_quantity,total_granted,total_consumed,version) values($1,'SATORI',$2,$3,$4,$5,1) on conflict(owner_user_id) do update set available_quantity=excluded.available_quantity,reserved_quantity=excluded.reserved_quantity,total_granted=excluded.total_granted,total_consumed=excluded.total_consumed,version=complimentary_seed_account_projections.version+1,updated_at=now()`,
-          [
-            ownerUserId,
-            legacy.available,
-            legacy.reserved,
-            Number(legacy.total_earned),
-            Number(legacy.total_spent),
-          ],
-        );
-      } else {
-        await client.query(
-          `insert into complimentary_seed_account_projections (owner_user_id,business_space) values($1,'SATORI') on conflict(owner_user_id) do nothing`,
-          [ownerUserId],
-        );
-      }
-      const projection = await client.query<AccountRow>(
-        `select * from complimentary_seed_account_projections where owner_user_id=$1`,
-        [ownerUserId],
-      );
-      const batch = {
-        available: projection.rows[0]!.available_quantity,
-        reserved: projection.rows[0]!.reserved_quantity,
-        totalEarned: Number(projection.rows[0]!.total_granted),
-        totalSpent: Number(projection.rows[0]!.total_consumed),
-      };
-      const legacyTotals = {
-        available: legacy.available,
-        reserved: legacy.reserved,
-        totalEarned: Number(legacy.total_earned),
-        totalSpent: Number(legacy.total_spent),
-      };
-      const grants = await client.query<{ available: number; reserved: number }>(
-        `select coalesce(sum(available_quantity),0)::int available,coalesce(sum(reserved_quantity),0)::int reserved from complimentary_seed_grants where owner_user_id=$1`,
-        [ownerUserId],
-      );
-      const internallyConsistent =
-        batch.available === grants.rows[0]!.available && batch.reserved === grants.rows[0]!.reserved;
-      const legacyMatchesUnmigratedBatch =
-        batchActivity.rows[0]!.exists ||
-        grantId !== null ||
-        (batch.available === legacyTotals.available &&
-          batch.reserved === legacyTotals.reserved &&
-          batch.totalEarned === legacyTotals.totalEarned &&
-          batch.totalSpent === legacyTotals.totalSpent);
-      const consistent = internallyConsistent && legacyMatchesUnmigratedBatch;
-      return {
-        ownerUserId,
-        state: consistent ? state : 'BLOCKED',
-        legacy: legacyTotals,
-        batch,
-        consistent,
-        grantId,
-      };
-    });
   }
 
   async reconcile(ownerUserId: string) {

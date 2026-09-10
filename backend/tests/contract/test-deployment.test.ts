@@ -10,14 +10,10 @@ describe('test deployment data migration contract', () => {
     expect(compose).toContain('SMS_DELIVERY_MODE: ${SMS_DELIVERY_MODE:-FIXED_CODE}');
   });
 
-  it('migrates legacy wisdom seeds before seeding content and starting the application', () => {
-    expect(compose).toContain('migrate-seed-batches:');
-    expect(compose).toContain("command: ['node_modules/.bin/tsx', 'scripts/migrate-complimentary-seeds.ts']");
+  it('applies the current schema before seeding content and starting the application', () => {
+    expect(compose).not.toContain('migrate-seed-batches:');
     expect(compose).toMatch(
-      /seed:\n[\s\S]*?depends_on:\n\s+migrate-seed-batches:\n\s+condition: service_completed_successfully/,
-    );
-    expect(compose).toMatch(
-      /migrate-seed-batches:\n[\s\S]*?depends_on:\n\s+migrate:\n\s+condition: service_completed_successfully/,
+      /seed:\n[\s\S]*?depends_on:\n\s+migrate:\n\s+condition: service_completed_successfully/,
     );
   });
 });

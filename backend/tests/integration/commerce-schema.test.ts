@@ -29,10 +29,9 @@ describe.skipIf(!runDatabaseTests)('R1.1 commerce schema', () => {
 
   afterAll(async () => pool.end());
 
-  it('starts from the complete migration chain and preserves R1.0 tables', async () => {
+  it('starts from the complete migration chain with the batch seed ledger', async () => {
     const requiredTables = [
       'users',
-      'seed_accounts',
       'generation_tasks',
       'service_offerings',
       'money_orders',

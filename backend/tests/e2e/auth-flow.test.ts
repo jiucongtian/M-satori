@@ -712,10 +712,6 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
     const reservation = await seeds.reservePromotion(command);
     const replay = await seeds.reservePromotion(command);
     expect(replay.reservationId).toBe(reservation.reservationId);
-    const infrastructure = app.get(RuntimeInfrastructure);
-    expect(
-      (await infrastructure.pool.query('select * from seed_accounts where user_id=$1', [userId])).rows,
-    ).toHaveLength(0);
     const repeatClaim = await app.inject({
       method: 'POST',
       url: '/api/v1/me/registration-reward/claim',

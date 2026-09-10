@@ -105,7 +105,7 @@ export class SeedLedgerService {
       // Claimed historical rewards are already included in the migrated opening balance.
       // Never re-grant them when a client replays the claim endpoint.
       let claimed = reward;
-      if (reward.status === 'AVAILABLE' && !reward.seedEntryId) {
+      if (reward.status === 'AVAILABLE') {
         await ensureRegistrationRewardBatch(tx, reward);
         [claimed] = (await tx
           .update(registrationRewards)

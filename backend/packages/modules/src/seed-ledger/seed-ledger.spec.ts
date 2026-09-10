@@ -83,7 +83,6 @@ describe('registration reward replay after cutover', () => {
           userId: 'user',
           amount: 18,
           status: 'CLAIMED',
-          seedEntryId: 'old-entry',
           claimedAt: now,
         },
       ],
