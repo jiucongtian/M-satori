@@ -1,5 +1,7 @@
 # GitHub 看板与状态规范
 
+自 `wufuhui_r1.1` 起，需求分类与版本标签遵循 [Issue 分类与版本需求治理](Issue分类与版本需求治理.md)。下表旧版 Type/Release 值仅供历史记录使用；五福荟 Type 使用 feature、CR、BUG、线上BUG，并与实际类型标签保持一致，Release 使用完整 `wufuhui_r1.x`。
+
 ## Project 字段
 
 | 字段 | 类型/值 |

@@ -1,5 +1,7 @@
 # GitHub Issues 联调管理规范
 
+`wufuhui_r1.1` 及后续五福荟版本的类型与 Release 标签以 [Issue 分类与版本需求治理](governance/Issue分类与版本需求治理.md) 为准：四类互斥标签为 `feature`、`CR`、`bug`、`线上BUG`，版本使用 `release:wufuhui_r1.x`。本页保留旧版本记录规则。
+
 ## 1. 唯一事实源
 
 `jiucongtian/M-satori` 的 GitHub Issues 是设计、开发、联调和测试问题的唯一事实源。Codex、飞书和即时聊天用于分析与沟通，不维护第二份问题台账。
