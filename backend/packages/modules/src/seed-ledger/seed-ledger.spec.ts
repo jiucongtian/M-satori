@@ -74,7 +74,7 @@ function createService(projection: SeedBatchProjectionQueryPort) {
 }
 
 describe('registration reward replay after cutover', () => {
-  it('returns the migrated balance without granting an already claimed historical reward again', async () => {
+  it('returns the migrated balance without reading or returning an old transaction', async () => {
     const now = new Date();
     const results = [
       [
@@ -89,19 +89,6 @@ describe('registration reward replay after cutover', () => {
       ],
       [{ availableQuantity: 2, reservedQuantity: 0, totalGranted: 18, totalConsumed: 16, updatedAt: now }],
       [],
-      [
-        {
-          id: 'old-entry',
-          type: 'GRANT',
-          amount: 18,
-          availableAfter: 18,
-          businessType: 'REGISTRATION_REWARD',
-          resourceId: 'reward',
-          originalEntryId: null,
-          metadata: {},
-          createdAt: now,
-        },
-      ],
     ];
     const write = vi.fn(() => {
       throw new Error('Historical reward must not write either ledger');
@@ -127,7 +114,7 @@ describe('registration reward replay after cutover', () => {
     );
     const result = await service.claimRegistrationReward('user');
     expect(result.account).toMatchObject({ available: 2, totalSpent: 16 });
-    expect(result.transaction.transactionId).toBe('old-entry');
+    expect(result.transaction).toBeNull();
     expect(write).not.toHaveBeenCalled();
   });
 });

@@ -70,7 +70,13 @@ export interface SeedBatchTransactionView {
   readonly type: 'GRANT' | 'RESERVE' | 'CONSUME' | 'RELEASE' | 'REFUND' | 'ADJUSTMENT';
   readonly amount: number;
   readonly balanceAfter: number;
-  readonly businessType: 'REGISTRATION_REWARD' | 'DAILY_INSIGHT';
+  readonly businessType:
+    | 'REGISTRATION_REWARD'
+    | 'DAILY_INSIGHT'
+    | 'SEED_PROMOTION'
+    | 'MANUAL_GRANT'
+    | 'ADJUSTMENT'
+    | 'SEED_GRANT';
   readonly resourceId: string;
   readonly originalTransactionId: string | null;
   readonly title: string;

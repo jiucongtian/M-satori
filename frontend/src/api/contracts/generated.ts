@@ -1739,7 +1739,7 @@ export interface components {
             amount: number;
             balanceAfter: number;
             /** @enum {string} */
-            businessType: "REGISTRATION_REWARD" | "DAILY_INSIGHT";
+            businessType: "REGISTRATION_REWARD" | "DAILY_INSIGHT" | "SEED_PROMOTION" | "MANUAL_GRANT" | "ADJUSTMENT" | "SEED_GRANT";
             resourceId: string;
             originalTransactionId?: string | null;
             title?: string;
@@ -1769,7 +1769,7 @@ export interface components {
             data: {
                 reward: components["schemas"]["RegistrationReward"];
                 account: components["schemas"]["WisdomSeedAccount"];
-                transaction: components["schemas"]["WisdomSeedTransaction"];
+                transaction: components["schemas"]["WisdomSeedTransaction"] | null;
             };
         };
         SeedSettlement: {

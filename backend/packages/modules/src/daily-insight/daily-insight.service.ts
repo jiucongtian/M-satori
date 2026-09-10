@@ -19,7 +19,6 @@ import {
   lifeProfiles,
   revisions,
   RuntimeInfrastructure,
-  seedEntries,
   subjects,
 } from '@satori/infrastructure';
 import { and, desc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm';
@@ -129,7 +128,6 @@ export class DailyInsightService implements OnModuleInit {
           .update(dailyInsights)
           .set({
             status: 'GENERATING',
-            seedReservationEntryId: null,
             consumptionIntentId: unified.intentId,
             updatedAt: new Date(),
           })
@@ -301,8 +299,6 @@ export class DailyInsightService implements OnModuleInit {
         .set({
           status: 'GENERATING',
           consumptionIntentId: intent.intentId,
-          seedReservationEntryId: null,
-          seedSettlementEntryId: null,
           updatedAt: new Date(),
         })
         .where(eq(dailyInsights.id, insight.id));
@@ -353,7 +349,6 @@ export class DailyInsightService implements OnModuleInit {
           status: 'READY',
           content: result.content,
           generationManifest: result.manifest,
-          seedSettlementEntryId: null,
           publishedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -404,26 +399,12 @@ export class DailyInsightService implements OnModuleInit {
   }
 
   private async toDto(row: typeof dailyInsights.$inferSelect) {
-    const entryId = row.seedSettlementEntryId ?? row.seedReservationEntryId;
-    const [entry] = entryId
-      ? await this.infrastructure.database
-          .select()
-          .from(seedEntries)
-          .where(eq(seedEntries.id, entryId))
-          .limit(1)
-      : [undefined];
     const settlementStatus =
-      row.consumptionIntentId && row.status === 'READY'
+      row.status === 'READY'
         ? 'CONSUMED'
-        : row.consumptionIntentId && row.status === 'FAILED'
+        : row.status === 'FAILED'
           ? 'RELEASED'
-          : entry?.type === 'CONSUME'
-            ? 'CONSUMED'
-            : entry?.type === 'RELEASE'
-              ? 'RELEASED'
-              : entry?.type === 'REFUND'
-                ? 'REFUNDED'
-                : 'RESERVED';
+          : 'RESERVED';
     return {
       dailyInsightId: row.id,
       localDate: row.localDate,
@@ -440,7 +421,7 @@ export class DailyInsightService implements OnModuleInit {
         currency: 'WISDOM_SEED',
         amount: this.infrastructure.policy.dailyInsight.price,
         status: settlementStatus,
-        transactionId: entry?.id ?? row.consumptionIntentId ?? '',
+        transactionId: row.consumptionIntentId ?? '',
       },
       publishedAt: row.publishedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

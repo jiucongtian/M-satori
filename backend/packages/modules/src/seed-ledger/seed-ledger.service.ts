@@ -12,11 +12,9 @@ import {
   complimentarySeedAccountProjections,
   complimentarySeedEntries,
   complimentarySeedGrants,
-  seedEntries,
 } from '@satori/infrastructure';
 import { and, eq, sql } from 'drizzle-orm';
 
-type EntryType = 'GRANT' | 'RESERVE' | 'CONSUME' | 'RELEASE' | 'REFUND' | 'ADJUSTMENT';
 export type SeedLedgerTransaction = Parameters<
   Parameters<RuntimeInfrastructure['database']['transaction']>[0]
 >[0];
@@ -136,11 +134,6 @@ export class SeedLedgerService {
           ),
         )
         .limit(1);
-      const [historical] =
-        !entry && reward.seedEntryId
-          ? await tx.select().from(seedEntries).where(eq(seedEntries.id, reward.seedEntryId)).limit(1)
-          : [undefined];
-      if (!entry && !historical) throw new Error('Registration reward ledger invariant violated');
       return {
         reward: this.rewardDto(claimed),
         account: {
@@ -163,24 +156,9 @@ export class SeedLedgerService {
               title: '新用户注册赠礼',
               createdAt: entry.createdAt.toISOString(),
             }
-          : this.entryDto(historical!),
+          : null,
       };
     });
-  }
-
-  private entryDto(entry: typeof seedEntries.$inferSelect) {
-    const metadata = entry.metadata as { title?: string };
-    return {
-      transactionId: entry.id,
-      type: entry.type,
-      amount: entry.amount,
-      balanceAfter: entry.availableAfter,
-      businessType: entry.businessType,
-      resourceId: entry.resourceId ?? entry.businessKey,
-      originalTransactionId: entry.originalEntryId,
-      title: metadata.title ?? this.defaultTitle(entry.type),
-      createdAt: entry.createdAt.toISOString(),
-    };
   }
 
   private rewardDto(reward: typeof registrationRewards.$inferSelect) {
@@ -194,16 +172,6 @@ export class SeedLedgerService {
     };
   }
 
-  private defaultTitle(type: EntryType) {
-    return {
-      GRANT: '智慧种子入账',
-      RESERVE: '智慧种子预留',
-      CONSUME: '智慧种子消费',
-      RELEASE: '智慧种子释放',
-      REFUND: '智慧种子退款',
-      ADJUSTMENT: '智慧种子调整',
-    }[type];
-  }
 }
 
 async function ensureRegistrationRewardBatch(

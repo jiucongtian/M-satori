@@ -991,10 +991,6 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
         .from(dailyInsights)
         .where(eq(dailyInsights.id, data.dailyInsight.dailyInsightId))
         .limit(1);
-      expect(row).toMatchObject({
-        seedReservationEntryId: null,
-        seedSettlementEntryId: null,
-      });
       expect(typeof row!.consumptionIntentId).toBe('string');
       expect(await app.get(ConsumptionApplicationService).getIntent(row!.consumptionIntentId!)).toMatchObject(
         {
@@ -1018,7 +1014,7 @@ describe.skipIf(!runDatabaseTests)('authentication E2E', () => {
         .from(dailyInsights)
         .where(eq(dailyInsights.id, data.dailyInsight.dailyInsightId))
         .limit(1);
-      expect(ready).toMatchObject({ status: 'READY', seedSettlementEntryId: null });
+      expect(ready).toMatchObject({ status: 'READY' });
       expect(ready!.consumptionIntentId).not.toBe(row!.consumptionIntentId);
       expect(
         await app.get(ConsumptionApplicationService).getIntent(ready!.consumptionIntentId!),

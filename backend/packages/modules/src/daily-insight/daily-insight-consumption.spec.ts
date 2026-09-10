@@ -41,8 +41,6 @@ describe('daily insight uses only unified consumption', () => {
       ownerUserId: 'user',
       status: 'FAILED',
       consumptionIntentId: null,
-      seedReservationEntryId: 'historical-reservation',
-      seedSettlementEntryId: 'historical-release',
     });
     await expect(service.generate('task', 'insight')).rejects.toThrow('generation unavailable');
     expect(consumption.reserve).toHaveBeenCalledWith(
@@ -57,8 +55,6 @@ describe('daily insight uses only unified consumption', () => {
     expect(updates).toContainEqual(
       expect.objectContaining({
         consumptionIntentId: 'new-intent',
-        seedReservationEntryId: null,
-        seedSettlementEntryId: null,
       }),
     );
   });

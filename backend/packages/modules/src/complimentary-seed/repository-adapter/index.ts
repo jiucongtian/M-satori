@@ -508,7 +508,7 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
 
   async listTransactions(ownerUserId: string, cursor: { createdAt: Date; id: string } | null, limit: number) {
     const values: unknown[] = [ownerUserId];
-    const cursorSql = cursor ? `where created_at<$2 or (created_at=$2 and id<$3)` : '';
+    const cursorSql = cursor ? `and (e.created_at<$2 or (e.created_at=$2 and e.id<$3))` : '';
     if (cursor) values.push(cursor.createdAt, cursor.id);
     values.push(limit + 1);
     const result = await this.infrastructure.pool.query<{
@@ -516,24 +516,31 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
       type: 'GRANT' | 'RESERVE' | 'CONSUME' | 'RELEASE' | 'REFUND' | 'ADJUSTMENT';
       amount: number;
       available_after: number;
-      business_type: 'REGISTRATION_REWARD' | 'DAILY_INSIGHT';
+      business_type:
+        | 'REGISTRATION_REWARD'
+        | 'DAILY_INSIGHT'
+        | 'SEED_PROMOTION'
+        | 'MANUAL_GRANT'
+        | 'ADJUSTMENT'
+        | 'SEED_GRANT';
       resource_id: string;
       original_id: string | null;
       title: string;
       created_at: Date;
     }>(
-      `select * from (
-         select e.id,e.type::text as type,e.amount,e.available_after,e.business_type,
-           coalesce(e.resource_id::text,e.business_key) resource_id,e.original_entry_id::text original_id,
-           coalesce(e.metadata->>'title','智慧种子记录') title,e.created_at
-         from seed_entries e join seed_accounts a on a.id=e.account_id where a.user_id=$1
-         union all
-         select e.id,
+      `select e.id,
            case e.entry_type when 'RESTORE' then 'REFUND' when 'EXPIRE' then 'ADJUSTMENT' else e.entry_type end type,
            case when e.entry_type in ('RESERVE','CONSUME','EXPIRE') then -e.quantity
              when e.entry_type='ADJUSTMENT' and e.metadata->>'direction'='DECREASE' then -e.quantity else e.quantity end amount,
            e.available_after,
-           case when e.business_context_type='REGISTRATION' then 'REGISTRATION_REWARD' else 'DAILY_INSIGHT' end business_type,
+           case
+             when e.business_context_type='REGISTRATION' then 'REGISTRATION_REWARD'
+             when e.business_context_type in ('MONEY_ORDER','PAYMENT_ATTEMPT','ORDER_CANCELLED','ORDER_EXPIRED','PAYMENT_FAILED') then 'SEED_PROMOTION'
+             when e.business_context_type='MANUAL_BENEFIT_GRANT' then 'MANUAL_GRANT'
+             when e.business_context_type='OPERATOR_ADJUSTMENT' then 'ADJUSTMENT'
+             when e.business_context_type='DAILY_INSIGHT_ATTEMPT' or e.metadata->>'serviceType'='DAILY_INSIGHT' then 'DAILY_INSIGHT'
+             else 'SEED_GRANT'
+           end business_type,
            coalesce(e.business_context_id,e.business_key) resource_id,e.original_entry_id::text original_id,
            case e.entry_type when 'GRANT' then '智慧种子入账' when 'RESERVE' then '智慧种子预留'
              when 'CONSUME' then '智慧种子消费' when 'RELEASE' then '智慧种子释放'
@@ -541,7 +548,7 @@ export class PostgresComplimentarySeedRepository implements ComplimentarySeedRep
            e.created_at
          from complimentary_seed_entries e
          where e.owner_user_id=$1 and not (e.metadata ? 'migrationVersion')
-       ) combined ${cursorSql} order by created_at desc,id desc limit $${values.length}`,
+         ${cursorSql} order by e.created_at desc,e.id desc limit $${values.length}`,
       values,
     );
     return {
