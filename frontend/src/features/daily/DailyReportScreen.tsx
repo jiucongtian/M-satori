@@ -35,7 +35,7 @@ export function DeepDailyReport({ insight, energyLevel, heavenCard, balance, onB
       <Brand compact /><div className="mini-balance"><i>●</i>{balance ?? "—"}</div>
     </header>
     <div className="report-scroll">
-      <p className="eyebrow">Today · {year}年{Number(month)}月{Number(day)}日{heavenCard ? ` · ${heavenCard}` : ""}</p>
+      <p className="eyebrow">Today · {year}年{Number(month)}月{Number(day)}日 · {heavenCard || "戊子"}</p>
       <h1>你的今日能量指引</h1>
       <div className="xiaosui-intro"><XiaosuiAvatar mood="listening" /><div>
         <strong>小岁说</strong>

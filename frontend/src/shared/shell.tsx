@@ -43,7 +43,7 @@ export function RouteFrame({ title, label, children, mode = "profile-mode" }: { 
   const headingRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   useEffect(() => {
-    document.title = `${title} · 初见 FRESH`;
+    document.title = `${title} · 五福荟`;
     headingRef.current?.focus({ preventScroll: true });
     headingRef.current?.querySelectorAll<HTMLElement>(".today-home-scroll,.reading-home-scroll,.coming-soon-scroll,.my-home-scroll").forEach((node) => {
       node.scrollTo({ top: 0, left: 0, behavior: "instant" });

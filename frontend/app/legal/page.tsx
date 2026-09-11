@@ -114,7 +114,7 @@ export default function LegalPage() {
   return <main className="legal-page">
     <header className="legal-header">
       <button type="button" onClick={() => window.history.back()} aria-label="返回">←</button>
-      <div><strong>初见 <span>FRESH</span></strong><small>{document ? `版本 ${document.version}` : "协议与隐私"}</small></div>
+      <div><strong>五福荟</strong><small>{document ? `版本 ${document.version}` : "协议与隐私"}</small></div>
       <i aria-hidden="true" />
     </header>
     <article className="legal-paper" aria-busy={!document && !error}>
