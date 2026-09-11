@@ -1,7 +1,7 @@
 name: wufuhui-test
 
 services:
-  api:
+  api: &runtime
     build:
       context: ../backend
       dockerfile: Dockerfile
@@ -12,6 +12,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       RELEASE_SHA: ${RELEASE_SHA:-unknown}
+      QUEUE_PREFIX: wufuhui-test
       DATABASE_URL: postgresql://satori:${POSTGRES_PASSWORD}@satori-test-postgres-1:5432/satori
       REDIS_URL: redis://satori-test-redis-1:6379
     ports:
@@ -20,6 +21,11 @@ services:
       - /opt/satori-test/miniapp-archive:/opt/satori-test/miniapp-archive:ro
     restart: unless-stopped
     networks: [satori-test_backend]
+
+  worker:
+    <<: *runtime
+    ports: []
+    command: ["node", "dist/apps/worker/src/main.js"]
 
 networks:
   satori-test_backend:
