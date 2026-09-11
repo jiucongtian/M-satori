@@ -22,6 +22,19 @@ const aquaResultSchema = z.object({
   action: z.string().min(8).max(200),
   reflectionQuestion: z.string().min(8).max(120),
   notice: z.literal(AQUA_NOTICE),
+  endowment: z.string().max(30).optional(),
+  resonance: z.enum(['高', '中', '低']).optional(),
+  xiaosui: z.object({
+    mood: z.enum(['listening', 'explaining', 'encouraging']).default('explaining'),
+    intro: z.string().max(30),
+  }).optional(),
+  sections: z.array(z.object({
+    code: z.string().min(1).max(30),
+    title: z.string().min(1).max(30),
+    tip: z.string().min(1).max(600),
+    source: z.string().min(1).max(600),
+    actions: z.array(z.string().min(1).max(160)).min(1).max(5),
+  })).length(5).optional(),
 });
 
 const aquaManifestSchema = z.object({
@@ -138,6 +151,10 @@ function toGenerationResult(
       action: content.action,
       reflectionQuestion: content.reflectionQuestion,
       notice: SATORI_NOTICE,
+      endowment: content.endowment,
+      resonance: content.resonance,
+      xiaosui: content.xiaosui,
+      sections: content.sections,
     },
     manifest: {
       generator: 'AQUA_AI',

@@ -2193,6 +2193,10 @@ export interface components {
                 action?: string;
                 reflectionQuestion?: string;
                 notice?: string;
+                endowment?: string;
+                resonance?: "高" | "中" | "低";
+                xiaosui?: { mood?: "listening" | "explaining" | "encouraging"; intro?: string };
+                sections?: { code: string; title: string; tip: string; source: string; actions: string[] }[];
             } | null;
             fallback?: {
                 title?: string;
