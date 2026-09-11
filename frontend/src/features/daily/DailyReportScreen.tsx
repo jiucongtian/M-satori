@@ -28,20 +28,20 @@ export function DeepDailyReport({ insight, energyLevel, heavenCard, balance, onB
 }) {
   const content = insight.content;
   const sections = content?.sections?.length === 5 ? content.sections : MOCK_DEEP_SECTIONS;
-  const [, month, day] = insight.localDate.split("-");
+  const [year, month, day] = insight.localDate.split("-");
   return <section className="daily-page daily-report xiaosui-report">
     <header className="daily-header">
       <button type="button" className="back-button" onClick={onBack} aria-label="返回">←</button>
       <Brand compact /><div className="mini-balance"><i>●</i>{balance ?? "—"}</div>
     </header>
     <div className="report-scroll">
-      <p className="eyebrow">Today · {month}月{day}日{heavenCard ? ` · ${heavenCard}` : ""}</p>
+      <p className="eyebrow">Today · {year}年{Number(month)}月{Number(day)}日{heavenCard ? ` · ${heavenCard}` : ""}</p>
       <h1>你的今日能量指引</h1>
       <div className="xiaosui-intro"><XiaosuiAvatar mood="listening" /><div>
         <strong>小岁说</strong>
         <p>{content?.xiaosui?.intro || "我是小岁，陪你读懂今天，找到适合自己的下一步。"}</p>
       </div></div>
-      <div className="xiaosui-keyword-block"><small>今日关键词</small><strong>{content?.theme || "和合稳健，机会自来"}</strong><span>今日能量：{energyLevel || content?.resonance || "中"}</span></div>
+      <div className="xiaosui-keyword-block"><div className="xiaosui-energy-circle"><strong>{energyLevel || content?.resonance || "中"}</strong><small>今日能量</small></div><div className="xiaosui-keyword-copy"><small>今日关键词</small><strong>顺水推舟，机会自来</strong></div></div>
       {sections.map((section, index) => <article className="xiaosui-section" key={section.code}>
         <header><XiaosuiAvatar mood={index === 3 ? "listening" : index === 4 ? "encouraging" : "explaining"} />
           <div><small>{String(index + 1).padStart(2, "0")}</small><h2>{section.title}</h2></div>
