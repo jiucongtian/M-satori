@@ -1301,7 +1301,7 @@ function StageReviewReport({onBack,onHome}:{onBack:()=>void;onHome:()=>void}){re
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <a className={`brand ${compact ? "brand-compact" : ""}`} href="#" aria-label="五福荟首页">
-      <img className="brand-lockup" src="/brand/wufuhui-lockup.png" alt="五福荟 WU FU HUI" />
+      <img className="brand-lockup" src="/brand/wufuhui-lockup.webp" alt="五福荟 WU FU HUI" />
     </a>
   );
 }
