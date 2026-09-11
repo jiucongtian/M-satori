@@ -49,6 +49,19 @@ export function DeepDailyReport({ insight, onBack, onNext, onShare }: {
   </section>;
 }
 
+function legacySections(insight: DailyInsight) {
+  const content = insight.content;
+  if (!content) return [];
+  const titles = ["精力状态", "人际相处", "事务抉择", "内心觉察", "行事节奏"];
+  return titles.map((title, index) => ({
+    code: `legacy-${index + 1}`,
+    title,
+    tip: content.insight,
+    source: content.theme,
+    actions: [content.action, content.reflectionQuestion],
+  }));
+}
+
 export default function DailyReportScreen() {
   const [date, setDate] = useState<string | null>(null);
   const [returnPath, setReturnPath] = useState<AppPath>(ROUTES.home);
@@ -82,7 +95,7 @@ export default function DailyReportScreen() {
     onNext: () => router.replace(ROUTES.home),
     onShare: () => router.push(`/share/generating?type=daily&date=${encodeURIComponent(date)}`),
   };
-  const deep = insight.content?.sections;
+  const deep = insight.content?.sections ?? legacySections(insight);
   const validDeep = Array.isArray(deep) && deep.length === 5 && deep.every(section =>
     section && typeof section.code === "string" && typeof section.title === "string" &&
     typeof section.tip === "string" && typeof section.source === "string" &&
