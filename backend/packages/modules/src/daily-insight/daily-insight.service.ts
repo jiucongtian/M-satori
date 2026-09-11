@@ -26,6 +26,8 @@ import { GenerationTaskRunner } from '../generation-task/generation-task.runner.
 import { GenerationTaskService } from '../generation-task/generation-task.service.js';
 import { SeedLedgerService } from '../seed-ledger/seed-ledger.service.js';
 
+const WUFUHUI_DAILY_CONTENT_POLICY = 'r1.1';
+
 @Injectable()
 export class DailyInsightService implements OnModuleInit {
   private readonly cursors: CursorCodec;
@@ -99,7 +101,7 @@ export class DailyInsightService implements OnModuleInit {
               eq(dailyInsights.subjectId, selfProfile.subjectId),
               eq(dailyInsights.localDate, localDate),
               eq(dailyInsights.timezone, preference.timezone),
-              eq(dailyInsights.contentPolicyVersion, 'r1.0'),
+              eq(dailyInsights.contentPolicyVersion, WUFUHUI_DAILY_CONTENT_POLICY),
             ),
           )
           .limit(1);
@@ -119,7 +121,7 @@ export class DailyInsightService implements OnModuleInit {
           profileRevisionId: selfProfile.activeRevisionId,
           localDate,
           timezone: preference.timezone,
-          contentPolicyVersion: 'r1.0',
+          contentPolicyVersion: WUFUHUI_DAILY_CONTENT_POLICY,
           status: 'PENDING',
         });
         const unified = await this.reserveUnified(userId, insightId, 'initial');

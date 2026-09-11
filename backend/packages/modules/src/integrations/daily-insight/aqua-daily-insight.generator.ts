@@ -142,7 +142,7 @@ function toGenerationResult(
   response: WorkflowRunResponse<AquaDailyInsightOutput>,
   workflowId: string,
 ): DailyInsightGenerationResult {
-  const content = aquaResultSchema.parse(response.result);
+  const content = normalizeContent(aquaResultSchema.parse(response.result));
   const manifest = aquaManifestSchema.parse(response.manifest);
   return {
     content: {
@@ -169,6 +169,31 @@ function toGenerationResult(
       workflowVersion: manifest.workflowVersion,
       skillVersion: manifest.skillVersion,
     },
+  };
+}
+
+/**
+ * Keeps older Aqua daily-insight workflow versions compatible with the R1.1
+ * report contract. New workflow versions can return sections directly; legacy
+ * responses are split at sentence boundaries so no generated insight is lost.
+ */
+function normalizeContent(content: z.infer<typeof aquaResultSchema>) {
+  if (content.sections?.length === 5) return content;
+  const sentences = content.insight.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
+  const titles = ['精力状态', '人际相处', '事务抉择', '内心觉察', '行事节奏'];
+  const sections = titles.map((title, index) => ({
+    code: `daily-${index + 1}`,
+    title,
+    tip: sentences[index] ?? content.insight,
+    source: content.theme,
+    actions: [content.action, content.reflectionQuestion],
+  }));
+  return {
+    ...content,
+    endowment: content.endowment,
+    resonance: content.resonance ?? (/今日能量：([高中低])/u.exec(content.insight)?.[1] as '高' | '中' | '低' | undefined),
+    xiaosui: content.xiaosui ?? { mood: 'explaining' as const, intro: '我是小岁，陪你把今天的感受读清楚，找到适合自己的下一步。' },
+    sections,
   };
 }
 

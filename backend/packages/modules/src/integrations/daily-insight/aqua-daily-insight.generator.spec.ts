@@ -79,6 +79,10 @@ describe('AquaDailyInsightGenerator', () => {
       }),
     );
     expect(result.content.notice).toBe('内容用于自我观察与成长参考。');
+    expect(result.content.sections).toHaveLength(5);
+    expect(result.content.sections?.map((section) => section.title)).toEqual([
+      '精力状态', '人际相处', '事务抉择', '内心觉察', '行事节奏',
+    ]);
     expect(result.manifest).toMatchObject({
       generator: 'AQUA_AI',
       providerRequestId: 'aqua-request-1',
