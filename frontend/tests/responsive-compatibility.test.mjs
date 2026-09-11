@@ -38,3 +38,16 @@ test("兼容性调整不通过动态测高或重挂载底部栏实现", async ()
   assert.match(shell, /transform:translateZ\(0\)/);
   assert.match(shell, /prefers-reduced-motion:reduce/);
 });
+
+test("欢迎页在短屏中允许内容滚动并固定保留主操作区", async () => {
+  const [shell, welcome] = await Promise.all([
+    readFile(shellUrl, "utf8"),
+    readFile(new URL("../src/features/auth/WelcomeScreen.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(welcome, /mode="welcome-mode"/);
+  assert.match(welcome, /className="welcome-content"/);
+  assert.match(shell, /\.welcome-mode>\.welcome-content\{/);
+  assert.match(shell, /overflow-y:auto/);
+  assert.match(shell, /\.welcome-mode>\.bottom-panel\{/);
+  assert.match(shell, /flex:0 0 auto/);
+});
