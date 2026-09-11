@@ -102,7 +102,9 @@ test("真实路由返回目标不会指向会自动恢复的每日入口", async
     readFile(new URL("../src/features/daily/DailyScreen.tsx", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(report, /onBack=\{\(\)=>router\.(?:push|replace)\(ROUTES\.daily\)\}/);
-  assert.match(report, /onBack=\{\(\)=>router\.replace\(returnPath\)\}/);
+  assert.match(report, /onBack:\s*\(\)\s*=>\s*router\.replace\(returnPath\)/);
+  assert.match(report, /<DeepDailyReport[^>]*\{\.\.\.actions\}/);
+  assert.match(report, /<DailyReport[^>]*\{\.\.\.actions\}/);
   assert.match(home, /dailyReportPath\(home\.dailyInsight\.localDate\)/);
   assert.match(my, /dailyReportPath\(home\.dailyInsight\.localDate,"my-reports"\)/);
   assert.match(daily, /router\.replace\(dailyReportPath\(/);
