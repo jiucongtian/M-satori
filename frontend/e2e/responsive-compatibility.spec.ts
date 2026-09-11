@@ -41,6 +41,20 @@ test("华为 Mate X7 外屏首屏可见今日指引入口", async ({ page }, tes
   await expect(page.locator(".home-guidance-link")).toBeInViewport();
 });
 
+test("欢迎页主操作在所有目标尺寸中始终位于可视区域", async ({ page }) => {
+  await page.goto("/");
+  const action = page.getByRole("button", { name: "开始认识自己" });
+  await expect(action).toBeVisible();
+  await expect(action).toBeInViewport();
+
+  const geometry = await action.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+  });
+  expect(geometry.top).toBeGreaterThanOrEqual(0);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+});
+
 test("READ-13/15 的一至五张牌始终在固定区域按指定行数排列", async ({ page }) => {
   await page.goto("/home");
   for (const count of [1, 2, 3, 4, 5]) {
