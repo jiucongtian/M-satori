@@ -1,0 +1,27 @@
+name: wufuhui-test
+
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: runtime
+    env_file: ../backend/.env.production
+    environment:
+      APP_ENV: test
+      HOST: 0.0.0.0
+      PORT: 3000
+      RELEASE_SHA: ${RELEASE_SHA:-unknown}
+      DATABASE_URL: postgresql://satori:${POSTGRES_PASSWORD}@satori-test-postgres-1:5432/satori
+      REDIS_URL: redis://satori-test-redis-1:6379
+    ports:
+      - "127.0.0.1:3220:3000"
+    volumes:
+      - /opt/satori-test/miniapp-archive:/opt/satori-test/miniapp-archive:ro
+    restart: unless-stopped
+    networks: [satori-test_backend]
+
+networks:
+  satori-test_backend:
+    external: true
+    name: satori-test_backend

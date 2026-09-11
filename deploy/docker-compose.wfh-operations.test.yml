@@ -1,0 +1,31 @@
+name: wfh-operations-test
+
+services:
+  api:
+    build: {context: .., dockerfile: operations/backend/Dockerfile}
+    env_file: ../operations/.env.production
+    environment:
+      OPERATIONS_GIT_CACHE: /var/cache/operations-git
+    volumes: [development_git:/var/cache/operations-git]
+    restart: unless-stopped
+    ports: ["127.0.0.1:3221:3210"]
+    networks: [satori-test_backend]
+  web:
+    build:
+      context: ..
+      dockerfile: operations/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_OPERATIONS_API_BASE: /operations-api
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports: ["127.0.0.1:6920:6900"]
+
+volumes:
+  development_git:
+
+networks:
+  satori-test_backend:
+    external: true
+    name: satori-test_backend
