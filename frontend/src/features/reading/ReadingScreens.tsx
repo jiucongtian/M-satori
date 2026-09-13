@@ -2,6 +2,7 @@
 
 import type { CardReadingCard, CardReadingReport } from "@/src/api/client";
 import { ReadingHeader } from "./ReadingShell";
+import { XiaosuiAvatar } from "@/src/features/daily/DailyReportScreen";
 
 export function ReadingStep({ onBack, eyebrow, title, lead, children, action, onNext }: { onBack: () => void; eyebrow: string; title: React.ReactNode; lead?: string; children: React.ReactNode; action?: string; onNext?: () => void }) {
   return <section className="reading-page reading-step"><ReadingHeader onBack={onBack} /><p className="eyebrow">{eyebrow}</p><h1>{title}</h1>{lead && <p className="reading-lead">{lead}</p>}<div className="reading-step-body">{children}</div>{action && onNext && <button className="primary" type="button" onClick={onNext}>{action}<span>→</span></button>}</section>;
@@ -61,7 +62,7 @@ function readingReportTitle(raw:string|undefined,question:string|undefined){
 function LiveReadingSections({value}:{value:string}){
   const sections=reportSections(value);
   if(!sections.length)return <article className="report-section open"><p>本次报告尚未成功保存，请从问事记录重新生成。</p></article>;
-  return <div className="report-sections continuous">{sections.map((section,index)=><article className="report-section open" key={`${section.title}-${index}`}><header><small>{String(index+1).padStart(2,"0")}</small><strong>{section.title}</strong></header><div className="report-section-content"><p>{section.content}</p></div></article>)}</div>;
+  return <div className="report-sections continuous">{sections.map((section,index)=><article className="report-section open" key={`${section.title}-${index}`}><header><XiaosuiAvatar mood={index === 0 ? "listening" : index >= sections.length - 2 ? "encouraging" : "explaining"} /><div><small>{String(index+1).padStart(2,"0")}</small><strong>{section.title}</strong></div></header><div className="report-section-content"><p>{section.content}</p></div></article>)}</div>;
 }
 
 const reportStoryTitles=[
@@ -77,5 +78,5 @@ const reportStoryTitles=[
 ] as const;
 
 export function ReadingReport({ report=null, question, cardCount=2, cards=[], onBack, onNext, onShare, onFeedback }: { report?:CardReadingReport|null; question?:string; cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void; onShare?: () => void; onFeedback?: () => void }) {
-  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{readingReportTitle(report?.title,question)}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/><figcaption><strong>{card.positionLabel}</strong></figcaption></figure>)}</div><LiveReadingSections value={report?.report??""}/>{report?.notice&&<div className="task-rule">{report.notice}</div>}{onFeedback&&<button className="text-action" onClick={onFeedback}>留下本次问事反馈</button>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享初见 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
+  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{readingReportTitle(report?.title,question)}</h1><div className="xiaosui-intro"><XiaosuiAvatar mood="listening" /><div><strong>小岁说</strong><p>我是小岁，陪你一起读懂这份报告，找到适合自己的下一步。</p></div></div><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/><figcaption><strong>{card.positionLabel}</strong></figcaption></figure>)}</div><LiveReadingSections value={report?.report??""}/>{report?.notice&&<div className="task-rule">{report.notice}</div>}{onFeedback&&<button className="text-action" onClick={onFeedback}>留下本次问事反馈</button>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享五福荟问事报告 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
 }
