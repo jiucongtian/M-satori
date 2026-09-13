@@ -78,11 +78,13 @@ test("AUTH-03 与 AUTH-02 复用左上角品牌布局且不提供返回", async 
   assert.match(login, /<header className="brand-row login-header"><Brand \/><\/header>/);
   assert.doesNotMatch(login, /back-button|返回欢迎页|login-brand|Brand compact/);
 });
-test("R1.1 页面编号沿用构建默认值并允许明确的本地配置覆盖", async () => {
+test("R1.1 页面编号沿用构建默认值并允许后端配置覆盖", async () => {
   const page = await readPageSources();
   const component = await readFile(new URL("../src/shared/ui.tsx", import.meta.url), "utf8");
   assert.match(component, /process\.env\.NEXT_PUBLIC_SHOW_PAGE_LABELS !== "false"/);
-  assert.match(component, /storedValue===null\?defaultShowPageDebugLabels:storedValue==="true"/);
+  assert.match(component, /fetch\("\/api\/v1\/system-config\/page-labels"/);
+  assert.match(component, /if\(typeof value === "boolean"\)\{setEnabled\(value\)/);
+  assert.match(component, /if\(cached!==null\)setEnabled\(cached!=="false"\)/);
   assert.match(component, /enabled \? <span className="screen-id"/);
   assert.equal((component.match(/className="screen-id"/g) || []).length, 1);
   assert.ok((page.match(/<PageDebugLabel>/g) || []).length >= 2);
