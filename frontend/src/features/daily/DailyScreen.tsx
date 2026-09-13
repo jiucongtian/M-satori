@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, type HomeOverview, type WisdomSeedAccount } from "@/src/api/client";
-import { DailyGenerating, DailyStart, SeedPayment } from "@/src/features/legacy/LegacyProfileFlow";
+import { DailyGenerating, DailyStart } from "@/src/features/legacy/LegacyProfileFlow";
 import { ProtectedRoute } from "@/src/shared/guards";
 import { dailyReportPath, ROUTES } from "@/src/shared/routes";
 import { RouteFrame } from "@/src/shared/shell";
@@ -98,12 +98,11 @@ export default function DailyScreen() {
   const energy = home?.dailyEnergySummary.data?.energyLevel;
   let body;
   if (machine.state === "loading") body = <div className="legal-state" aria-live="polite"><i>芽</i><p>正在恢复今天的指引…</p></div>;
-  else if (machine.state === "start") body = <DailyStart name={name} energyLevel={energy} balance={balance} costLabel="1 次今日能量权益" onBack={() => router.push(ROUTES.home)} onNext={() => dispatch({ type: "CONFIRM_COST" })} />;
-  else if (machine.state === "confirming-cost") body = <SeedPayment balance={balance} busy={busy} unified onBack={() => dispatch({ type: "RESTORE_START" })} onNext={() => void create()} onSupport={() => router.push(ROUTES.mySupport)} />;
+  else if (machine.state === "start") body = <DailyStart name={name} energyLevel={energy} balance={balance} costLabel="1 次今日能量权益" onBack={() => router.push(ROUTES.home)} onNext={() => void create()} />;
   else if (machine.state === "generating") body = <DailyGenerating name={name} balance={balance} onBack={() => router.push(ROUTES.home)} />;
-  else if (errorCode === "PURCHASE_REQUIRED") body = <><DailyStart name={name} energyLevel={energy} balance={balance} costLabel="1 次今日能量权益" onBack={() => router.push(ROUTES.home)} onNext={() => dispatch({ type: "CONFIRM_COST" })} /><div className="credit-help-backdrop" role="presentation"><section className="credit-help-sheet" role="dialog" aria-modal="true" aria-labelledby="daily-benefit-title"><span className="sheet-icon" aria-hidden="true">芽</span><p className="eyebrow">SERVICE BENEFIT</p><h2 id="daily-benefit-title">暂时没有可用权益</h2><p>当前没有可用于今日指引的服务权益。你可以先查看智慧种子和已购权益，准备好后再回来继续。</p><button className="primary" type="button" onClick={() => router.push(ROUTES.myBenefits)}>前往我的权益 <span>→</span></button><button className="text-action" type="button" onClick={() => dispatch({ type: "RETRY" })}>稍后再说</button></section></div></>;
+  else if (errorCode === "PURCHASE_REQUIRED") body = <><DailyStart name={name} energyLevel={energy} balance={balance} costLabel="1 次今日能量权益" onBack={() => router.push(ROUTES.home)} onNext={() => void create()} /><div className="credit-help-backdrop" role="presentation"><section className="credit-help-sheet" role="dialog" aria-modal="true" aria-labelledby="daily-benefit-title"><span className="sheet-icon" aria-hidden="true">芽</span><p className="eyebrow">SERVICE BENEFIT</p><h2 id="daily-benefit-title">暂时没有可用权益</h2><p>当前没有可用于今日指引的服务权益。你可以先查看智慧种子和已购权益，准备好后再回来继续。</p><button className="primary" type="button" onClick={() => router.push(ROUTES.myBenefits)}>前往我的权益 <span>→</span></button><button className="text-action" type="button" onClick={() => dispatch({ type: "RETRY" })}>稍后再说</button></section></div></>;
   else body = <div className="legal-state legal-error" role="alert"><i>!</i><h1>今日指引暂时没有完成</h1><p>{error || "可以安全重试，不会重复扣除智慧种子。"}</p><button onClick={() => dispatch({ type: "RETRY" })}>返回重试</button></div>;
 
-  const pageCode = machine.state === "confirming-cost" ? "PAY-01" : machine.state === "generating" ? "DAILY-02" : "DAILY-01";
+  const pageCode = machine.state === "generating" ? "DAILY-02" : "DAILY-01";
   return <ProtectedRoute><RouteFrame title="每日指引" label="每日指引"><div className="profile-flow"><PageDebugLabel>{`R1.0 · ${pageCode}`}</PageDebugLabel>{body}</div></RouteFrame></ProtectedRoute>;
 }

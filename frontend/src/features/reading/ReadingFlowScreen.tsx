@@ -17,7 +17,6 @@ import { useSession } from "@/src/shared/session";
 import { readFlowDraft } from "@/src/shared/storage";
 import { apiMessage,PageDebugLabel } from "@/src/shared/ui";
 import { api,type CardReading } from "@/src/api/client";
-import { ReadingPaymentScreen } from "./ReadingPaymentScreen";
 import { ReadingFeedbackScreen } from "./ReadingFeedbackScreen";
 
 type ReadingDraft = { question:string; category:string; cardCount:number; positions:string[] };
@@ -113,8 +112,8 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     confirm: null,
     spread: null,
     config: null,
-    payment: drawRequestKey ? <ReadingPaymentScreen cardCount={cardCount} question={draft?.question} requestKey={drawRequestKey} onBack={()=>go("question")} onNext={()=>go("shuffle")}/> : null,
-    shuffle: <ReadingShuffle onBack={()=>go("payment")} onNext={()=>void beginDraw()}/>,
+    payment: null,
+    shuffle: <ReadingShuffle onBack={()=>go("home")} onNext={()=>void beginDraw()}/>,
     draw: <ReadingDraw cardCount={cardCount} onBack={()=>go("shuffle")} onNext={()=>go("reveal")}/>,
     reveal: <ReadingReveal cardCount={cardCount} cards={reading?.cards} onBack={()=>go("draw")} onNext={()=>go("generating")}/>,
     generating: <ReadingGenerate status={reading?.status??"GENERATING"} cardCount={reading?.cardCount??cardCount} cards={reading?.cards??[]} onBack={()=>requestedReturn?router.push(returnPath):go("reveal")} onLeave={()=>requestedReturn?router.push(returnPath):go("history")}/>,
@@ -123,7 +122,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     failure: <ReadingFailure onBack={()=>router.push(returnPath)} onRetry={()=>{generationStartedFor.current=null;void retryReading()}}/>,
   };
 
-  if(flowError)return <ProtectedRoute><RouteError title="本次问事暂时没有继续" message={flowError} onRetry={()=>window.location.reload()} backHref={ROUTES.readingHistory}/></ProtectedRoute>;
+  if(flowError)return <ProtectedRoute><RouteError title="本次问事暂时没有继续" message={flowError} onRetry={()=>window.location.reload()} backHref={flowError.includes("权益")||flowError.includes("次数")?ROUTES.shop:ROUTES.readingHistory}/></ProtectedRoute>;
   if(["payment","shuffle"].includes(step)&&draftLoaded&&!draft)return <ProtectedRoute><RouteError message="问事草稿已失效，请重新填写问题。" backHref={ROUTES.readingNew}/></ProtectedRoute>;
   if(["draw","reveal","generating","report","feedback","failure"].includes(step)&&!reading)return <ProtectedRoute><RouteSkeleton label="正在恢复问事记录…"/></ProtectedRoute>;
   if(["report","feedback"].includes(step)&&reading?.status!=="READY")return <ProtectedRoute><RouteError message="报告尚未完成，请从问事记录查看进度或继续生成。" backHref={ROUTES.readingHistory}/></ProtectedRoute>;

@@ -13,11 +13,11 @@ export function ReadingShuffle({ onBack, onNext }: { onBack: () => void; onNext:
 }
 
 export function ReadingDraw({ cardCount=2, onBack, onNext }: { cardCount?:number; onBack: () => void; onNext: () => void }) {
-  return <section className="reading-page draw-page reading-action-page"><ReadingHeader onBack={onBack}/><p className="eyebrow">{cardCount} CARDS DRAWN</p><h1>{cardCount} 张牌已经为你抽出</h1><p className="reading-lead">系统完成公平随机抽取，结果已经保存。</p><div className={`card-layout card-back-layout count-${cardCount}`}>{Array.from({length:cardCount},(_,i)=><figure key={i}><div className="unified-card-back"><i/><span>初</span></div><figcaption>第 {i+1} 张牌</figcaption></figure>)}</div><div className="fair-note"><span>衡</span><p><strong>本次抽取已经固定</strong>刷新或离开页面也不会改变结果。</p></div><button className="primary" onClick={onNext}>翻开这 {cardCount} 张牌 <span>→</span></button></section>;
+  return <section className="reading-page draw-page reading-action-page single-draw-result"><ReadingHeader onBack={onBack}/><p className="eyebrow">THE CARD FOUND YOU</p><h1>正在与你相遇…</h1><div className="single-rising-card" aria-label="本次抽到的卡牌卡背"><i/><span>福</span></div><button className="primary" onClick={onNext}>翻开这张牌 <span>→</span></button></section>;
 }
 
 export function ReadingReveal({ cardCount=2, cards=[], onBack, onNext }: { cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void }) {
-  return <ReadingStep onBack={onBack} eyebrow="YOUR CARDS" title="牌已经回应了你的问题" lead={`确认后，这 ${cardCount} 张牌将冻结并用于生成报告。`} action={`确认 ${cardCount} 张卡牌并生成报告`} onNext={onNext}><div className={`card-layout report-card-gallery reveal-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/></figure>)}</div><div className="frozen-note"><span>封</span><p><strong>本次输入即将冻结</strong>问题、抽牌方式与全部卡牌会被共同保存。</p></div></ReadingStep>;
+  return <ReadingStep onBack={onBack} eyebrow="THE CARD FOUND YOU" title="这张牌回应了你的问题" lead="卡牌已经确定，翻开后将用于生成本次报告。" action="看看此刻的答案" onNext={onNext}><div className={`card-layout report-card-gallery reveal-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/></figure>)}</div><div className="frozen-note"><span>封</span><p><strong>本次输入即将冻结</strong>问题、抽牌方式与全部卡牌会被共同保存。</p></div></ReadingStep>;
 }
 
 export function ReadingFailure({ onBack, onRetry }: { onBack: () => void; onRetry: () => void }) {
