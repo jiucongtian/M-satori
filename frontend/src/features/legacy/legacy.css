@@ -597,3 +597,12 @@
   72%{opacity:1;left:calc(50% - 67px);top:35px;width:134px;height:218px;transform:translateX(0) rotate(-1.5deg) scale(1.04)}
   100%{opacity:1;left:calc(50% - 67px);top:35px;width:134px;height:218px;transform:translateX(0) rotate(-1deg) scale(1.06)}
 }
+/* READ-10 refinement: vertical extraction first, then one smooth move to center. */
+.draw-deck-stage .single-rising-card{animation:read10-vertical-then-center 3.2s cubic-bezier(.22,.75,.2,1) both!important;}
+@keyframes read10-vertical-then-center{
+  0%{opacity:1;left:calc(50% - 62px + (var(--picked) * 18px));top:35px;width:124px;height:202px;transform:rotate(var(--rotation)) scale(1)}
+  18%{opacity:1;left:calc(50% - 62px + (var(--picked) * 18px));top:8px;width:124px;height:202px;transform:rotate(var(--rotation)) scale(1.01)}
+  38%{opacity:1;left:calc(50% - 62px + (var(--picked) * 18px));top:8px;width:124px;height:202px;transform:rotate(var(--rotation)) scale(1.01)}
+  76%{opacity:1;left:calc(50% - 67px);top:35px;width:134px;height:218px;transform:rotate(-1.5deg) scale(1.04)}
+  100%{opacity:1;left:calc(50% - 67px);top:35px;width:134px;height:218px;transform:rotate(-1deg) scale(1.06)}
+}
