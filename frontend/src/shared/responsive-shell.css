@@ -56,7 +56,11 @@ html,body{width:100%;min-height:100%;overflow-x:hidden}
   overflow-y:auto;
   overscroll-behavior-y:contain;
   -webkit-overflow-scrolling:touch;
-  padding-bottom:var(--app-content-bottom-gap);
+  /* Keep the final content block above the fixed bottom tab bar on short
+     mobile viewports. The scroll container owns this space, so the last
+     row can be brought fully into view instead of ending underneath nav. */
+  padding-bottom:calc(var(--app-tabbar-height) + var(--app-content-bottom-gap));
+  scroll-padding-bottom:calc(var(--app-tabbar-height) + var(--app-content-bottom-gap));
 }
 
 .phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>.app-bottom-nav{
