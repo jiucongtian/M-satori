@@ -199,32 +199,33 @@ test("READ-09 不展示原型分支，真实权益不足有服务入口", async 
   assert.doesNotMatch(flow, /<ReadingPayment[^>]*onInsufficient/);
 });
 
-test("READ-02 在同页完成问题、牌数与牌位并直接进入 READ-09", async () => {
+test("READ-02 固定使用一张牌并直接进入 READ-09", async () => {
   const [page, screen, flow] = await Promise.all([
     readFile(new URL("../app/readings/new/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingNewScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingFlowScreen.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(page, /<ReadingNewScreen/);
-  assert.match(screen, /这次想用几张牌来看/);
-  assert.match(screen, /这次的牌位/);
-  assert.match(screen, /return\["自己","某人或某事"\]/);
-  assert.match(screen, /`选择\$\{\["一","二","三","四"\]\[index\]\}`/);
-  assert.doesNotMatch(screen, /PositionMode|自己定义|按时间展开/);
+  assert.doesNotMatch(screen, /这次想用几张牌来看|compose-counts|compose-multi-count/);
+  assert.match(screen, /一张卡 · 核心指引/);
+  assert.match(screen, /setCardCount\(1\);setPositions\(\["自己"\]\)/);
+  assert.match(screen, /确认问题，抽一张卡/);
   assert.match(screen, /writeFlowDraft\("reading"/);
   assert.match(screen, /router\.push\(`\/readings\/payment\?cards=\$\{cardCount\}`\)/);
+  assert.match(flow, /const cardCount = 1/);
+  assert.match(flow, /positionLabels:\["自己"\]/);
   assert.match(flow, /payment: drawRequestKey \? <ReadingPaymentScreen.*onBack=\{\(\)=>go\("question"\)\}/);
 });
 
-test("READ-01 示例覆盖不同牌数，全部牌数使用系统固定牌位", async () => {
+test("READ-01 示例保留多种问题场景，READ-02 统一收敛为单卡指引", async () => {
   const [home, screen] = await Promise.all([
     readFile(new URL("../src/features/reading/ReadingHomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingNewScreen.tsx", import.meta.url), "utf8"),
   ]);
   for(const label of ["一张牌","两张牌","多张牌"])assert.match(home,new RegExp(label));
   assert.match(screen, /<section className="compose-section position-section">/);
-  assert.match(screen, /\{cardCount>1&&<p><span>牌位<\/span>/);
-  assert.match(screen, /确认问题与牌位/);
+  assert.match(screen, /<small>本次抽卡<\/small><h2>一张卡 · 核心指引<\/h2>/);
+  assert.match(screen, /确认问题，抽一张卡/);
 });
 
 test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => {
