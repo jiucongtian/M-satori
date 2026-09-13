@@ -626,3 +626,34 @@
   76%{opacity:1;transform:translate3d(var(--center-shift,0px),0,0) rotate(-1.5deg) scale(1.04)}
   100%{opacity:1;transform:translate3d(var(--center-shift,0px),0,0) rotate(-1deg) scale(1.06)}
 }
+/* READ-10 final: animate the actual selected fan card. The old duplicate
+   overlay is disabled so the card cannot flash between two coordinate systems. */
+.draw-deck-stage .draw-deck i.extracted-card{
+  z-index:40!important;
+  opacity:1!important;
+  visibility:visible!important;
+  transform-origin:50% 145%!important;
+  animation:read10-native-pull var(--pull-duration,3.2s) cubic-bezier(.22,.75,.2,1) both!important;
+}
+.draw-deck-stage .draw-deck i.extracted-card .draw-card-inner{
+  animation:read10-native-flip 1.25s var(--pull-duration,3.2s) ease-in-out both!important;
+}
+.draw-deck-stage .draw-deck i.extracted-card .draw-card-back,
+.draw-deck-stage .draw-deck i.extracted-card .draw-card-front{
+  position:absolute;inset:0;display:grid;place-items:center;border-radius:15px;overflow:hidden;backface-visibility:hidden;
+}
+.draw-deck-stage .draw-deck i.extracted-card .draw-card-back{color:#e9d4a4;background:linear-gradient(155deg,#557765,#2f5144);font:42px var(--font-brand)}
+.draw-deck-stage .draw-deck i.extracted-card .draw-card-front{transform:rotateY(180deg);background:#fff}
+.draw-deck-stage .draw-deck i.extracted-card .draw-card-front img{display:block;width:100%;height:100%;object-fit:cover;opacity:1;filter:none}
+.draw-deck-stage .draw-deck i.extracted-card .draw-card-back span{display:grid;place-items:center;inset:0;position:absolute;transform:none;color:#e7cf9d;font:31px var(--font-brand)}
+@keyframes read10-native-pull{
+  0%{opacity:1;transform:rotate(var(--rotation)) scale(1)}
+  18%{opacity:1;transform:translateY(-43px) rotate(var(--rotation)) scale(1.01)}
+  38%{opacity:1;transform:translateY(-43px) rotate(var(--rotation)) scale(1.01)}
+  76%{opacity:1;transform:translateY(0) rotate(-1.5deg) scale(1.04)}
+  100%{opacity:1;transform:translateY(0) rotate(-1deg) scale(1.06)}
+}
+@keyframes read10-native-flip{
+  0%,72%{transform:rotateY(0)}
+  100%{transform:rotateY(180deg)}
+}
