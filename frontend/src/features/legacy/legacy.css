@@ -542,3 +542,13 @@
 .reading-home .reading-header{grid-template-columns:96px 1fr 42px;position:relative}.reading-home .reading-header>span{position:absolute;left:50%;transform:translateX(-50%)}.reading-home .reading-header>.brand{width:82px}.reading-home .reading-header>.brand .brand-lockup{width:82px;height:auto;display:block}
 /* R1.1 reading visual scale and consistent header */
 .reading-header{grid-template-columns:82px 1fr 42px!important;min-height:50px}.reading-header>.brand,.reading-header>.brand .brand-lockup{width:82px!important;height:auto;display:block}.reading-header>span{font-size:15px!important}.reading-header-spacer{width:42px;height:1px}.reading-home-scroll>h1{font-size:34px!important;line-height:1.4!important}.reading-home .reading-lead{font-size:14px!important;line-height:1.8}.reading-home-question textarea{font-size:17px!important}.reading-home .prompt-list header,.reading-home .prompt-list button{font-size:12px}.reading-home .prompt-list button span{font-size:12px}.reading-home .start-reading>span{font-size:14px}.reading-home .start-reading>small{font-size:10px}.single-card-fan{height:340px;margin-top:16px}.single-card-fan i{width:94px;height:170px;transform-origin:50% 205px;animation:none}.single-card-fan i:last-child::after{font-size:30px}.draw-deck-stage{height:310px}.draw-deck i{width:70px;height:135px}.single-rising-card{width:214px}.reading-report-scroll .report-sections.continuous .report-section-content p{font-size:16px}.reading-report-scroll>h1{font-size:28px}.reading-report-scroll>.report-card-gallery figcaption{display:none}
+/* 抽牌：从扇面原位沿屏幕上方抽出，再归中放大 */
+.draw-deck-stage .single-rising-card{animation:draw-upward-from-fan 3.2s cubic-bezier(.22,.72,.2,1) both;}
+@keyframes draw-upward-from-fan{
+  0%{opacity:0;transform:translate(calc((var(--picked) - 6) * 22px),190px) rotate(calc((var(--picked) - 6) * 7deg)) scale(.58)}
+  12%{opacity:1;transform:translate(calc((var(--picked) - 6) * 22px),145px) rotate(calc((var(--picked) - 6) * 7deg)) scale(.62)}
+  42%{opacity:1;transform:translate(calc((var(--picked) - 6) * 22px),38px) rotate(calc((var(--picked) - 6) * 7deg)) scale(.72)}
+  68%{opacity:1;transform:translate(0,15px) rotate(0deg) scale(.9)}
+  82%,100%{opacity:1;transform:translate(0,0) rotate(0deg) scale(1)}
+}
+.draw-deck-stage .single-rising-card + *{margin-top:24px}.draw-interpret{margin-top:26px!important}
