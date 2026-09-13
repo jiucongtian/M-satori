@@ -668,3 +668,5 @@ h1 em::after { content: ""; position: absolute; left: 2px; right: -2px; bottom: 
   }
 }
 .prototype-four-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.prototype-four-cards article{min-height:108px;border:1px solid rgba(48,87,73,.18);border-radius:18px;background:rgba(255,255,255,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}.prototype-four-cards small{color:var(--muted);font-size:11px}.prototype-four-cards strong{font-family:var(--font-serif);font-size:23px;color:var(--green-900)}
+/* 权益不足时由小岁倾听状态陪伴用户，复用每日指引头像资产。 */
+.service-prompt>.xiaosui-avatar{display:block;width:64px;height:64px;margin:0 auto 12px;border-radius:50%;}
