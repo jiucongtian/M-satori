@@ -69,6 +69,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     return () => window.clearTimeout(timer);
   }, [draft, me?.userId]);
   useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>{setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,2));setDraftLoaded(true)},0);return()=>window.clearTimeout(timer)},[me?.userId]);
+  useEffect(()=>{if(step!=="draw"||typeof window==="undefined")return;const key="fresh:reading-entitlement-error";if(window.sessionStorage.getItem(key)==="1"){window.sessionStorage.removeItem(key);setEntitlementError(true)}},[step]);
   useEffect(()=>{if(["question","confirm","spread","config"].includes(step))router.replace(withReturnPath(ROUTES.readingNew,safeReturnPath(searchParams.get("from"),ROUTES.readingHistory)))},[step,router,searchParams]);
   useEffect(()=>{
     if(!me?.userId)return;
@@ -96,7 +97,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     else if (target === "services") router.push(ROUTES.shop);
     else router.push(flowPath(target,readingId,overrideCount));
   };
-  async function beginDraw(){if(!me?.userId||!draft||!drawRequestKey||flowBusy)return;setFlowBusy(true);setFlowError("");router.push(`${flowPath("draw")}&pending=1`);try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:["自己"]},drawRequestKey);setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);router.replace(flowPath("draw",created.readingId));}catch(reason){if((reason as {code?:string;status?:number})?.code==="PURCHASE_REQUIRED"||(reason as {status?:number})?.status===403)setEntitlementError(true);else setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
+  async function beginDraw(){if(!me?.userId||!draft||!drawRequestKey||flowBusy)return;setFlowBusy(true);setFlowError("");router.push(`${flowPath("draw")}&pending=1`);try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:["自己"]},drawRequestKey);setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);router.replace(flowPath("draw",created.readingId));}catch(reason){if((reason as {code?:string;status?:number})?.code==="PURCHASE_REQUIRED"||(reason as {status?:number})?.status===403){window.sessionStorage.setItem("fresh:reading-entitlement-error","1");router.replace(flowPath("draw"));}else setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating",retried.readingId,retried.cardCount)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   useEffect(()=>{
     if(step!=="generating"||!reading)return;
