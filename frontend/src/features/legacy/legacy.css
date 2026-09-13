@@ -606,3 +606,23 @@
   76%{opacity:1;left:calc(50% - 67px);top:35px;width:134px;height:218px;transform:rotate(-1.5deg) scale(1.04)}
   100%{opacity:1;left:calc(50% - 67px);top:35px;width:134px;height:218px;transform:rotate(-1deg) scale(1.06)}
 }
+/* Keep one fixed animation origin. Moving only transform prevents the
+   selected card from flashing at an intermediate left/right coordinate. */
+.draw-deck-stage .single-rising-card{
+  left:calc(50% - 62px + var(--origin-x, 0px))!important;
+  top:35px!important;
+  width:124px!important;
+  height:202px!important;
+  /* Match the fan cards' pivot. A centered pivot makes edge cards jump
+     sideways when their original rotation is applied. */
+  transform-origin:50% 145%!important;
+  animation:read10-fixed-origin 3.2s cubic-bezier(.22,.75,.2,1) both!important;
+  will-change:transform,opacity;
+}
+@keyframes read10-fixed-origin{
+  0%{opacity:1;transform:translate3d(0,0,0) rotate(var(--rotation)) scale(1)}
+  18%{opacity:1;transform:translate3d(0,-43px,0) rotate(var(--rotation)) scale(1.01)}
+  38%{opacity:1;transform:translate3d(0,-43px,0) rotate(var(--rotation)) scale(1.01)}
+  76%{opacity:1;transform:translate3d(var(--center-shift,0px),0,0) rotate(-1.5deg) scale(1.04)}
+  100%{opacity:1;transform:translate3d(var(--center-shift,0px),0,0) rotate(-1deg) scale(1.06)}
+}
