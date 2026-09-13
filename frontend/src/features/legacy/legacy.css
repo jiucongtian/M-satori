@@ -560,6 +560,12 @@
 .poc-draw-idle{height:330px!important;margin-top:4px!important;margin-bottom:34px!important;transform:translateY(-28px)}
 .poc-draw-idle .draw-deck{transform:translateY(-8px)}
 .poc-draw-idle + .primary{position:relative;z-index:2;margin-top:-4px}
+.draw-deck i::after{display:none!important}
+.draw-deck i{border:1px solid rgba(239,215,165,.58);box-shadow:0 11px 19px rgba(44,64,54,.18),inset 0 0 0 1px rgba(239,215,165,.16)}
+.draw-deck i .card-mark{position:absolute;inset:auto 18px 18px auto;display:grid;place-items:center;width:27px;height:27px;color:#e7cf9d;font:24px var(--font-brand);transform:rotate(calc(var(--rotation) * -1))}
+.poc-draw-idle .draw-deck i .card-mark{display:none}
+.draw-deck-stage .single-rising-card .draw-card-back>span{font-size:26px}
+.draw-interpret{margin-top:34px!important}
 .poc-draw-idle .draw-deck i{background:linear-gradient(155deg,#557765,#2f5144)!important;border:1px solid rgba(236,218,174,.16)}
 .poc-draw-idle .draw-deck i span,.draw-deck i span{position:absolute;inset:0;display:grid;place-items:center;color:#e7cf9d;font:42px var(--font-brand);transform:rotate(calc(var(--rotation) * -1))}
 .draw-deck-stage .single-rising-card .draw-card-back{background:linear-gradient(155deg,#557765,#2f5144)}
