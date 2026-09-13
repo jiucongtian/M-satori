@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { CardReadingCard, CardReadingReport } from "@/src/api/client";
 import { ReadingHeader } from "./ReadingShell";
 import { XiaosuiAvatar } from "@/src/features/daily/DailyReportScreen";
@@ -14,11 +14,10 @@ export function ReadingShuffle({ onBack, onNext }: { onBack: () => void; onNext:
 }
 
 export function ReadingDraw({ cards=[], onNext }: { cardCount?:number; cards?:CardReadingCard[]; onNext: () => void; onBack?: () => void }) {
-  const card=cards[0];
-  useEffect(()=>{const timer=window.setTimeout(onNext,2300);return()=>window.clearTimeout(timer)},[onNext]);
-  return <section className="reading-page reading-action-page single-draw-result"><ReadingHeader/><p className="eyebrow">THE CARD FOUND YOU</p><h1>正在与你相遇…</h1><div className="single-rising-card" aria-label="抽出的卡牌"><div className="draw-card-inner"><div className="draw-card-back"><span>福</span></div><div className="draw-card-front">{card?<img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={card.displayName}/>:<span>福</span>}</div></div></div><p className="draw-card-caption">这张牌正在回应你的问题</p></section>;
+  const card=cards[0]; const [picked]=useState(()=>Math.floor(Math.random()*13)); const [ready,setReady]=useState(false);
+  useEffect(()=>{const timer=window.setTimeout(()=>setReady(true),2400);return()=>window.clearTimeout(timer)},[]);
+  return <section className="reading-page reading-action-page single-draw-result"><ReadingHeader/><p className="eyebrow">THE CARD FOUND YOU</p><h1>{ready?"这张牌与你相遇":"正在从牌堆中抽取…"}</h1><div className="draw-deck-stage" aria-label="正在抽取卡牌"><div className="draw-deck">{Array.from({length:13},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}/>)}</div><div className="single-rising-card" style={{"--picked":picked} as React.CSSProperties}><div className="draw-card-inner"><div className="draw-card-back"><span>福</span></div><div className="draw-card-front">{card?<img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={card.displayName}/>:<span>福</span>}</div></div></div></div><p className="draw-card-caption">{ready?"牌面已为你展开":"请稍候，牌正在回应你的问题"}</p>{ready&&<button className="primary draw-interpret" onClick={onNext}>开始解读 <span>→</span></button>}</section>;
 }
-
 export function ReadingReveal({ cardCount=2, cards=[], onBack, onNext }: { cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void }) {
   return <ReadingStep onBack={onBack} eyebrow="THE CARD FOUND YOU" title="这张牌回应了你的问题" lead="卡牌已经确定，翻开后将用于生成本次报告。" action="看看此刻的答案" onNext={onNext}><div className={`card-layout report-card-gallery reveal-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/></figure>)}</div><div className="frozen-note"><span>封</span><p><strong>本次输入即将冻结</strong>问题、抽牌方式与全部卡牌会被共同保存。</p></div></ReadingStep>;
 }
@@ -27,9 +26,9 @@ export function ReadingFailure({ onBack, onRetry }: { onBack: () => void; onRetr
   return <ReadingStep onBack={onBack} eyebrow="PAUSED, NOT LOST" title={<>报告暂时没有长成</>} lead="问题、卡牌和抽取结果都已安全保存，不需要重新抽牌。"><div className="failure-seed"><span>●</span><i/></div><div className="failure-card"><p><strong>本次使用记录已安全保存</strong></p><span><b>01</b>当前结算状态以服务端记录为准</span><span><b>02</b>重新生成不会重复核销</span><span><b>03</b>超过处理时间会按规则自动恢复</span></div><button className="primary" onClick={onRetry}>使用原卡牌重新生成 <span>↻</span></button><button className="text-action" onClick={onBack}>稍后在问事历史继续</button></ReadingStep>;
 }
 
-export function ReadingGenerate({ status, cardCount, cards, onBack, onLeave }: { status: string; cardCount: number; cards: CardReadingCard[]; onBack: () => void; onLeave: () => void }) {
+export function ReadingGenerate({ status, cardCount, cards, onLeave }: { status: string; cardCount: number; cards: CardReadingCard[]; onLeave: () => void; onBack?: () => void }) {
   const ready=status==="READY";
-  return <section className="reading-page reading-generating reading-action-page"><ReadingHeader onBack={onBack}/><div className={`card-layout generation-card-stage count-${cardCount}`}>{cards.map((card,i)=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`第 ${i+1} 张${card.displayName}生命智慧卡牌`}/></figure>)}</div><div className="generation-list"><span className="done">✓ 已确认问题与 {cardCount} 张卡牌</span><span className="done">✓ 已同步抽牌结果</span><span className="done">✓ 正在读懂这 {cardCount} 张牌</span><span className={ready?"done":"active"}>{ready?"✓":"·"} 正在整理问事报告</span></div><p>{ready?"即将自动打开报告详情":"真实解读通常需要几分钟，可以先离开，完成后会保存在问事记录中"}</p><button className="outline-button" onClick={onLeave}>先离开，稍后查看</button></section>;
+  return <section className="reading-page reading-generating reading-action-page"><ReadingHeader/><div className={`card-layout generation-card-stage count-${cardCount}`}>{cards.map((card,i)=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`第 ${i+1} 张${card.displayName}生命智慧卡牌`}/></figure>)}</div><div className="generation-list"><span className="done">✓ 已确认问题与 {cardCount} 张卡牌</span><span className="done">✓ 已同步抽牌结果</span><span className="done">✓ 正在读懂这 {cardCount} 张牌</span><span className={ready?"done":"active"}>{ready?"✓":"·"} 正在整理问事报告</span></div><p>{ready?"即将自动打开报告详情":"真实解读通常需要几分钟，可以先离开，完成后会保存在问事记录中"}</p><button className="outline-button" onClick={onLeave}>稍后查看问事记录</button></section>;
 }
 
 function reportSections(value:string){
@@ -80,6 +79,6 @@ const reportStoryTitles=[
   "愿你笃定，也允许变化",
 ] as const;
 
-export function ReadingReport({ report=null, question, cardCount=2, cards=[], onBack, onNext, onShare, onFeedback }: { report?:CardReadingReport|null; question?:string; cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void; onShare?: () => void; onFeedback?: () => void }) {
-  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{readingReportTitle(report?.title,question)}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/><figcaption><strong>用户问的问题</strong></figcaption></figure>)}</div><div className="xiaosui-intro report-xiaosui-intro"><XiaosuiAvatar mood="listening" /><div><strong>小岁说</strong><p>我是小岁，陪你一起读懂这份报告，找到适合自己的下一步。</p></div></div><LiveReadingSections value={report?.report??""}/>{report?.notice&&<div className="task-rule">{report.notice}</div>}{onFeedback&&<button className="text-action" onClick={onFeedback}>留下本次问事反馈</button>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享五福荟问事报告 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
+export function ReadingReport({ report=null, question, cardCount=2, cards=[], onBack, onNext, onShare, onFeedback }: { report?:CardReadingReport|null; question?:string; cardCount?:number; cards?:CardReadingCard[]; onBack?: () => void; onNext: () => void; onShare?: () => void; onFeedback?: () => void }) {
+  return <section className="reading-page reading-report"><ReadingHeader/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{readingReportTitle(report?.title,question)}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/><figcaption><strong>用户问的问题</strong></figcaption></figure>)}</div><div className="xiaosui-intro report-xiaosui-intro"><XiaosuiAvatar mood="listening" /><div><strong>小岁说</strong><p>我是小岁，陪你一起读懂这份报告，找到适合自己的下一步。</p></div></div><LiveReadingSections value={report?.report??""}/>{report?.notice&&<div className="task-rule">{report.notice}</div>}{onFeedback&&<button className="text-action" onClick={onFeedback}>留下本次问事反馈</button>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享五福荟问事报告 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
 }
