@@ -581,3 +581,8 @@
 .draw-deck-stage .single-rising-card{top:72px!important;}
 .draw-deck-stage .single-rising-card .draw-card-back>span{display:grid!important;inset:0!important;position:absolute!important;transform:rotate(-1deg)!important;}
 .draw-interpret{margin-top:34px!important;}
+/* The mark is inside the rotated card, so it must not be counter-rotated. */
+.draw-deck-stage .draw-deck i .card-mark,.poc-draw-idle .draw-deck i .card-mark{transform:none!important;}
+/* Reserve the same action slot on shuffle and result states; keep the caption invisible. */
+.single-draw-result .draw-card-caption{height:20px;margin:0;visibility:hidden;}
+.single-draw-result .draw-interpret{margin-top:34px!important;}

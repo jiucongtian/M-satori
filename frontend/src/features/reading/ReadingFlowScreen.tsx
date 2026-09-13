@@ -69,7 +69,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     return () => window.clearTimeout(timer);
   }, [draft, me?.userId]);
   useEffect(()=>{if(!me?.userId)return;const timer=window.setTimeout(()=>{setDraft(readFlowDraft<ReadingDraft>("reading",me.userId,2));setDraftLoaded(true)},0);return()=>window.clearTimeout(timer)},[me?.userId]);
-  useEffect(()=>{if(step!=="draw"||typeof window==="undefined")return;const key="fresh:reading-entitlement-error";if(window.sessionStorage.getItem(key)==="1"){window.sessionStorage.removeItem(key);setEntitlementError(true)}},[step]);
+  useEffect(()=>{if(step!=="draw"||typeof window==="undefined")return;const key="fresh:reading-entitlement-error";if(window.sessionStorage.getItem(key)==="1"){window.sessionStorage.removeItem(key);window.setTimeout(()=>setEntitlementError(true),0)}},[step]);
   useEffect(()=>{if(["question","confirm","spread","config"].includes(step))router.replace(withReturnPath(ROUTES.readingNew,safeReturnPath(searchParams.get("from"),ROUTES.readingHistory)))},[step,router,searchParams]);
   useEffect(()=>{
     if(!me?.userId)return;
@@ -79,7 +79,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     const canRestoreSaved=["draw","reveal","generating","report","feedback","failure"].includes(step);
     const id=requested||((canRestoreSaved&&!pendingDraw)?saved:null);
     let active=true;
-    if(!id){if(step==="draw"&&(flowBusy||pendingDraw)){setReading(null);return()=>{active=false};}const timer=window.setTimeout(()=>{if(active){setReading(null);if(canRestoreSaved)setFlowError("没有找到本次问事，请从问事记录继续，或发起一次新的问事。")}},0);return()=>{active=false;window.clearTimeout(timer)}}
+    if(!id){if(step==="draw"&&(flowBusy||pendingDraw)){const timer=window.setTimeout(()=>setReading(null),0);return()=>{active=false;window.clearTimeout(timer)}}const timer=window.setTimeout(()=>{if(active){setReading(null);if(canRestoreSaved)setFlowError("没有找到本次问事，请从问事记录继续，或发起一次新的问事。")}},0);return()=>{active=false;window.clearTimeout(timer)}}
     void api.cardReading(id).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))});
     return()=>{active=false};
   },[me?.userId,searchParams,step]);
