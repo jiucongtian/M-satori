@@ -14,8 +14,8 @@ export function ReadingShuffle({ onBack, onNext }: { onBack: () => void; onNext:
 }
 
 export function ReadingDraw({ cards=[], onNext }: { cardCount?:number; cards?:CardReadingCard[]; onNext: () => void; onBack?: () => void }) {
-  const card=cards[0]; const [picked]=useState(()=>Math.floor(Math.random()*13)); const [ready,setReady]=useState(false);
-  useEffect(()=>{const timer=window.setTimeout(()=>setReady(true),2400);return()=>window.clearTimeout(timer)},[]);
+  const card=cards[0]; const [picked]=useState(()=>Math.floor(Math.random()*13)); const [animationDone,setAnimationDone]=useState(false); const ready=animationDone&&!!card;
+  useEffect(()=>{const timer=window.setTimeout(()=>setAnimationDone(true),2400);return()=>window.clearTimeout(timer)},[]);
   return <section className="reading-page reading-action-page single-draw-result"><ReadingHeader/><p className="eyebrow">THE CARD FOUND YOU</p><h1>{ready?"这张牌与你相遇":"正在从牌堆中抽取…"}</h1><div className="draw-deck-stage" aria-label="正在抽取卡牌"><div className="draw-deck">{Array.from({length:13},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}/>)}</div><div className="single-rising-card" style={{"--picked":picked} as React.CSSProperties}><div className="draw-card-inner"><div className="draw-card-back"><span>福</span></div><div className="draw-card-front">{card?<img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={card.displayName}/>:<span>福</span>}</div></div></div></div><p className="draw-card-caption">{ready?"牌面已为你展开":"请稍候，牌正在回应你的问题"}</p>{ready&&<button className="primary draw-interpret" onClick={onNext}>开始解读 <span>→</span></button>}</section>;
 }
 export function ReadingReveal({ cardCount=2, cards=[], onBack, onNext }: { cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void }) {
