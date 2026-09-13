@@ -77,9 +77,9 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     const pendingDraw=searchParams.get("pending")==="1";
     const saved=window.sessionStorage.getItem(`fresh:active-reading:${me.userId}`);
     const canRestoreSaved=["draw","reveal","generating","report","feedback","failure"].includes(step);
-    const id=requested||(canRestoreSaved?saved:null);
+    const id=requested||((canRestoreSaved&&!pendingDraw)?saved:null);
     let active=true;
-    if(!id){if(step==="draw"&&(flowBusy||pendingDraw))return()=>{active=false};const timer=window.setTimeout(()=>{if(active){setReading(null);if(canRestoreSaved)setFlowError("没有找到本次问事，请从问事记录继续，或发起一次新的问事。")}},0);return()=>{active=false;window.clearTimeout(timer)}}
+    if(!id){if(step==="draw"&&(flowBusy||pendingDraw)){setReading(null);return()=>{active=false};}const timer=window.setTimeout(()=>{if(active){setReading(null);if(canRestoreSaved)setFlowError("没有找到本次问事，请从问事记录继续，或发起一次新的问事。")}},0);return()=>{active=false;window.clearTimeout(timer)}}
     void api.cardReading(id).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))});
     return()=>{active=false};
   },[me?.userId,searchParams,step]);
