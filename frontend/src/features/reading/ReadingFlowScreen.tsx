@@ -81,8 +81,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     void api.cardReading(id).then(value=>{if(active)setReading(value)}).catch(reason=>{if(active)setFlowError(apiMessage(reason))});
     return()=>{active=false};
   },[me?.userId,searchParams,step]);
-  const requestedCount = Number(searchParams.get("cards")||2);
-  const cardCount = Math.min(5,Math.max(1,Number.isFinite(requestedCount)?requestedCount:2));
+  const cardCount = 1;
   const requestedReturn = searchParams.get("from");
   const returnPath = safeReturnPath(requestedReturn, ROUTES.readingHistory);
   const flowPath = (target: ReadingFlowStep, readingId?: string, overrideCount?: number) => {
@@ -96,7 +95,7 @@ export default function ReadingFlowScreen({ step }: { step: ReadingFlowStep }) {
     else if (target === "services") router.push(ROUTES.shop);
     else router.push(flowPath(target,readingId,overrideCount));
   };
-  async function beginDraw(){if(!me?.userId||!draft||!drawRequestKey||flowBusy)return;setFlowBusy(true);setFlowError("");try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:draft.positions},drawRequestKey);setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);go("draw",created.readingId)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
+  async function beginDraw(){if(!me?.userId||!draft||!drawRequestKey||flowBusy)return;setFlowBusy(true);setFlowError("");try{const created=await api.createCardReadingDraw({question:draft.question,category:draft.category,cardCount,positionLabels:["自己"]},drawRequestKey);setReading(created);window.sessionStorage.setItem(`fresh:active-reading:${me.userId}`,created.readingId);go("draw",created.readingId)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   async function retryReading(){if(!reading||flowBusy)return;setFlowBusy(true);setFlowError("");try{const retried=await api.retryCardReading(reading.readingId);setReading(retried);go("generating",retried.readingId,retried.cardCount)}catch(reason){setFlowError(apiMessage(reason))}finally{setFlowBusy(false)}}
   useEffect(()=>{
     if(step!=="generating"||!reading)return;

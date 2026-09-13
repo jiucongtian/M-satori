@@ -9,7 +9,7 @@ export function ReadingStep({ onBack, eyebrow, title, lead, children, action, on
 }
 
 export function ReadingShuffle({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  return <section className="reading-page immersive-reading reading-action-page"><ReadingHeader onBack={onBack}/><div className="shuffle-stage"><i/><i/><i/><i/><i/><span>静</span></div><p className="eyebrow">BE WITH YOUR QUESTION</p><h1>先让心安静下来</h1><p>在心里再读一遍你的问题。<br/>准备好时，让牌慢慢展开。</p><button className="primary" onClick={onNext}>我准备好了 <span>→</span></button><small>抽牌结果一经确认将被保存</small></section>;
+  return <section className="reading-page immersive-reading reading-action-page"><ReadingHeader onBack={onBack}/><p className="eyebrow">YOUR QUESTION · 准备抽卡</p><h1>把此刻关心的事<br/>轻轻放在心里</h1><p>不需要说出来。深呼吸一次，<br/>准备好后，抽一张牌。</p><div className="single-card-fan" aria-hidden="true">{Array.from({length:9},(_,i)=><i key={i}/>)}</div><button className="primary" onClick={onNext}>抽一张牌 <span>→</span></button><small>点击牌面也可以抽牌</small></section>;
 }
 
 export function ReadingDraw({ cardCount=2, onBack, onNext }: { cardCount?:number; onBack: () => void; onNext: () => void }) {
