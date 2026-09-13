@@ -703,13 +703,12 @@ test("正式生命智慧卡牌使用统一组件、版本映射与失败兜底",
   assert.match(css, /\.life-card-visual/);
 });
 
-test("R1.0 用户可见品牌统一为横排初见 · FRESH", async () => {
+test("五福荟分支的用户可见品牌与卡牌兜底文案一致", async () => {
   const page = await readPageSources();
   const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
   const card = await readFile(new URL("../src/components/LifeWisdomCard.tsx", import.meta.url), "utf8");
-  assert.match(page, /初见/);
-  assert.match(page, /FRESH/);
-  assert.match(layout, /初见 · FRESH/);
+  assert.match(page, /五福荟/);
+  assert.match(layout, /五福荟 · 每一天，更懂自己/);
   assert.match(card, />初见<\/span>/);
   assert.doesNotMatch(`${page}\n${layout}\n${card}`, /身心游|SATORI/);
 });
@@ -798,14 +797,16 @@ test("用户协议与隐私政策进入安全且可读的前端阅读页", async
   assert.match(css, /\.legal-markdown/);
   assert.match(css, /\.legal-table-wrap/);
 });
-test("所有图形 Logo 均统一展示初见与 FRESH", async () => {
+test("所有图形 Logo 均使用五福荟品牌锁定图", async () => {
   const page = await readPageSources();
   const css = await readCssSources();
   const brand = page.match(/function Brand[\s\S]*?\n}/)?.[0] ?? "";
-  assert.match(brand, /<strong>初见<\/strong><small>FRESH<\/small>/);
+  assert.match(brand, /className="brand-lockup"/);
+  assert.match(brand, /src="\/brand\/wufuhui-lockup\.webp"/);
+  assert.match(brand, /alt="五福荟 WU FU HUI"/);
   assert.doesNotMatch(brand, /!compact/);
-  assert.match(css, /\.brand-compact \.brand-mark/);
-  assert.match(css, /\.brand-compact strong/);
+  assert.match(css, /\.brand-lockup/);
+  assert.match(css, /\.brand-compact \.brand-lockup/);
 });
 
 test("AUTH-02 移除重复协议文案但 AUTH-04 保留正式协议确认", async () => {
