@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import type { CardReadingCard, CardReadingReport } from "@/src/api/client";
 import { ReadingHeader } from "./ReadingShell";
 import { XiaosuiAvatar } from "@/src/features/daily/DailyReportScreen";
@@ -9,11 +10,13 @@ export function ReadingStep({ onBack, eyebrow, title, lead, children, action, on
 }
 
 export function ReadingShuffle({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  return <section className="reading-page immersive-reading reading-action-page"><ReadingHeader onBack={onBack}/><p className="eyebrow">YOUR QUESTION · 准备抽卡</p><h1>把此刻关心的事<br/>轻轻放在心里</h1><p>不需要说出来。深呼吸一次，<br/>准备好后，抽一张牌。</p><div className="single-card-fan" aria-hidden="true">{Array.from({length:9},(_,i)=><i key={i}/>)}</div><button className="primary" onClick={onNext}>抽一张牌 <span>→</span></button><small>点击牌面也可以抽牌</small></section>;
+  return <section className="reading-page immersive-reading reading-action-page"><ReadingHeader onBack={onBack}/><p className="eyebrow">YOUR QUESTION · 准备抽卡</p><h1>把此刻关心的事<br/>轻轻放在心里</h1><p>不需要说出来。深呼吸一次，<br/>准备好后，抽一张牌。</p><div className="single-card-fan" aria-hidden="true">{Array.from({length:13},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}/>)}</div><button className="primary" onClick={onNext}>抽一张牌 <span>→</span></button><small>点击牌面也可以抽牌</small></section>;
 }
 
-export function ReadingDraw({ cardCount=2, onBack, onNext }: { cardCount?:number; onBack: () => void; onNext: () => void }) {
-  return <section className="reading-page draw-page reading-action-page single-draw-result"><ReadingHeader onBack={onBack}/><p className="eyebrow">THE CARD FOUND YOU</p><h1>正在与你相遇…</h1><div className="single-rising-card" aria-label="本次抽到的卡牌卡背"><i/><span>福</span></div><button className="primary" onClick={onNext}>翻开这张牌 <span>→</span></button></section>;
+export function ReadingDraw({ cards=[], onNext }: { cardCount?:number; cards?:CardReadingCard[]; onNext: () => void; onBack?: () => void }) {
+  const card=cards[0];
+  useEffect(()=>{const timer=window.setTimeout(onNext,2300);return()=>window.clearTimeout(timer)},[onNext]);
+  return <section className="reading-page reading-action-page single-draw-result"><ReadingHeader/><p className="eyebrow">THE CARD FOUND YOU</p><h1>正在与你相遇…</h1><div className="single-rising-card" aria-label="抽出的卡牌"><div className="draw-card-inner"><div className="draw-card-back"><span>福</span></div><div className="draw-card-front">{card?<img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={card.displayName}/>:<span>福</span>}</div></div></div><p className="draw-card-caption">这张牌正在回应你的问题</p></section>;
 }
 
 export function ReadingReveal({ cardCount=2, cards=[], onBack, onNext }: { cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void }) {
@@ -78,5 +81,5 @@ const reportStoryTitles=[
 ] as const;
 
 export function ReadingReport({ report=null, question, cardCount=2, cards=[], onBack, onNext, onShare, onFeedback }: { report?:CardReadingReport|null; question?:string; cardCount?:number; cards?:CardReadingCard[]; onBack: () => void; onNext: () => void; onShare?: () => void; onFeedback?: () => void }) {
-  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{readingReportTitle(report?.title,question)}</h1><div className="xiaosui-intro"><XiaosuiAvatar mood="listening" /><div><strong>小岁说</strong><p>我是小岁，陪你一起读懂这份报告，找到适合自己的下一步。</p></div></div><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/><figcaption><strong>{card.positionLabel}</strong></figcaption></figure>)}</div><LiveReadingSections value={report?.report??""}/>{report?.notice&&<div className="task-rule">{report.notice}</div>}{onFeedback&&<button className="text-action" onClick={onFeedback}>留下本次问事反馈</button>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享五福荟问事报告 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
+  return <section className="reading-page reading-report"><ReadingHeader onBack={onBack}/><div className="reading-report-scroll"><p className="eyebrow">YOUR READING · {cardCount} CARDS</p><h1>{readingReportTitle(report?.title,question)}</h1><div className={`card-layout report-card-gallery count-${cardCount}`}>{cards.map(card=><figure key={card.cardCode}><img src={`/cards/satori-default-v1/${card.cardCode}.jpg`} alt={`${card.displayName}生命智慧卡牌`}/><figcaption><strong>用户问的问题</strong></figcaption></figure>)}</div><div className="xiaosui-intro report-xiaosui-intro"><XiaosuiAvatar mood="listening" /><div><strong>小岁说</strong><p>我是小岁，陪你一起读懂这份报告，找到适合自己的下一步。</p></div></div><LiveReadingSections value={report?.report??""}/>{report?.notice&&<div className="task-rule">{report.notice}</div>}{onFeedback&&<button className="text-action" onClick={onFeedback}>留下本次问事反馈</button>}{onShare&&<button className="outline-button" type="button" onClick={onShare}>分享五福荟问事报告 <span>↗</span></button>}<button className="primary" onClick={onNext}>完成阅读，返回问事首页 <span>→</span></button></div></section>;
 }
