@@ -109,22 +109,15 @@ export class CardReadingService implements OnModuleInit {
         return this.dto(existing);
       }
       const policy = this.infrastructure.policy.cardReading.seedCost;
-      const requirement = buildReadingRequirement({
-        ownerUserId: command.ownerUserId,
-        readingIntentId: readingId,
-        cardCount: command.cardCount,
-        seedCostPolicy: policy,
-      });
-      const reserved = await this.consumption.reserve(requirement, `${readingId}:1:RESERVE`);
       const now = new Date();
       const [created] = await tx
         .insert(cardReadings)
         .values({
           id: readingId,
           requestHash,
-          consumptionIntentId: reserved.intentId,
+          consumptionIntentId: null,
           consumptionAttempt: 1,
-          seedQuantity: requirement.attributes!.seedQuantity as number,
+          seedQuantity: policy.costByCardCount[command.cardCount as keyof typeof policy.costByCardCount],
           seedCostRuleVersion: policy.version,
           ownerUserId: command.ownerUserId,
           question: command.question,

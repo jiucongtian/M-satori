@@ -57,10 +57,11 @@ describe('server card draw', () => {
     positionLabels: ['自己', '他人'],
   };
 
-  it('rejects a draw without benefits before creating cards', async () => {
+  it('creates the drawn card before checking benefits', async () => {
     const { service, tx, consumption } = drawFixture(true);
-    await expect(service.createDraw(command, 'draw-request-key-1')).rejects.toThrow('PURCHASE_REQUIRED');
-    expect(tx.insert).not.toHaveBeenCalled();
+    await expect(service.createDraw(command, 'draw-request-key-1')).resolves.toMatchObject({ status: 'DRAWN' });
+    expect(tx.insert).toHaveBeenCalledOnce();
+    expect(consumption.reserve).not.toHaveBeenCalled();
     expect(consumption.start).not.toHaveBeenCalled();
   });
 
@@ -69,17 +70,7 @@ describe('server card draw', () => {
     const first = await service.createDraw(command, 'draw-request-key-1');
     const replay = await service.createDraw(command, 'draw-request-key-1');
     expect(replay).toEqual(first);
-    expect(consumption.reserve).toHaveBeenCalledOnce();
-    expect(consumption.reserve).toHaveBeenCalledWith(
-      expect.objectContaining({
-        quantity: 1,
-        attributes: expect.objectContaining({
-          cardCount: 2,
-          seedQuantity: R1_CARD_READING_SEED_COST_RULE.costByCardCount[2],
-        }) as unknown,
-      }),
-      expect.any(String),
-    );
+    expect(consumption.reserve).not.toHaveBeenCalled();
     await expect(service.createDraw({ ...command, cardCount: 3 }, 'draw-request-key-1')).rejects.toThrow();
   });
   it('never repeats a card inside one spread', () => {

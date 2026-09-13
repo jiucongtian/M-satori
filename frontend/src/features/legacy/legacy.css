@@ -557,3 +557,9 @@
 .draw-interpret{margin-top:34px!important}
 .draw-deck i.is-picked{visibility:hidden}.draw-deck-stage .single-rising-card .draw-card-back img{display:block;width:100%;height:100%;object-fit:cover}.draw-deck-stage .single-rising-card .draw-card-back span{display:none}
 @keyframes draw-upward-from-poc{0%{opacity:1;left:calc(50% - 62px);top:35px;width:124px;height:202px;transform:rotate(var(--rotation))}55%{left:calc(50% - 67px);top:8px;width:134px;height:218px;transform:translateY(-10px) rotate(-1.5deg) scale(1.035)}100%{left:calc(50% - 67px);top:8px;width:134px;height:218px;transform:translateY(-34px) rotate(-1deg) scale(1.06)}}
+.poc-draw-idle{margin-top:0; margin-bottom:42px; transform:translateY(-18px)}
+.poc-draw-idle .draw-deck i{background:linear-gradient(155deg,#557765,#2f5144)!important;border:1px solid rgba(236,218,174,.16)}
+.poc-draw-idle .draw-deck i span,.draw-deck i span{position:absolute;inset:0;display:grid;place-items:center;color:#e7cf9d;font:42px var(--font-brand);transform:rotate(calc(var(--rotation) * -1))}
+.draw-deck-stage .single-rising-card .draw-card-back{background:linear-gradient(155deg,#557765,#2f5144)}
+.draw-deck-stage .single-rising-card .draw-card-back>span{position:relative;z-index:1;color:#e7cf9d;font:42px var(--font-brand)}
+@keyframes draw-upward-from-poc{0%{opacity:1;left:calc(50% - 62px);top:35px;width:124px;height:202px;transform:rotate(var(--rotation))}34%{opacity:1;left:calc(50% - 62px);top:-48px;width:124px;height:202px;transform:rotate(var(--rotation)) scale(1.01)}46%{opacity:1;left:calc(50% - 62px);top:-48px;width:124px;height:202px;transform:rotate(var(--rotation)) scale(1.01)}76%{left:calc(50% - 67px);top:2px;width:134px;height:218px;transform:translateY(-10px) rotate(-1.5deg) scale(1.035)}100%{left:calc(50% - 67px);top:-18px;width:134px;height:218px;transform:translateY(-18px) rotate(-1deg) scale(1.06)}}
