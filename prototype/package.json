@@ -1,0 +1,1 @@
+{"name":"wufuhui-r11-prototype","private":true,"version":"0.1.0","type":"module","scripts":{"dev":"vite --host 127.0.0.1 --port 3111","build":"vite build"},"dependencies":{"react":"19.2.6","react-dom":"19.2.6"},"devDependencies":{"vite":"8.0.13"}}

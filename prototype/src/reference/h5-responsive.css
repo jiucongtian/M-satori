@@ -1,0 +1,82 @@
+/* 初见·FRESH responsive contract
+ * One viewport shell, one scroll region and one stable tab bar for every root page.
+ * Device-specific fixes belong here instead of being layered into feature styles.
+ */
+:root{
+  --app-viewport-height:100dvh;
+  --app-tabbar-height:calc(56px + env(safe-area-inset-bottom,0px));
+  --app-content-bottom-gap:24px;
+}
+
+@supports not (height:100dvh){:root{--app-viewport-height:100vh}}
+
+html,body{width:100%;min-height:100%;overflow-x:hidden}
+
+@media(max-width:520px){
+  .stage{height:var(--app-viewport-height);min-height:var(--app-viewport-height);overflow:hidden}
+  .phone{height:var(--app-viewport-height);min-height:0;overflow:hidden}
+}
+
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home){
+  height:auto!important;
+  min-height:0!important;
+  flex:1 1 auto;
+  display:grid!important;
+  grid-template-rows:minmax(0,1fr) var(--app-tabbar-height);
+  padding:0!important;
+  overflow:hidden!important;
+}
+
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>:is(.today-home-scroll,.reading-home-scroll,.coming-soon-scroll,.my-home-scroll){
+  min-width:0;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:var(--app-content-bottom-gap);
+}
+
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>.app-bottom-nav{
+  box-sizing:border-box;
+  width:calc(100% + 18px);
+  height:var(--app-tabbar-height);
+  min-height:0;
+  margin:0 -9px;
+  padding:8px 2px calc(6px + env(safe-area-inset-bottom,0px));
+  align-content:start;
+  transform:translateZ(0);
+}
+
+.phone>:is(.today-home,.reading-home.root-tab-page,.coming-soon-page,.my-home)>.app-bottom-nav button{min-height:34px}
+
+/* Short Android webviews and foldable outer screens keep the home action in reach. */
+@media(max-height:760px){
+  .today-home-scroll>.eyebrow{margin-top:18px!important}
+  .today-home-scroll>.home-energy-card{min-height:0!important}
+  .home-energy-card .guide-kicker{margin-top:14px}
+  .home-energy-card .home-growth-scene{min-height:92px;max-height:112px}
+  .home-energy-card .guide-tips>div,.home-energy-card .guide-tips>div+div{padding-bottom:4px}
+}
+
+/* Mate X7 outer-screen class: narrow and relatively short after browser chrome. */
+@media(max-width:390px) and (max-height:840px){
+  .today-home-scroll{padding-top:2px}
+  .today-home-scroll>.home-energy-card{margin-top:12px;padding:18px 17px 12px}
+  .home-energy-card .home-growth-scene{min-height:88px}
+  .home-energy-card .home-guidance-link{margin-top:0}
+}
+
+@media(min-width:521px) and (max-height:860px){
+  .stage{min-height:var(--app-viewport-height)}
+  .phone{height:calc(var(--app-viewport-height) - 32px);min-height:0}
+}
+
+@media(orientation:landscape) and (max-height:560px){
+  .phone{height:calc(var(--app-viewport-height) - 16px);min-height:0}
+  .home-energy-card .home-growth-scene{min-height:72px;max-height:88px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .app-bottom-nav,.app-bottom-nav *{transition:none!important;animation:none!important}
+}
