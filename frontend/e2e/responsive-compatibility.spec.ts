@@ -35,6 +35,36 @@ test("根页面在目标设备矩阵中可滚动、主操作可达且底栏稳�
   }
 });
 
+test("问事首页在短屏中可滚动且底栏保持稳定", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "small-phone");
+
+  await page.goto("/readings");
+  const content = page.locator(".reading-home-scroll");
+  const nav = page.locator(".app-bottom-nav");
+  await expect(content).toBeVisible();
+  await expect(nav).toBeVisible();
+
+  const baseline = await navGeometry(page);
+  const before = await content.evaluate((node) => ({
+    clientHeight: node.clientHeight,
+    scrollHeight: node.scrollHeight,
+    scrollTop: node.scrollTop,
+  }));
+  expect(before.scrollHeight).toBeGreaterThan(before.clientHeight);
+
+  await content.evaluate((node) => node.scrollTo({ top: node.scrollHeight, behavior: "instant" }));
+  const after = await content.evaluate((node) => ({
+    scrollTop: node.scrollTop,
+    maxScrollTop: node.scrollHeight - node.clientHeight,
+  }));
+  expect(after.scrollTop).toBeGreaterThan(0);
+  expect(after.scrollTop).toBe(after.maxScrollTop);
+
+  const current = await navGeometry(page);
+  expect(current).toEqual(baseline);
+  await expect(page.locator(".reading-recent")).toBeInViewport();
+});
+
 test("华为 Mate X7 外屏首屏可见今日指引入口", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mate-x7-outer");
   await page.goto("/home");
