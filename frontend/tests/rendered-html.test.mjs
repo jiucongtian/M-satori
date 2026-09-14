@@ -801,9 +801,15 @@ test("用户协议与隐私政策进入安全且可读的前端阅读页", async
   assert.match(css, /\.legal-table-wrap/);
 });
 test("五福荟隐私政策展示正确的个人信息处理者", async () => {
-  const privacy = await readFile(new URL("../../backend/assets/legal/privacy-v1.1.md", import.meta.url), "utf8");
-  assert.match(privacy, /> \*\*个人信息处理者：\*\*五福荟/);
+  const [privacy, legal] = await Promise.all([
+    readFile(new URL("../../backend/assets/legal/privacy-v1.1.md", import.meta.url), "utf8"),
+    readFile(new URL("../app/legal/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(privacy, /> \*\*个人信息处理者：\*\*五福荟（宁波）文化科技有限责任公司/);
+  assert.match(privacy, /> \*\*统一社会信用代码：\*\*91330201MAKLWQPN58/);
+  assert.match(privacy, /> \*\*注册地址：\*\*浙江省宁波市高新区聚贤街道春江路36弄34号13-1-1/);
   assert.doesNotMatch(privacy, /> \*\*个人信息处理者：\*\*身心游/);
+  assert.match(legal, /<footer>五福荟（宁波）文化科技有限责任公司<\/footer>/);
 });
 test("所有图形 Logo 均使用五福荟品牌锁定图", async () => {
   const page = await readPageSources();

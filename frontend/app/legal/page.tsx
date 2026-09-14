@@ -120,7 +120,7 @@ export default function LegalPage() {
     <article className="legal-paper" aria-busy={!document && !error}>
       {!document && !error && <div className="legal-state"><i>芽</i><p>正在为你展开这份说明…</p></div>}
       {error && <div className="legal-state legal-error"><i>!</i><h1>暂时没有打开</h1><p>{error}，请稍后再试。</p><button type="button" onClick={() => window.location.reload()}>重新加载</button></div>}
-      {document && <><div className="legal-title"><small>{document.type === "PRIVACY_POLICY" ? "PRIVACY" : "TERMS"}</small><h1>{document.title}</h1><p>请花一点时间阅读，了解我们如何提供服务与守护你的信息。</p></div><MarkdownDocument content={document.content} /><footer>身心游（成都）文化科技有限公司</footer></>}
+      {document && <><div className="legal-title"><small>{document.type === "PRIVACY_POLICY" ? "PRIVACY" : "TERMS"}</small><h1>{document.title}</h1><p>请花一点时间阅读，了解我们如何提供服务与守护你的信息。</p></div><MarkdownDocument content={document.content} /><footer>五福荟（宁波）文化科技有限责任公司</footer></>}
     </article>
   </main>;
 }
