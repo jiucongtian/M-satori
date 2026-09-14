@@ -164,7 +164,7 @@ test("档案库返回与体验额度帮助使用独立真实路由", async () =>
     readFile(new URL("../src/features/legacy/LegacyProfileFlow.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(routes, /mySupport: "\/my\/support"/);
-  assert.match(daily, /router\.push\(ROUTES\.mySupport\)/);
+  assert.match(daily, /<ServiceEntitlementPrompt kind="daily"/);
   assert.match(legacy, /onBack=\{\(\) => onNavigateRoute \? onNavigateRoute\("\/my"\)/);
   assert.match(legacy, /onSelf=\{\(\) => onNavigateRoute \? onNavigateRoute\("\/my\/profile"\)/);
 });
@@ -199,7 +199,7 @@ test("READ-09 不展示原型分支，真实权益不足有服务入口", async 
   assert.doesNotMatch(flow, /<ReadingPayment[^>]*onInsufficient/);
 });
 
-test("READ-02 固定使用一张牌并直接进入 READ-09", async () => {
+test("READ-02 固定使用一张牌并在抽牌后校验权益", async () => {
   const [page, screen, flow] = await Promise.all([
     readFile(new URL("../app/readings/new/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingNewScreen.tsx", import.meta.url), "utf8"),
@@ -214,15 +214,18 @@ test("READ-02 固定使用一张牌并直接进入 READ-09", async () => {
   assert.match(screen, /router\.push\(`\/readings\/payment\?cards=\$\{cardCount\}`\)/);
   assert.match(flow, /const cardCount = 1/);
   assert.match(flow, /positionLabels:\["自己"\]/);
-  assert.match(flow, /payment: drawRequestKey \? <ReadingPaymentScreen.*onBack=\{\(\)=>go\("question"\)\}/);
+  assert.match(flow, /payment: null/);
+  assert.match(flow, /async function beginInterpretation\(\)/);
+  assert.match(flow, /<ServiceEntitlementPrompt kind="reading"/);
 });
 
-test("READ-01 示例保留多种问题场景，READ-02 统一收敛为单卡指引", async () => {
+test("READ-01 与 READ-02 统一收敛为单卡指引", async () => {
   const [home, screen] = await Promise.all([
     readFile(new URL("../src/features/reading/ReadingHomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/features/reading/ReadingNewScreen.tsx", import.meta.url), "utf8"),
   ]);
-  for(const label of ["一张牌","两张牌","多张牌"])assert.match(home,new RegExp(label));
+  assert.match(home, /cardCount:1,positions:\["自己"\]/);
+  assert.match(home, />抽一张牌<\/span>/);
   assert.match(screen, /<section className="compose-section position-section">/);
   assert.match(screen, /<small>本次抽卡<\/small><h2>一张卡 · 核心指引<\/h2>/);
   assert.match(screen, /确认问题，抽一张卡/);
@@ -238,7 +241,7 @@ test("R1.1 根页面使用单一滚动区与固定安全区底栏", async () => 
     readFile(new URL("../src/features/reading/ReadingShell.tsx", import.meta.url), "utf8"),
   ]);
   const views = await readFile(new URL("../src/features/reading/ReadingScreens.tsx", import.meta.url), "utf8");
-  assert.match(views, /draw-page reading-action-page/);
+  assert.match(views, /reading-page reading-action-page single-draw-result/);
   assert.match(views, /immersive-reading reading-action-page/);
   assert.match(views, /reading-generating reading-action-page/);
   assert.match(styles, /\.reading-action-page\{[^}]*overflow-y:auto/);
