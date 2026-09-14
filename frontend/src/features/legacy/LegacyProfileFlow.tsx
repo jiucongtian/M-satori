@@ -1021,11 +1021,11 @@ export function MySettings({ onBack, onLogout, busy }: { onBack: () => void; onL
 
 export function MySupport({ onBack }: { onBack: () => void }) {
   const media = [
-    { title:"官方公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:1280, height:1280 },
-    { title:"官方视频号", description:"关注我们的视频动态", src:"/contact/official-video-channel.png", width:904, height:926 },
-    { title:"官方小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:194, height:196 },
+    { title:"官方公众号", description:"获取最新内容与服务消息", src:"/contact/official-wechat-account.jpeg", width:258, height:258 },
+    { title:"官方视频号", description:"关注我们的视频动态", src:"/contact/official-video-channel.png", width:662, height:862 },
+    { title:"官方小红书", description:"发现更多成长灵感", src:"/contact/official-xiaohongshu.png", width:148, height:148 },
   ];
-  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><header className="contact-intro"><small>OFFICIAL SUPPORT</small><h1>需要的时候，我们在这里</h1><p>账号、智慧种子或报告问题，请优先联系官方客服。</p></header><article className="support-focus"><div className="support-focus-title"><span><small>优先服务</small><strong>官方客服</strong></span><b>推荐</b></div><div className="support-qr"><Image src="/contact/official-customer-service.png" width={196} height={198} alt="官方客服二维码" unoptimized priority/></div><p>长按识别二维码，与客服取得联系</p></article><section className="official-media"><header><small>FOLLOW US</small><strong>关注官方媒体</strong></header>{media.map(item=><article key={item.title}><div><Image src={item.src} width={item.width} height={item.height} alt={`${item.title}二维码`} unoptimized/></div><span><strong>{item.title}</strong><small>{item.description}</small><em>长按识别</em></span></article>)}</section><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。</p></div></section>;
+  return <section className="my-page my-detail contact-page"><MyHeader title="联系我们" onBack={onBack} /><header className="contact-intro"><small>OFFICIAL SUPPORT</small><h1>需要的时候，我们在这里</h1><p>账号、智慧种子或报告问题，请优先联系官方客服。</p></header><article className="support-focus"><div className="support-focus-title"><span><small>优先服务</small><strong>官方客服</strong></span><b>推荐</b></div><div className="support-qr"><Image src="/contact/official-customer-service.png" width={258} height={258} alt="官方客服二维码" unoptimized priority/></div><p>长按识别二维码，与客服取得联系</p></article><section className="official-media"><header><small>FOLLOW US</small><strong>关注官方媒体</strong></header>{media.map(item=><article key={item.title}><div><Image src={item.src} width={item.width} height={item.height} alt={`${item.title}二维码`} unoptimized/></div><span><strong>{item.title}</strong><small>{item.description}</small><em>长按识别</em></span></article>)}</section><div className="contact-note"><strong>请认准官方渠道</strong><p>我们不会索要短信验证码、登录口令或私钥。</p></div></section>;
 }
 
 function WisdomArchive({profiles,self,onBack,onAdd,onSelf,onPerson}:{profiles:LifeProfile[];self:LifeProfile|null;onBack:()=>void;onAdd:()=>void;onSelf:()=>void;onPerson:(profile:LifeProfile)=>void}){
