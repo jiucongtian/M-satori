@@ -808,6 +808,8 @@ test("五福荟隐私政策展示正确的个人信息处理者", async () => {
   assert.match(privacy, /> \*\*个人信息处理者：\*\*五福荟（宁波）文化科技有限责任公司/);
   assert.match(privacy, /> \*\*统一社会信用代码：\*\*91330201MAKLWQPN58/);
   assert.match(privacy, /> \*\*注册地址：\*\*浙江省宁波市高新区聚贤街道春江路36弄34号13-1-1/);
+  assert.match(privacy, /^# 五福荟·WUFUHUI 隐私政策/m);
+  assert.doesNotMatch(privacy, /zaowuquan@outlook\.com|或发送邮件至|本政策载明的邮箱/);
   assert.doesNotMatch(privacy, /> \*\*个人信息处理者：\*\*身心游/);
   assert.match(legal, /<footer>五福荟（宁波）文化科技有限责任公司<\/footer>/);
 });
