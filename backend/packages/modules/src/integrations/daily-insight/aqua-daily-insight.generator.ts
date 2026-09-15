@@ -53,7 +53,6 @@ interface AquaWorkflowClient {
 
 interface AquaGeneratorOptions {
   workflowId: string;
-  workflowVersion?: string;
 }
 
 interface AquaDailyInsightInput extends Record<string, unknown> {
@@ -80,9 +79,6 @@ export class AquaDailyInsightGenerator implements DailyInsightGenerator {
       const response = await this.client.workflows.run<AquaDailyInsightInput, AquaDailyInsightOutput>(
         this.options.workflowId,
         {
-          ...(this.options.workflowVersion === undefined
-            ? {}
-            : { workflowVersion: this.options.workflowVersion }),
           idempotencyKey: `daily-insight:${input.dailyInsightId}`,
           runReference: input.dailyInsightId,
           input: toAquaInput(input),

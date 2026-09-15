@@ -47,14 +47,13 @@ export class AquaHomeEnergySummaryGenerator implements HomeEnergySummaryGenerato
     private readonly client: AquaWorkflowClient,
     private readonly options: {
       workflowId: string;
-      workflowVersion: string;
       maxAttempts: number;
       retryBackoffMs: number;
     },
   ) {}
 
   async generate(input: HomeEnergySummaryInput) {
-    const request = toRequest(input, this.options.workflowVersion);
+    const request = toRequest(input);
     let attempt = 0;
     while (attempt < this.options.maxAttempts) {
       attempt += 1;
@@ -81,7 +80,7 @@ export class AquaHomeEnergySummaryGenerator implements HomeEnergySummaryGenerato
   }
 }
 
-function toRequest(input: HomeEnergySummaryInput, workflowVersion: string) {
+function toRequest(input: HomeEnergySummaryInput) {
   const name = input.userName?.trim();
   if (name && name.length > 64) throw inputError('name must not exceed 64 characters');
   if (!isValidDate(input.date)) {
@@ -95,7 +94,6 @@ function toRequest(input: HomeEnergySummaryInput, workflowVersion: string) {
     throw inputError('idempotencyKey or runReference is invalid');
   }
   return {
-    workflowVersion,
     idempotencyKey,
     runReference: input.runReference,
     input: {
@@ -144,10 +142,10 @@ function normalizeFailure(error: unknown) {
       code: error.code ?? `AQUA_${error.kind.toUpperCase()}`,
       message: error.message,
       requestId: error.requestId,
-      retryable: error.retryable,
+      retryable: error.code !== 'IDEMPOTENCY_CONFLICT' && error.retryable,
       error: Object.assign(new Error('Aqua home energy summary generation failed', { cause: error }), {
         code: error.code ?? `AQUA_${error.kind.toUpperCase()}`,
-        retryable: error.retryable,
+        retryable: error.code !== 'IDEMPOTENCY_CONFLICT' && error.retryable,
         providerRequestId: error.requestId,
       }),
     };

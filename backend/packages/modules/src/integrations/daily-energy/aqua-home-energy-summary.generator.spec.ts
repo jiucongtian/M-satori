@@ -13,7 +13,6 @@ const input: HomeEnergySummaryInput = {
 
 const options = {
   workflowId: 'daily-energy-home-summary',
-  workflowVersion: 'daily-energy-home-summary/1.0.3',
   maxAttempts: 2,
   retryBackoffMs: 0,
 };
@@ -37,7 +36,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
   beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => undefined));
   afterEach(() => vi.restoreAllMocks());
 
-  it('runs the frozen stateless workflow request and maps all result fields', async () => {
+  it('runs the active stateless workflow request and maps all result fields', async () => {
     const run = vi.fn().mockResolvedValue({ requestId: 'aqua-home-request-1', result, manifest: {} });
     const generator = new AquaHomeEnergySummaryGenerator({ workflows: { run } }, options);
 
@@ -59,7 +58,6 @@ describe('AquaHomeEnergySummaryGenerator', () => {
       },
     });
     expect(run).toHaveBeenCalledWith('daily-energy-home-summary', {
-      workflowVersion: options.workflowVersion,
       idempotencyKey: `daily-energy-${input.date}-${input.runReference}`,
       runReference: input.runReference,
       input: {
@@ -111,6 +109,7 @@ describe('AquaHomeEnergySummaryGenerator', () => {
 
     await expect(generator.generate(input)).resolves.toMatchObject({ providerRequestId: 'request-success' });
     expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[0]?.[1]).toEqual(run.mock.calls[1]?.[1]);
     expect(console.error).toHaveBeenCalledWith(
       'aqua_home_energy_summary_failed',
       expect.objectContaining({
@@ -120,6 +119,17 @@ describe('AquaHomeEnergySummaryGenerator', () => {
         retryable: true,
       }),
     );
+  });
+
+  it('never retries an idempotency conflict even if marked retryable upstream', async () => {
+    const run = vi.fn().mockRejectedValue(new AquaAIError('http', 'conflict', {
+      code: 'IDEMPOTENCY_CONFLICT', retryable: true,
+    }));
+    const generator = new AquaHomeEnergySummaryGenerator({ workflows: { run } }, options);
+    await expect(generator.generate(input)).rejects.toMatchObject({
+      code: 'IDEMPOTENCY_CONFLICT', retryable: false,
+    });
+    expect(run).toHaveBeenCalledOnce();
   });
 
   it('does not retry non-retryable Aqua failures', async () => {

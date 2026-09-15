@@ -65,7 +65,7 @@ describe('AquaDailyInsightGenerator', () => {
     });
     const generator = new AquaDailyInsightGenerator(
       { workflows: { run } },
-      { workflowId: 'daily-insight', workflowVersion: 'daily-insight/1.0.0' },
+      { workflowId: 'daily-insight' },
     );
 
     const result = await generator.generate(input);
@@ -73,7 +73,6 @@ describe('AquaDailyInsightGenerator', () => {
     expect(run).toHaveBeenCalledWith(
       'daily-insight',
       expect.objectContaining({
-        workflowVersion: 'daily-insight/1.0.0',
         idempotencyKey: `daily-insight:${input.dailyInsightId}`,
         runReference: input.dailyInsightId,
       }),
@@ -118,7 +117,7 @@ describe('AquaDailyInsightGenerator', () => {
     const run = vi.fn().mockRejectedValue(new AquaAINetworkError());
     const generator = new AquaDailyInsightGenerator(
       { workflows: { run } },
-      { workflowId: 'daily-insight', workflowVersion: 'daily-insight/1.0.0' },
+      { workflowId: 'daily-insight' },
     );
 
     await expect(generator.generate(input)).rejects.toMatchObject({

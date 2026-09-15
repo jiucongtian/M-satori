@@ -55,7 +55,7 @@ export const R1_RUNTIME_POLICY = {
     homeEnergySummary: {
       /** 首页能量摘要固定调用的 Aqua Workflow。 */
       workflowId: 'daily-energy-home-summary',
-      /** 首页摘要缓存与请求使用的固定 Workflow 版本。 */
+      /** 仅用于兼容已有摘要缓存的分区标识，不发送给 Aqua；新请求由 Aqua 选择激活版本。 */
       workflowVersion: 'daily-energy-home-summary/1.0.3',
       /** 单次首页摘要 Aqua 请求超时（毫秒）。 */
       requestTimeoutMs: 15_000,

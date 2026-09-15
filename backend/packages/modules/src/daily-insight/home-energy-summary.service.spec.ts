@@ -69,7 +69,7 @@ describe('shared home energy summaries', () => {
       policy: {
         aqua: { homeEnergySummary: { workflowVersion: 'daily-energy-home-summary/1.0.3' } },
       },
-      redis: { set: vi.fn().mockResolvedValue('OK'), eval: vi.fn().mockResolvedValue(0) },
+      redis: { get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue('OK'), eval: vi.fn().mockResolvedValue(0) },
       database: {
         select: vi.fn(() => ({
           from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
@@ -107,4 +107,29 @@ describe('shared home energy summaries', () => {
     );
     expect(generatedInputs.every((input) => !('userName' in input))).toBe(true);
   });
+  it('blocks conflicts on later cycles and after service recreation without changing request identities', async () => {
+    const stored = new Map<string, string>();
+    const generate = vi.fn().mockRejectedValue(Object.assign(new Error('conflict'), {
+      code: 'IDEMPOTENCY_CONFLICT', providerRequestId: 'conflict-request',
+    }));
+    const infrastructure = {
+      policy: { aqua: { homeEnergySummary: { workflowVersion: 'legacy-cache' } } },
+      redis: {
+        get: vi.fn(async (key: string) => stored.get(key) ?? null),
+        set: vi.fn(async (key: string, value: string) => { stored.set(key, value); return 'OK'; }),
+        eval: vi.fn().mockResolvedValue(0),
+      },
+      database: { select: vi.fn(() => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) })) },
+    };
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const service = new HomeEnergySummaryService(infrastructure as never, { generate });
+      expect((await service.prewarm(['2026-09-17'], 1)).failed).toBe(60);
+      expect(generate).toHaveBeenCalledTimes(60);
+      const restarted = new HomeEnergySummaryService(infrastructure as never, { generate });
+      expect((await restarted.prewarm(['2026-09-17'], 1)).failed).toBe(60);
+      expect(generate).toHaveBeenCalledTimes(60);
+    } finally { log.mockRestore(); }
+  });
+
 });

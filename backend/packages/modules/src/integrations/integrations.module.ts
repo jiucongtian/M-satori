@@ -40,7 +40,6 @@ import { DeterministicProfileFirstLookGenerator } from './profile-first-look/det
         const client = clients.create({ timeoutMs: policy.requestTimeoutMs });
         return new AquaHomeEnergySummaryGenerator(client, {
           workflowId: policy.workflowId,
-          workflowVersion: policy.workflowVersion,
           maxAttempts: policy.maxAttempts,
           retryBackoffMs: policy.retryBackoffMs,
         });

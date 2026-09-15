@@ -94,6 +94,11 @@ export class HomeEnergySummaryService {
     if (await this.findSharedCached(localDate, dayCard)) return 'cached';
     const workflowVersion = this.infrastructure.policy.aqua.homeEnergySummary.workflowVersion;
 
+    // Keep conflicts blocked across prewarm cycles and worker restarts. Only an
+    // operator may reconcile the old execution and authorize a new identity.
+    const conflictKey = `home-energy-idempotency-conflict:daily-energy-${localDate}-shared-${String(cycleIndex).padStart(2, '0')}`;
+    if (await this.infrastructure.redis.get(conflictKey)) return 'failed';
+
     const lockKey = `home-energy-prewarm:${workflowVersion}:${localDate}:${dayCard}`;
     const lockToken = newId();
     const acquired = await this.infrastructure.redis.set(lockKey, lockToken, 'PX', CACHE_LOCK_MS, 'NX');
@@ -124,6 +129,12 @@ export class HomeEnergySummaryService {
         .returning({ id: dailyEnergyHomeSummaryCache.id });
       return inserted.length > 0 ? 'generated' : 'cached';
     } catch (error) {
+      if (errorCode(error) === 'IDEMPOTENCY_CONFLICT') {
+        await this.infrastructure.redis.set(conflictKey, JSON.stringify({
+          code: 'IDEMPOTENCY_CONFLICT',
+          providerRequestId: (error as { providerRequestId?: string }).providerRequestId,
+        }));
+      }
       console.error('home_energy_summary_prewarm_failed', {
         localDate,
         dayCard,
