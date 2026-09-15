@@ -35,7 +35,9 @@ test("每日指引状态机覆盖恢复、确认、生成、完成与失败重�
   assert.equal(machine.state, "generating");
   assert.equal(dailyReducer(machine, { type: "READY" }).state, "ready");
   const failed = dailyReducer(machine, { type: "FAIL", recoverTo: "generating" });
-  assert.equal(dailyReducer(failed, { type: "RETRY" }).state, "generating");
+  assert.equal(dailyReducer(failed, { type: "RETRY" }).state, "start");
+  assert.equal(dailyReducer(failed, { type: "GENERATE" }).state, "generating");
+  assert.equal(dailyReducer(failed, { type: "READY" }).state, "ready");
 });
 
 test("流程草稿具有版本、过期和用户边界，写命令具有前端进行中锁", async () => {

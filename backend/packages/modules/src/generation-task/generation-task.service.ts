@@ -16,6 +16,8 @@ import {
 } from '@satori/infrastructure';
 import { and, asc, eq, gt, lt, max } from 'drizzle-orm';
 
+import { canManuallyRetryGeneration } from './generation-retry-policy.js';
+
 type DatabaseTransaction = Parameters<Parameters<RuntimeInfrastructure['database']['transaction']>[0]>[0];
 
 export interface CreateGenerationTaskCommand {
@@ -97,8 +99,7 @@ export class GenerationTaskService {
               message: 'Generation task is already running',
             });
           }
-          const failure = task.failure as { retryable?: boolean } | null;
-          if (task.status !== 'FAILED' || !failure?.retryable) {
+          if (!canManuallyRetryGeneration(task)) {
             throw new ConflictException({
               code: 'GENERATION_TASK_NOT_RETRYABLE',
               message: 'Generation task is not retryable',

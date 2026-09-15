@@ -378,6 +378,9 @@ class SatoriApiClient {
     if (PROTOTYPE_MODE) return prototypeResult({ ...prototypeTask, taskId });
     return this.request<Schemas["GenerationTaskEnvelope"]>(`/generation-tasks/${taskId}`).then((x) => x.data);
   }
+  retryGenerationTask(taskId: string) {
+    return this.command<Schemas["GenerationTaskEnvelope"]>(`/generation-tasks/${encodeURIComponent(taskId)}/retry`, { method: "POST" }).then((x) => x.data);
+  }
   profiles() { return PROTOTYPE_MODE?Promise.resolve(prototypeProfiles):this.request<Schemas["LifeProfileListEnvelope"]>("/me/life-profiles?limit=50").then((x) => x.data); }
   createProfile(displayName: string, relationshipType: "FAMILY" | "FRIEND" | "COLLEAGUE" | "OTHER") {
     if (PROTOTYPE_MODE) return prototypeResult({ ...prototypeProfiles[1], displayName, relationshipType });

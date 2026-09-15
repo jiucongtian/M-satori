@@ -10,6 +10,7 @@ import { dailyReportPath, ROUTES } from "@/src/shared/routes";
 import { RouteFrame } from "@/src/shared/shell";
 import { apiMessage, PageDebugLabel } from "@/src/shared/ui";
 import { invalidateQuery } from "@/src/shared/query";
+import { createOrRetryDailyInsight } from "./dailyRetry";
 import { dailyReducer, initialDailyMachine } from "./dailyMachine";
 
 export default function DailyScreen() {
@@ -75,7 +76,7 @@ export default function DailyScreen() {
     setError("");
     setErrorCode("");
     try {
-      const result = await api.createTodayInsight();
+      const result = await createOrRetryDailyInsight(api);
       invalidateQuery("home:overview");
       invalidateQuery("my:seeds");
       setTaskId(result.task?.taskId ?? result.dailyInsight.taskId ?? null);
@@ -102,7 +103,7 @@ export default function DailyScreen() {
   else if (machine.state === "start") body = <DailyStart name={name} energyLevel={energy} balance={balance} costLabel="1 次今日能量权益" onBack={() => router.push(ROUTES.home)} onNext={() => void create()} />;
   else if (machine.state === "generating") body = <DailyGenerating name={name} balance={balance} onBack={() => router.push(ROUTES.home)} />;
   else if (errorCode === "PURCHASE_REQUIRED") body = <><DailyStart name={name} energyLevel={energy} balance={balance} costLabel="1 次今日能量权益" onBack={() => router.push(ROUTES.home)} onNext={() => void create()} /><ServiceEntitlementPrompt kind="daily" /></>;
-  else body = <div className="legal-state legal-error" role="alert"><i>!</i><h1>今日指引暂时没有完成</h1><p>{error || "可以安全重试，不会重复扣除智慧种子。"}</p><button onClick={() => dispatch({ type: "RETRY" })}>返回重试</button></div>;
+  else body = <div className="legal-state legal-error" role="alert"><i>!</i><h1>今日指引暂时没有完成</h1><p>{error || "可以安全重试，不会重复扣除智慧种子。"}</p><button disabled={busy} onClick={() => void create()}>{busy ? "正在提交重试…" : "返回重试"}</button></div>;
 
   const pageCode = machine.state === "generating" ? "DAILY-02" : "DAILY-01";
   return <ProtectedRoute><RouteFrame title="每日指引" label="每日指引"><div className="profile-flow"><PageDebugLabel>{`R1.0 · ${pageCode}`}</PageDebugLabel>{body}</div></RouteFrame></ProtectedRoute>;
